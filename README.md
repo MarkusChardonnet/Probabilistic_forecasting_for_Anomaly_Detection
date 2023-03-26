@@ -17,26 +17,26 @@ The probabilistic forecasting is based on the PD-NJODE framework. This framework
     ```
 
 ### Configurations 
-The configurations for both the synthetic data and the training can be accessed through the following folder :
+- The configurations for both the synthetic data and the training can be accessed through the following folder :
     ```bash
     cd PD-NJODE/NJODE/configs
     ```
 
 ### Generating the data
-Here is an example for the generation of the modified Orstein-Uhlenbeck process : 
+- Here is an example for the generation of the modified Orstein-Uhlenbeck process : 
     ```bash
     cd PD-NJODE/NJODE
     python data_utils.py --dataset_name=AD_OrnsteinUhlenbeckWithSeason --dataset_params=AD_OrnsteinUhlenbeckWithSeason_3_dict
     ```
 
-Generating sythetic data with anomalies can be done equivalently by defining other configuration dictionaries :
+- Generating sythetic data with anomalies can be done equivalently by defining other configuration dictionaries :
     ```bash
     cd PD-NJODE/NJODE
     python data_utils.py --dataset_name=AD_OrnsteinUhlenbeckWithSeason --dataset_params=AD_OrnsteinUhlenbeckWithSeason_3_deformation_dict
     ```
 
 ### Training the probabilistic forecasting module
-Training with PD-NJODE on the sythetic data :
+- Training with PD-NJODE on the sythetic data :
     ```bash
     cd PD-NJODE/NJODE
     python run.py --params=param_list_AD_OrnsteinUhlenbeckWithSeason_3 --NB_JOBS=4 --SEND=0 --USE_GPU=True --get_overview=overview_dict_AD_OrnsteinUhlenbeckWithSeason_3

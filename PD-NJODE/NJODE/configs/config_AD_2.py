@@ -60,15 +60,15 @@ AD_OrnsteinUhlenbeckWithSeason_2_dict = {
     }
 }
 
-AD_OrnsteinUhlenbeckWithSeason_test_dict = {
+AD_OrnsteinUhlenbeckWithSeason_3_dict = {
     'model_name': "AD_OrnsteinUhlenbeckWithSeason",
-    'nb_paths': 100, 'nb_steps': 400,
-    'dimension': 1, 'obs_perc': 0.1, 'S0': None,
+    'nb_paths': 100000, 'nb_steps': 400,
+    'dimension': 1, 'obs_perc': 1., 'S0': None,
     'maturity': 1., 'return_vol': False,
     'speed': 15., 
     'noise': {'type': "gaussian", 'cov': 0.0},   # 0.02
     'volatility': {
-        'vol_value': [[0.3]], # [[0.3,0.15],[0.15,0.3]],
+        'vol_value': 0.3, # [[0.3,0.15],[0.15,0.3]],
     },
     'initial_value': False,
     'season_params': {
@@ -77,7 +77,36 @@ AD_OrnsteinUhlenbeckWithSeason_test_dict = {
         'seas_length': 200,
         'seas_nb': 2,
         'seas_type': 'NN',
-        'nn_layers': [(32, 'tanh')], #  [(16, 'tanh'),(16, 'tanh')],
+        'nn_layers': [(16, 'tanh'),(16, 'tanh')], # [(32, 'tanh')], #
+        'nn_bias': True,
+        'nn_input': (['cos', 'sin'], 1),
+        'new_seas': False,
+        'seas_path': "configs/models/AD_OrnsteinUhlenBeck_NN_season_2",
+        'changing_seas': False,
+    },
+    'anomaly_params': {
+        'type': None
+    }
+}
+
+AD_OrnsteinUhlenbeckWithSeason_test_dict = {
+    'model_name': "AD_OrnsteinUhlenbeckWithSeason",
+    'nb_paths': 500, 'nb_steps': 400,
+    'dimension': 1, 'obs_perc': 0.1, 'S0': None,
+    'maturity': 1., 'return_vol': False,
+    'speed': 15., 
+    'noise': {'type': "gaussian", 'cov': 0.0},   # 0.02
+    'volatility': {
+        'vol_value': 0.15, # [[0.3,0.15],[0.15,0.3]],
+    },
+    'initial_value': False,
+    'season_params': {
+        'seas_amp': 'automatic', # 0.1,
+        'seas_range': (0.2,0.8),
+        'seas_length': 200,
+        'seas_nb': 2,
+        'seas_type': 'NN',
+        'nn_layers': [(16, 'tanh'),(16, 'tanh')], # [(32, 'tanh')],
         'nn_bias': True,
         'nn_input': (['cos', 'sin'], 1),
         'new_seas': True,
@@ -89,104 +118,33 @@ AD_OrnsteinUhlenbeckWithSeason_test_dict = {
     }
 }
 
-AD_OrnsteinUhlenbeckWithSeason_2_deformation_dict = {
-    'model_name': "AD_OrnsteinUhlenbeckWithSeason",
-    'nb_paths': 500, 'nb_steps': 400,
-    'dimension': 1, 'obs_perc': 1., 'S0': None,
-    'maturity': 1., 'return_vol': False,
-    'speed': 15., 
-    'noise': {'type': "gaussian", 'cov': 0.0},
-    'volatility': {
-        'vol_value': [[0.3]],
-    },
-    'initial_value': False,
-    'season_params': {
-        'seas_amp': 'automatic',
-        'seas_range': (0.2,0.8),
-        'seas_length': 200,
-        'seas_nb': 2,
-        'seas_type': 'NN',
-        'nn_layers': [(16, 'tanh'),(16, 'tanh')],
-        'nn_bias': True,
-        'nn_input': (['cos', 'sin'], 1),
-        'new_seas': False,
-        'seas_path': "configs/models/AD_OrnsteinUhlenBeck_NN_season",
-        'changing_seas': True,
-    },
-    'anomaly_params': {
-        'type': 'deformation',
-        'occurence_law': 'single',
-        'occurence_prob': 0.5,
-        'occurence_range': (1,2),
-        'occurence_pos_law': 'uniform',
-        'dim_occurence_law': 'indep',
-        'dim_occurence_prob': 1.,
-    }
-}
 
-AD_OrnsteinUhlenbeckWithSeason_2_models_path = "{}saved_models_AD_OrnsteinUhlenbeckWithSeason_2/".format(data_path)
-
+AD_OrnsteinUhlenbeckWithSeason_3_models_path = "{}saved_models_AD_OrnsteinUhlenbeckWithSeason_3/".format(data_path)
 '''
-param_list_AD_OrnsteinUhlenbeckWithSeason_2 = []
-for size in [50,150]:
-    nn = ((size, 'tanh'), (size, 'relu'))
-    param_dict_AD_OrnsteinUhlenbeckWithSeason_2_1 = {
-        'epochs': [100],
-        'batch_size': [200],
-        'save_every': [1],
-        'learning_rate': [0.001],
-        'test_size': [0.2],
-        'seed': [398],
-        'hidden_size': [20,50],
-        'bias': [True],
-        'dropout_rate': [0.1],
-        'ode_nn': [nn],
-        'readout_nn': [nn],
-        'enc_nn': [nn],
-        'use_rnn': [True],
-        'input_sig': [False, True],
-        'func_appl_X': [["power-2"]],              # [["power-2", "power-3", "power-4"]]
-        'solver': ["euler"],
-        'weight': [0.5],
-        'weight_decay': [1.],
-        'data_dict': ['AD_OrnsteinUhlenbeckWithSeason_2_dict'],
-        'plot': [True],
-        'which_loss': ['easy'],
-        'evaluate': [False],
-        'paths_to_plot': [(0,1,2,3,4,)],
-        'plot_variance': [True],
-        'std_factor': [1.96],
-        'plot_moments': [True],
-        'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_2_models_path],
-        'use_cond_exp': [True],
-        'input_current_t': [True],
-        'current_period': [True],
-        'enc_input_t': [False, True],
-    }
-    param_list_AD_OrnsteinUhlenbeckWithSeason_2 += get_parameter_array(param_dict=param_dict_AD_OrnsteinUhlenbeckWithSeason_2_1)'''
 
-nn = ((50, 'tanh'), (50, 'relu'))
-param_list_AD_OrnsteinUhlenbeckWithSeason_2 = []
-param_dict_AD_OrnsteinUhlenbeckWithSeason_2_1 = {
-        'epochs': [100],
+param_list_AD_OrnsteinUhlenbeckWithSeason_3 = []
+for size in [50,100]:
+    nn = ((size, 'tanh'), (size, 'relu'))
+    param_dict_AD_OrnsteinUhlenbeckWithSeason_3_1 = {
+        'epochs': [25],
         'batch_size': [200],
         'save_every': [1],
-        'learning_rate': [0.001],
+        'learning_rate': [0.001, 0.005],
         'test_size': [0.2],
         'seed': [398],
-        'hidden_size': [50],
+        'hidden_size': [50, 100],
         'bias': [True],
         'dropout_rate': [0.1],
         'ode_nn': [nn],
         'readout_nn': [nn],
         'enc_nn': [nn],
-        'use_rnn': [True],
+        'use_rnn': [False, True],
         'input_sig': [True],
         'func_appl_X': [["power-2"]],              # [["power-2", "power-3", "power-4"]]
         'solver': ["euler"],
         'weight': [0.5],
         'weight_decay': [1.],
-        'data_dict': ['AD_OrnsteinUhlenbeckWithSeason_2_dict'],
+        'data_dict': ['AD_OrnsteinUhlenbeckWithSeason_3_dict'],
         'plot': [True],
         'which_loss': ['easy'],
         'evaluate': [False],
@@ -194,17 +152,58 @@ param_dict_AD_OrnsteinUhlenbeckWithSeason_2_1 = {
         'plot_variance': [True],
         'std_factor': [1.96],
         'plot_moments': [True],
-        'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_2_models_path],
+        'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_3_models_path],
         'use_cond_exp': [True],
         'input_current_t': [True],
         'current_period': [True],
-        'enc_input_t': [True],
+        'enc_input_t': [False],
     }
-param_list_AD_OrnsteinUhlenbeckWithSeason_2 += get_parameter_array(param_dict=param_dict_AD_OrnsteinUhlenbeckWithSeason_2_1)
+    param_list_AD_OrnsteinUhlenbeckWithSeason_3 += get_parameter_array(param_dict=param_dict_AD_OrnsteinUhlenbeckWithSeason_3_1)
 
-overview_dict_AD_OrnsteinUhlenbeckWithSeason_2 = dict(
-    ids_from=1, ids_to=len(param_list_AD_OrnsteinUhlenbeckWithSeason_2),
-    path=AD_OrnsteinUhlenbeckWithSeason_2_models_path,
+'''
+
+nn = ((150, 'tanh'), (150, 'relu'))
+param_list_AD_OrnsteinUhlenbeckWithSeason_3 = []
+param_dict_AD_OrnsteinUhlenbeckWithSeason_3_1 = {
+        'epochs': [100],
+        'batch_size': [200],
+        'save_every': [1],
+        'learning_rate': [0.001],
+        'test_size': [0.2],
+        'seed': [398],
+        'hidden_size': [100],
+        'bias': [True],
+        'dropout_rate': [0.1],
+        'ode_nn': [nn],
+        'readout_nn': [nn],
+        'enc_nn': [nn],
+        'use_rnn': [False],
+        'input_sig': [True],
+        'func_appl_X': [["power-2"]],              # [["power-2", "power-3", "power-4"]]
+        'solver': ["euler"],
+        'weight': [0.5],
+        'weight_decay': [1.],
+        'data_dict': ['AD_OrnsteinUhlenbeckWithSeason_3_dict'],
+        'plot': [True],
+        'which_loss': ['easy'],
+        'evaluate': [False],
+        'paths_to_plot': [(0,1,2,3,4,)],
+        'plot_variance': [True],
+        'std_factor': [1.96],
+        'plot_moments': [True],
+        'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_3_models_path],
+        'use_cond_exp': [True],
+        'input_current_t': [True],
+        'current_period': [True],
+        'enc_input_t': [False],
+    }
+param_list_AD_OrnsteinUhlenbeckWithSeason_3 += get_parameter_array(param_dict=param_dict_AD_OrnsteinUhlenbeckWithSeason_3_1)
+
+
+
+overview_dict_AD_OrnsteinUhlenbeckWithSeason_3 = dict(
+    ids_from=1, ids_to=len(param_list_AD_OrnsteinUhlenbeckWithSeason_3),
+    path=AD_OrnsteinUhlenbeckWithSeason_3_models_path,
     params_extract_desc=('dataset', 'network_size', 'nb_layers',
                          'activation_function_1', 'use_rnn',
                          'readout_nn', 'dropout_rate',
@@ -218,8 +217,8 @@ overview_dict_AD_OrnsteinUhlenbeckWithSeason_2 = dict(
     ),
     sortby=["evaluation_mean_diff_min"],
 )
-plot_paths_AD_OrnsteinUhlenbeckWithSeason_2_dict = {
+plot_paths_AD_OrnsteinUhlenbeckWithSeason_3_dict = {
     'model_ids': [33, 34, 35, 41, 43, 50],
-    'saved_models_path': AD_OrnsteinUhlenbeckWithSeason_2_models_path,
+    'saved_models_path': AD_OrnsteinUhlenbeckWithSeason_3_models_path,
     'which': 'best', 'paths_to_plot': [0,1,2,3,4,5],
     'save_extras': {'bbox_inches': 'tight', 'pad_inches': 0.01},}

@@ -322,7 +322,7 @@ def train(
     # get data-loader for training
     if 'func_appl_X' in options:  # list of functions to apply to the paths in X
         functions = options['func_appl_X']
-        collate_fn, mult = data_utils.CustomCollateFnGen(functions)
+        collate_fn, mult = data_utils.CustomCollateFnGen(functions, obs_perc=0.1)
         input_size = input_size * mult
         output_size = output_size * mult
     else:
@@ -335,7 +335,7 @@ def train(
         shuffle=True, batch_size=batch_size, num_workers=N_DATASET_WORKERS)
     dl_val = DataLoader(  # class to iterate over validation data
         dataset=data_val, collate_fn=collate_fn,
-        shuffle=False, batch_size=len(data_val), num_workers=N_DATASET_WORKERS)
+        shuffle=False, batch_size=batch_size, num_workers=N_DATASET_WORKERS)
 
     # get additional plotting information
     plot_variance = False
@@ -625,7 +625,7 @@ def train(
                     model.parameters(), clip_value=gradient_clip)
             optimizer.step()  # update weights by ADAM optimizer
             if ANOMALY_DETECTION:
-                print(r"current loss: {}".format(loss.detach().numpy()))
+                print(r"current loss: {}".format(loss.detach().cpu().numpy()))
         train_time = time.time() - t  # difference between current time and start time
 
         # -------- evaluation --------
@@ -669,7 +669,7 @@ def train(
                         return_path=False, smoother=False,)
                 else:
                     raise ValueError
-                loss_val += c_loss.detach().numpy()
+                loss_val += c_loss.detach().cpu().numpy()
                 num_obs += 1  # count number of observations
 
                 # if functions are applied, also compute the loss when only
@@ -682,7 +682,7 @@ def train(
                             n_obs_ot, return_path=False, get_loss=True, M=M,
                             start_M=start_M, which_loss='standard',)
                             # dim_to=dimension)
-                    loss_val_corrected += c_loss_corrected.detach().numpy()
+                    loss_val_corrected += c_loss_corrected.detach().cpu().numpy()
 
                 # mean squared difference evaluation
                 if 'evaluate' in options and options['evaluate']:
@@ -702,7 +702,7 @@ def train(
             loss_val = loss_val / num_obs
             loss_val_corrected /= num_obs
             eval_msd = eval_msd / num_obs
-            train_loss = loss.detach().numpy()
+            train_loss = loss.detach().cpu().numpy()
             print_str = "epoch {}, weight={:.5f}, train-loss={:.5f}, " \
                         "optimal-eval-loss={:.5f}, eval-loss={:.5f}, ".format(
                 model.epoch, model.weight, train_loss, opt_eval_loss, loss_val)
@@ -723,6 +723,7 @@ def train(
         # save model
         if model.epoch % save_every == 0:
             if plot:
+                batch = next(iter(dl_val))
                 print('plotting ...')
                 plot_filename = 'epoch-{}'.format(model.epoch)
                 plot_filename = plot_filename + '_path-{}.pdf'
@@ -803,13 +804,13 @@ def compute_optimal_eval_loss(dl_val, stockmodel, delta_t, T, mult=None, functio
     for i, b in enumerate(dl_val):
         times = b["times"]
         time_ptr = b["time_ptr"]
-        X = b["X"].detach().numpy()
-        start_X = b["start_X"].detach().numpy()
-        obs_idx = b["obs_idx"].detach().numpy()
-        n_obs_ot = b["n_obs_ot"].detach().numpy()
+        X = b["X"].detach().cpu().numpy()
+        start_X = b["start_X"].detach().cpu().numpy()
+        obs_idx = b["obs_idx"].detach().cpu().numpy()
+        n_obs_ot = b["n_obs_ot"].detach().cpu().numpy()
         M = b["M"]
         if M is not None:
-            M = M.detach().numpy()
+            M = M.detach().cpu().numpy()
         num_obs += 1
         opt_loss += stockmodel.get_optimal_loss(
             times, time_ptr, X, obs_idx, delta_t, T, start_X, n_obs_ot, M=M,
@@ -863,6 +864,7 @@ def plot_one_path_with_pred(
     prop_cycle = plt.rcParams['axes.prop_cycle']  # change style of plot?
     colors = prop_cycle.by_key()['color']
     std_color = list(matplotlib.colors.to_rgb(colors[1])) + [0.5]
+    true_std_color = list(matplotlib.colors.to_rgb(colors[2])) + [0.5]
 
     makedirs(save_path)  # create a directory
 
@@ -888,11 +890,11 @@ def plot_one_path_with_pred(
     res = model.get_pred(
         times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx, delta_t=delta_t,
         T=T, start_X=start_X, M=M, start_M=start_M)
-    path_y_pred = res['pred'].detach().numpy()
+    path_y_pred = res['pred'].detach().cpu().numpy()
     path_t_pred = res['pred_t']
 
     # get variance path
-    if plot_moments and (functions is not None):
+    '''if plot_moments and (functions is not None):
         moments = []
         path_y_moments_pred = []
         true_X_moments = []
@@ -903,25 +905,34 @@ def plot_one_path_with_pred(
                 path_y_moments_pred.append(path_y_pred[:, :, (dim * which):(dim * (which + 1))])
                 true_X_moments.append(np.power(true_X, m))
     else:
-        plot_moments = False
+        plot_moments = False'''
     if plot_variance and (functions is not None) and ('power-2' in functions):
         which = np.argmax(np.array(functions) == 'power-2')+1
         y2 = path_y_pred[:, :, (dim * which):(dim * (which + 1))]
         path_var_pred = y2 - np.power(path_y_pred[:, :, 0:dim], 2)
         if np.any(path_var_pred < 0):
             print('WARNING: some predicted cond. variances below 0 -> clip')
+            print(np.sum(path_var_pred < 0), " out of ", path_var_pred.reshape(-1).shape[0], " values")
             path_var_pred = np.maximum(0, path_var_pred)
         path_std_pred = np.sqrt(path_var_pred)
     else:
         plot_variance = False
     if use_cond_exp:
         if M is not None:
-            M = M.detach().numpy()
+            M = M.detach().cpu().numpy()
         opt_loss, path_t_true, path_y_true = stockmodel.compute_cond_exp(
-            times, time_ptr, X.detach().numpy(), obs_idx.detach().numpy(),
-            delta_t, T, start_X.detach().numpy(), n_obs_ot.detach().numpy(),
+            times, time_ptr, X.detach().cpu().numpy(), obs_idx.detach().cpu().numpy(),
+            delta_t, T, start_X.detach().cpu().numpy(), n_obs_ot.detach().cpu().numpy(),
             return_path=True, get_loss=True, weight=model.weight,
             M=M, functions=functions)
+        if plot_variance:
+            which = np.argmax(np.array(functions) == 'power-2')+1
+            path_y2_true = path_y_true[:, :, (dim * which):(dim * (which + 1))]
+            path_y_var_true = path_y2_true - np.power(path_y_true[:, :, 0:dim], 2)
+            if np.any(path_y_var_true < 0):
+                print('WARNING: some true cond. variances below 0 -> clip')
+                path_y_var_true = np.maximum(0, path_y_var_true)
+            path_y_std_true = np.sqrt(path_y_var_true)
     else:
         opt_loss = 0
 
@@ -966,6 +977,13 @@ def plot_one_path_with_pred(
                 axs[j].plot(path_t_true, path_y_true[:, i, j],
                             label='true conditional expectation',
                             linestyle=':', color=colors[2])
+                if plot_variance:
+                    axs[j].fill_between(
+                    path_t_true,
+                    path_y_true[:, i, j] - std_factor * path_y_std_true[:, i, j],
+                    path_y_true[:, i, j] + std_factor * path_y_std_true[:, i, j],
+                    color=true_std_color)
+
             if plot_obs_prob and dataset_metadata is not None:
                 ax2 = axs[j].twinx()
                 if "X_dependent_observation_prob" in dataset_metadata:
@@ -998,62 +1016,64 @@ def plot_one_path_with_pred(
 
     
         if plot_moments:
-            for mi,m in enumerate(moments):
-                fig, axs = plt.subplots(dim)
-                if dim == 1:
-                    axs = [axs]
-                for j in range(dim):
-                    path_t_obs = []
-                    path_X_moment_obs = []
-                    for k, od in enumerate(observed_dates[i]):
-                        if od == 1:
-                            if true_M is None or (true_M is not None and
-                                                true_M[i, j, k]==1):
-                                path_t_obs.append(path_t_true_X[k])
-                                path_X_moment_obs.append(true_X_moments[mi][i, j, k])
-                    path_t_obs = np.array(path_t_obs)
-                    path_X_moment_obs = np.array(path_X_moment_obs)
+            for m in range(2,10):
+                if 'power-{}'.format(m) in functions:
+                    which = np.argmax(np.array(functions) == 'power-{}'.format(m))+1
+                    fig, axs = plt.subplots(dim)
+                    if dim == 1:
+                        axs = [axs]
+                    for j in range(dim):
+                        path_t_obs = []
+                        path_X_m_obs = []
+                        for k, od in enumerate(observed_dates[i]):
+                            if od == 1:
+                                if true_M is None or (true_M is not None and
+                                                    true_M[i, j, k]==1):
+                                    path_t_obs.append(path_t_true_X[k])
+                                    path_X_m_obs.append(np.power(true_X, m)[i, j, k])
+                        path_t_obs = np.array(path_t_obs)
+                        path_X_m_obs = np.array(path_X_m_obs)
 
-                    axs[j].plot(path_t_true_X, true_X_moments[mi][i, j, :], label='true path power {}'.format(m),
-                                color=colors[0])
-                    axs[j].scatter(path_t_obs, path_X_moment_obs, label='observed power {}'.format(m),
-                                color=colors[0])
-                    axs[j].plot(path_t_pred, path_y_moments_pred[mi][:, i, j],
-                                label=model_name, color=colors[1])
+                        axs[j].plot(path_t_true_X, np.power(true_X, m)[i, j, :], label='true path power {}'.format(m),
+                                    color=colors[0])
+                        axs[j].scatter(path_t_obs, path_X_m_obs, label='observed power {}'.format(m),
+                                    color=colors[0])
+                        axs[j].plot(path_t_pred, path_y_pred[:, i, dim * which + j],
+                                    label=model_name, color=colors[1])
 
-                    if use_cond_exp:
-                        axs[j].plot(path_t_true, path_y_true[:, i, j+dim],
-                                    label='true conditional moment {}'.format(m),
-                                    linestyle=':', color=colors[2])
-                    if plot_obs_prob and dataset_metadata is not None:
-                        ax2 = axs[j].twinx()
-                        if "X_dependent_observation_prob" in dataset_metadata:
-                            prob_f = eval(
-                                dataset_metadata["X_dependent_observation_prob"])
-                            obs_perc = prob_f(true_X[:, :, :])[i]
-                        else:
-                            obs_perc = dataset_metadata['obs_perc']
-                            obs_perc = np.ones_like(path_t_true_X) * obs_perc
-                        ax2.plot(path_t_true_X, obs_perc, color="red",
-                                label="observation probability")
-                        ax2.set_ylim(-0.1, 1.1)
-                        ax2.set_ylabel("observation probability")
-                        axs[j].set_ylabel("X")
-                        ax2.legend()
-                    if ylabels:
-                        axs[j].set_ylabel(ylabels[j])
-                    if same_yaxis:
-                        low = np.min(true_X[i, :, :])
-                        high = np.max(true_X[i, :, :])
-                        eps = (high - low)*0.05
-                        axs[j].set_ylim([low-eps, high+eps])
+                        if use_cond_exp:
+                            axs[j].plot(path_t_true, path_y_true[:, i, dim * which + j],
+                                        label='true conditional moment {}'.format(m),
+                                        linestyle=':', color=colors[2])
+                        if plot_obs_prob and dataset_metadata is not None:
+                            ax2 = axs[j].twinx()
+                            if "X_dependent_observation_prob" in dataset_metadata:
+                                prob_f = eval(
+                                    dataset_metadata["X_dependent_observation_prob"])
+                                obs_perc = prob_f(true_X[:, :, :])[i]
+                            else:
+                                obs_perc = dataset_metadata['obs_perc']
+                                obs_perc = np.ones_like(path_t_true_X) * obs_perc
+                            ax2.plot(path_t_true_X, obs_perc, color="red",
+                                    label="observation probability")
+                            ax2.set_ylim(-0.1, 1.1)
+                            ax2.set_ylabel("observation probability")
+                            axs[j].set_ylabel("X")
+                            ax2.legend()
+                        if ylabels:
+                            axs[j].set_ylabel(ylabels[j])
+                        if same_yaxis:
+                            low = np.min(true_X[i, :, :])
+                            high = np.max(true_X[i, :, :])
+                            eps = (high - low)*0.05
+                            axs[j].set_ylim([low-eps, high+eps])
 
 
-                axs[-1].legend()
-                plt.xlabel('$t$')
-                save = os.path.join(save_path, filename.format('{}_moment_{}'.format(i,m)))
-                plt.savefig(save, **save_extras)
-                plt.close()
+                    axs[-1].legend()
+                    plt.xlabel('$t$')
+                    save = os.path.join(save_path, filename.format('{}_moment_{}'.format(i,m)))
+                    plt.savefig(save, **save_extras)
+                    plt.close()
 
     return opt_loss
 

@@ -6,6 +6,7 @@ from configs.config_NJODE1 import *
 from configs.config_LOB import *
 from configs.config_AD import *
 from configs.config_AD_2 import *
+from configs.config_AD_anomalies import *
 
 import numpy as np
 import socket

@@ -146,6 +146,57 @@ class AD_TSAGen():
         assembler.save(path=out_path)
 
         return paths, ad_labels, dt
+
+    # for Orstein Uhlenbeck
+    def inject_deformation_anomaly(self, season_patterns, ad_labels):
+
+        pos_list = []
+        self.occ_law = self.anomaly_params['occurence_law']
+        if self.occ_law == 'single':
+            prob = self.anomaly_params['occurence_prob']
+            real = np.random.binomial(1, prob, 1)
+            if real == 1:
+                self.occ_range = self.anomaly_params['occurence_range']
+                self.occ_pos_law = self.anomaly_params['occurence_pos_law']
+                if self.occ_pos_law == 'uniform':
+                    pos = int(np.random.uniform(self.occ_range[0],self.occ_range[1],1))
+                    pos_list.append(pos)
+        if 'forking_depth_law' in self.anomaly_params:
+            self.fork_depth_law = self.anomaly_params['forking_depth_law']
+        pos_dim_list = []
+        for p in pos_list:
+            dim_list = []
+            dim_occurence_law = self.anomaly_params['dim_occurence_law']
+            if dim_occurence_law == 'indep':
+                prob = self.anomaly_params['dim_occurence_prob']
+                for j in range(self.dimensions):
+                    real = np.random.binomial(1, prob, 1)
+                    if real == 1:
+                        dim_list.append(j)
+            pos_dim_list.append(dim_list)
+        
+        if self.season_type == 'RMDF':
+            if self.fork_depth_law == 'delta':
+                self.ad_forking_depth = self.anomaly_params['forking_depth']
+            for i,pos in enumerate(pos_list):
+                for j in pos_dim_list[i]:
+                    anomaly_cycle = self.season_generator[j].gen(self.ad_forking_depth, int(self.season_length))
+                    season_patterns[pos][j,:] = anomaly_cycle
+                    ad_labels[pos][j,:] = 1
+        if self.season_type == 'NN':
+            times = torch.tensor(2. * np.pi * np.linspace(0., 1., self.season_length)).unsqueeze(1)
+            for i,pos in enumerate(pos_list):
+                for j in pos_dim_list[i]:
+
+                    anomaly_season_generator = Season_NN(self.season_nn_layers, self.season_nn_input, 1, 
+                                                    self.season_nn_bias)
+                    anomaly_season_generator.gen_weigths()
+                    anomaly_season_generator.eval()
+                    anomaly_cycle = anomaly_season_generator(times.clone().detach()).squeeze().detach().numpy()
+                    season_patterns[pos][j,:] = anomaly_cycle
+                    ad_labels[pos][j,:] = 1
+        
+        return season_patterns, ad_labels
 '''
 
 class StockModel:
@@ -340,20 +391,32 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
         self.anomaly_params = anomaly_params
         self.anomaly_type = self.anomaly_params['type']
         self.get_season_generator(season_params)
-        self.get_volatility(volatility)
-        self.speed = speed
-        if noise is not None:
-            self.noise = True
-            self.noise_type = noise['type']
-            self.noise_cov = noise['cov']
-        else:
-            self.noise = False
 
-    def get_volatility(self,volatility):
-        value = volatility['vol_value']
-        if value is None:
-            NotImplementedError
-        self.volatility = np.array(value)
+        # to change
+        self.speed = speed
+
+        if noise is not None:
+            self.noise_type = noise['type']
+            if isinstance(noise['cov'], float):
+                self.noise_cov = noise['cov'] * np.eye(self.dimensions)
+            if isinstance(noise['cov'], list) and isinstance(noise['cov'][0], float):
+                self.noise_cov = np.array(noise['cov']) * np.eye(self.dimensions)
+            if isinstance(noise['cov'], list) and isinstance(noise['cov'][0], list):
+                self.noise_cov = np.array(noise['cov'])
+            assert(self.noise_cov.shape == (self.dimensions, self.dimensions))
+        else:
+            self.noise_cov = np.zeros((self.dimensions, self.dimensions))
+
+        if volatility is not None:
+            if isinstance(volatility['vol_value'], float):
+                self.volatility = volatility['vol_value'] * np.eye(self.dimensions)
+            if isinstance(volatility['vol_value'], list) and isinstance(volatility['vol_value'][0], float):
+                self.volatility = np.array(volatility['vol_value']) * np.eye(self.dimensions)
+            if isinstance(volatility['vol_value'], list) and isinstance(volatility['vol_value'][0], list):
+                self.volatility = np.array(volatility['vol_value'])
+            assert(self.noise_cov.shape == (self.dimensions, self.dimensions))
+        else:
+            self.volatility = np.zeros((self.dimensions, self.dimensions))
 
     def get_season_generator(self, season_params):
 
@@ -395,58 +458,9 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
                 self.season_generator[j].eval()
 
         return 0
-    
-    def inject_deformation_anomaly(self, season_patterns, ad_labels):
 
-        pos_list = []
-        self.occ_law = self.anomaly_params['occurence_law']
-        if self.occ_law == 'single':
-            prob = self.anomaly_params['occurence_prob']
-            real = np.random.binomial(1, prob, 1)
-            if real == 1:
-                self.occ_range = self.anomaly_params['occurence_range']
-                self.occ_pos_law = self.anomaly_params['occurence_pos_law']
-                if self.occ_pos_law == 'uniform':
-                    pos = int(np.random.uniform(self.occ_range[0],self.occ_range[1],1))
-                    pos_list.append(pos)
-        if 'forking_depth_law' in self.anomaly_params:
-            self.fork_depth_law = self.anomaly_params['forking_depth_law']
-        pos_dim_list = []
-        for p in pos_list:
-            dim_list = []
-            dim_occurence_law = self.anomaly_params['dim_occurence_law']
-            if dim_occurence_law == 'indep':
-                prob = self.anomaly_params['dim_occurence_prob']
-                for j in range(self.dimensions):
-                    real = np.random.binomial(1, prob, 1)
-                    if real == 1:
-                        dim_list.append(j)
-            pos_dim_list.append(dim_list)
-        
-        if self.season_type == 'RMDF':
-            if self.fork_depth_law == 'delta':
-                self.ad_forking_depth = self.anomaly_params['forking_depth']
-            for i,pos in enumerate(pos_list):
-                for j in pos_dim_list[i]:
-                    anomaly_cycle = self.season_generator[j].gen(self.ad_forking_depth, int(self.season_length))
-                    season_patterns[pos][j,:] = anomaly_cycle
-                    ad_labels[pos][j,:] = 1
-        if self.season_type == 'NN':
-            times = torch.tensor(2. * np.pi * np.linspace(0., 1., self.season_length)).unsqueeze(1)
-            for i,pos in enumerate(pos_list):
-                for j in pos_dim_list[i]:
 
-                    anomaly_season_generator = Season_NN(self.season_nn_layers, self.season_nn_input, 1, 
-                                                    self.season_nn_bias)
-                    anomaly_season_generator.gen_weigths()
-                    anomaly_season_generator.eval()
-                    anomaly_cycle = anomaly_season_generator(times.clone().detach()).squeeze().detach().numpy()
-                    season_patterns[pos][j,:] = anomaly_cycle
-                    ad_labels[pos][j,:] = 1
-        
-        return season_patterns, ad_labels
-
-    def get_seasons(self):
+    def get_components(self):
 
         if self.season_type == 'RMDF':
             if self.forking_depth == 0:
@@ -474,8 +488,8 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
             min_exp = self.seas_range[0]
             max_exp = self.seas_range[1]
 
-        if self.anomaly_type == 'deformation':
-                season_patterns, ad_labels = self.inject_deformation_anomaly(season_patterns, ad_labels)
+        # if self.anomaly_type == 'deformation':
+        #         season_patterns, ad_labels = self.inject_deformation_anomaly(season_patterns, ad_labels)
 
         season_patterns = np.concatenate(season_patterns, axis=1)
         season_patterns = np.reshape(TimeSeriesResampler(sz=self.nb_steps+1).fit_transform(season_patterns),(self.dimensions,-1))
@@ -492,16 +506,22 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
         self.ad_labels = ad_labels
         if self.S0 is None:
             self.S0 = season_patterns[:,0]
-        def seasons(t):
+
+        '''def seasons(t):
             return self.season_patterns[:,int(t*self.nb_steps/self.maturity)]
         def anomalies(t):
-            return self.ad_labels[:,int(t*self.nb_steps/self.maturity)]
+            return self.ad_labels[:,int(t*self.nb_steps/self.maturity)]'''
+        self.seasons = lambda t: self.season_patterns[:,int(t*self.nb_steps/self.maturity)]
+        self.anomalies = lambda t: self.ad_labels[:,int(t*self.nb_steps/self.maturity)]
+        self.drift = lambda x, t: - self.speed * self.periodic_coeff(t) * (x - self.seasons(t))
+        self.diffusion = lambda x, t: self.volatility
+        if self.noise_type == 'gaussian':
+            def noise(x, t):
+                eps = np.random.normal(0, 1, self.dimensions)
+                return self.noise_cov @ eps
+            self.noise = noise
 
-        self.seasons = seasons
-        self.anomalies = anomalies
-        
-        # return seasons, anomalies
-
+    
     def compute_cond_exp(self, times, time_ptr, X, obs_idx, delta_t, T, start_X,
                          n_obs_ot, return_path=True, get_loss=False,
                          weight=0.5, store_and_use_stored=True,
@@ -564,6 +584,8 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
                 cond_moments = self.cond_moments(cond_exp=y1, diff_t=diff_t, current_t=current_time, 
                                             functions=functions, dim=dim)
                 y = np.concatenate([y1,cond_moments], axis=1)
+                # print(cond_moments - np.power(y1,2))
+                # print("before jumps", np.sum((cond_moments - np.power(y1,2))<0))
 
                 # Storing the conditional expectation
                 if return_path:
@@ -583,6 +605,8 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
             temp[i_obs] = X_obs
             y = temp
             Y = y
+            # print(y[:,1] - np.power(y[:,0],2))
+            # print("after jumps", np.sum((y[:,1] - np.power(y[:,0],2))<0))
 
             if get_loss:
                 loss = loss + compute_loss(X_obs=X_obs, Y_obs=Y[i_obs],
@@ -620,11 +644,14 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
             self.path_t = np.array(path_t)
             self.path_y = np.array(path_y)
 
+        # print(np.array(path_y)[:,0,1] - np.power(np.array(path_y)[:,0,0],2))
+
         if return_path:
             # path dimension: [time_steps, batch_size, output_size]
             return loss, np.array(path_t), np.array(path_y)
         else:
             return loss
+    
         
     def get_optimal_loss(self, times, time_ptr, X, obs_idx, delta_t, T, start_X,
                          n_obs_ot, weight=0.5, M=None, mult=None, functions=None):
@@ -637,7 +664,12 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
     def cond_moments(self, cond_exp, diff_t, current_t, functions, dim):  # and in higher dimension ????
         nb_moments = len(functions)
         factor = self.speed * self.periodic_coeff(current_t)
-        cond_var = (self.volatility ** 2) / (2. * factor) * (1-np.exp(-2. * factor * diff_t))
+        # cond_var = (self.volatility ** 2) * (1-np.exp(-2. * factor * diff_t)) / (2. * factor)
+        vol = np.diagonal(self.volatility @ np.transpose(self.volatility))
+        cond_var_factor = (1. - np.exp(-2. * factor * diff_t)) / (2. * factor)
+        cond_var_factor = cond_var_factor.reshape(-1,1)
+        dim0 = cond_var_factor.shape[0]
+        cond_var = np.tile(cond_var_factor,(1,dim)) * np.tile(vol.reshape(1,dim),(dim0,1))
         cond_var = cond_var.reshape(-1,dim)
         res = np.zeros((cond_exp.shape[0], cond_exp.shape[1] * nb_moments))
         for i,f in enumerate(functions):
@@ -647,68 +679,307 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
         return res
 
     def next_cond_exp(self, y, delta_t, current_t): # dimension of self.speed, in case batch !!!
-        self.get_seasons()
+        self.get_components()
         factor = self.speed * self.periodic_coeff(current_t)
         integral = delta_t * self.speed * np.exp(factor * current_t) * self.seasons(current_t)    # redundant operation
         res = y * np.exp(- factor * delta_t) + np.exp(- factor * current_t) * integral
         return res
 
+    def get_anomaly_fcts(self):
+        assert(self.season_type == 'NN')
+
+        self.spike = False
+
+        if self.anomaly_type is None:
+            return None, None, None, None, None
+
+        if self.anomaly_type in ['deformation', 'scale', 'diffusion', 'noise', 'trend', 'cutoff']:
+
+            self.occ_prob = self.anomaly_params['occurence_prob']
+            self.occ_pos_range = self.anomaly_params['occurence_pos_range']
+            self.occ_pos_law = self.anomaly_params['occurence_pos_law']
+            self.occ_len_range = self.anomaly_params['occurence_len_range']
+            self.occ_len_law = self.anomaly_params['occurence_len_law']
+            self.dim_occ_pos = self.anomaly_params['dim_occurence_pos']
+            self.dim_occ_law = self.anomaly_params['dim_occurence_law']
+            self.dim_occ_prob = self.anomaly_params['dim_occurence_prob']
+
+            pos_list = []
+            
+            r = np.random.binomial(1, self.occ_prob, 1)
+            if r == 1:
+                olr0, olr1 = self.occ_len_range
+                opr0, opr1 = self.occ_pos_range
+                if self.dim_occ_pos == 'same':
+                    if self.occ_len_law == 'uniform':
+                        length = float(np.random.uniform(olr0,olr1,1))
+                    if self.occ_pos_law == 'uniform':
+                        pos = float(np.random.uniform(opr0,opr1-length,1))
+                    for j in range(self.dimensions):
+                        l = []
+                        l.append(pos, pos+length)
+                        pos_list.append(l)
+                elif self.dim_occ_pos == 'indep':
+                    for j in range(self.dimensions):
+                        if self.occ_len_law == 'uniform':
+                            length = float(np.random.uniform(olr0,olr1,1))
+                        if self.occ_pos_law == 'uniform':
+                            pos = float(np.random.uniform(opr0,opr1-length,1))
+                        l = []
+                        l.append((pos, pos+length))
+                        pos_list.append(l)
+
+                for j in range(self.dimensions):
+                    for p in range(len(pos_list[j])):
+                        r = np.random.binomial(1, self.dim_occ_prob, 1)
+                        if r == 0:
+                            del pos_list[j][p]
+
+        if self.anomaly_type == 'deformation':
+            season_patterns = copy.copy(self.season_patterns)
+            ad_labels = copy.copy(self.ad_labels)
+
+            for j in range(self.dimensions):
+                for p in pos_list[j]:
+
+                    anomaly_season_generator = Season_NN(self.season_nn_layers, self.season_nn_input, 1, 
+                                                            self.season_nn_bias)
+                    anomaly_season_generator.gen_weigths()
+                    times = torch.tensor(2. * np.pi * np.linspace(0., 1., self.season_length)).unsqueeze(1)
+                    base_season_pattern = anomaly_season_generator(times.clone().detach()).squeeze().detach().numpy()
+                    anomaly_season_pattern = [copy.copy(base_season_pattern) for s in range(self.season_nb)]
+                    if self.seas_amp == 'automatic':
+                        min_seas = np.min(anomaly_season_pattern[0])
+                        max_seas = np.max(anomaly_season_pattern[0])
+                        min_exp = self.seas_range[0]
+                        max_exp = self.seas_range[1]
+                    anomaly_season_pattern = np.concatenate(anomaly_season_pattern, axis=0)
+                    anomaly_season_pattern = np.reshape(TimeSeriesResampler(sz=self.nb_steps+1).fit_transform(anomaly_season_pattern),(-1))
+                    # anomaly_season_pattern = np.squeeze(anomaly_season_pattern)
+                    if self.seas_amp == 'automatic':
+                        factor = (max_exp - min_exp) / (max_seas - min_seas)
+                        anomaly_season_pattern = (anomaly_season_pattern - min_seas) * factor + min_exp
+                    else:
+                        anomaly_season_pattern = self.seas_amp * anomaly_season_pattern
+                    # if self.S0 is None:
+                    #     self.S0 = anomaly_season_pattern[:,0]
+
+                    p0 = int(p[0] * self.nb_steps)
+                    p1 = int(p[1] * self.nb_steps)
+                    season_patterns[j,p0:p1] = anomaly_season_pattern[p0:p1]
+                    ad_labels[j,p0:p1] = 1
+
+            seasons = lambda t: season_patterns[:,int(t*self.nb_steps/self.maturity)]
+            anomalies = lambda t: ad_labels[:,int(t*self.nb_steps/self.maturity)]
+            drift = lambda x, t: - self.speed * self.periodic_coeff(t) * (x - seasons(t))
+
+            return drift, None, None, anomalies, None
+        
+        elif self.anomaly_type == 'diffusion':
+            ad_labels = copy.copy(self.ad_labels)
+
+            diff_change = self.anomaly_params['diffusion_change']
+            diff_deviation = self.anomaly_params['diffusion_deviation']
+
+            diffusion_pattern = np.tile(np.expand_dims(self.volatility, 0), (self.nb_steps+1,1,1))
+            for j in range(self.dimensions):
+                for p in pos_list[j]:
+                    p0 = int(p[0] * self.nb_steps)
+                    p1 = int(p[1] * self.nb_steps)
+                    if diff_change == 'multiplicative':
+                        diffusion_pattern[p0:p1,j,j] *= diff_deviation
+                    elif diff_change == 'additive':
+                        diffusion_pattern[p0:p1,j,j] += diff_deviation
+                    ad_labels[j,p0:p1] = 1
+
+            anomalies = lambda t: ad_labels[:,int(t*self.nb_steps/self.maturity)]
+            diffusion = lambda x, t: diffusion_pattern[int(t*self.nb_steps/self.maturity)]
+                
+            return None, diffusion, None, anomalies, None
+        
+        if self.anomaly_type == 'noise':
+            ad_labels = copy.copy(self.ad_labels)
+
+            noise_change = self.anomaly_params['noise_change']
+            noise_deviation = self.anomaly_params['noise_deviation']
+                
+            noise_cov_pattern = np.tile(np.expand_dims(self.noise_cov, 0), (self.nb_steps+1,1,1))
+            for j in range(self.dimensions):
+                for p in pos_list[j]:
+                    p0 = int(p[0] * self.nb_steps)
+                    p1 = int(p[1] * self.nb_steps)
+                    if noise_change == 'multiplicative':
+                        noise_cov_pattern[p0:p1,j,j] *= noise_deviation
+                    elif noise_change == 'additive':
+                        noise_cov_pattern[p0:p1,j,j] += noise_deviation
+                    ad_labels[j,p0:p1] = 1
+
+            anomalies = lambda t: ad_labels[:,int(t*self.nb_steps/self.maturity)]
+            noise = lambda x, t: noise_cov_pattern[int(t*self.nb_steps/self.maturity)] @ np.random.normal(0, 1, self.dimensions)
+                
+            return None, None, noise, anomalies, None
+        
+        elif self.anomaly_type == 'scale':
+
+            season_patterns = copy.copy(self.season_patterns)
+            ad_labels = copy.copy(self.ad_labels)
+
+            scale_level_law = self.anomaly_params['scale_level_law']
+
+            for j in range(self.dimensions):
+                for p in pos_list[j]:
+                    p0 = int(p[0] * self.nb_steps)
+                    p1 = int(p[1] * self.nb_steps)
+                    if scale_level_law == 'uniform':
+                        c0, c1 = self.anomaly_params['scale_level_range']
+                        scale_level = float(np.random.uniform(c0,c1,1))
+                    season_patterns[j,p0:p1] *= scale_level
+                    ad_labels[j,p0:p1] = 1
+
+            seasons = lambda t: season_patterns[:,int(t*self.nb_steps/self.maturity)]
+            anomalies = lambda t: ad_labels[:,int(t*self.nb_steps/self.maturity)]
+            drift = lambda x, t: - self.speed * self.periodic_coeff(t) * (x - seasons(t))
+
+            return drift, None, None, anomalies, None
+        
+        elif self.anomaly_type == 'trend':
+
+            season_patterns = copy.copy(self.season_patterns)
+            ad_labels = copy.copy(self.ad_labels)
+
+            trend_level_law = self.anomaly_params['trend_level_law']
+
+            for j in range(self.dimensions):
+                for p in pos_list[j]:
+                    p0 = int(p[0] * self.nb_steps)
+                    p1 = int(p[1] * self.nb_steps)
+                    if trend_level_law == 'uniform':
+                        c0, c1 = self.anomaly_params['trend_level_range']
+                        trend_level = float(np.random.uniform(c0,c1,1))
+                        if self.anomaly_params['trend_level_sign'] == 'both':
+                            s = np.random.binomial(1, 0.5, 1)
+                            if s == 0:
+                                trend_level = -trend_level
+                        elif self.anomaly_params['trend_level_sign'] == 'minus':
+                            trend_level = -trend_level
+
+                    length = p1-p0
+                    season_patterns[j,p0:p1] += np.arange(length) * trend_level / self.nb_steps
+                    ad_labels[j,p0:p1] = 1
+
+            seasons = lambda t: season_patterns[:,int(t*self.nb_steps/self.maturity)]
+            anomalies = lambda t: ad_labels[:,int(t*self.nb_steps/self.maturity)]
+            drift = lambda x, t: - self.speed * self.periodic_coeff(t) * (x - seasons(t))
+
+            return drift, None, None, anomalies, None
+        
+        elif self.anomaly_type == 'cutoff':
+
+            season_patterns = copy.copy(self.season_patterns)
+            ad_labels = copy.copy(self.ad_labels)
+
+            cutoff_level_law = self.anomaly_params['cutoff_level_law']
+
+            for j in range(self.dimensions):
+                for p in pos_list[j]:
+                    p0 = int(p[0] * self.nb_steps)
+                    p1 = int(p[1] * self.nb_steps)
+                    if cutoff_level_law == 'uniform':
+                        c0, c1 = self.anomaly_params['cutoff_level_range']
+                        cutoff_level = float(np.random.uniform(c0,c1,1))
+                    season_patterns[j,p0:p1] = cutoff_level
+                    ad_labels[j,p0:p1] = 1
+
+            seasons = lambda t: season_patterns[:,int(t*self.nb_steps/self.maturity)]
+            anomalies = lambda t: ad_labels[:,int(t*self.nb_steps/self.maturity)]
+            drift = lambda x, t: - self.speed * self.periodic_coeff(t) * (x - seasons(t))
+
+            return drift, None, None, anomalies, None
+        
+        elif self.anomaly_type == 'spike':
+            self.spike = True
+
+            ad_labels = copy.copy(self.ad_labels)
+            
+            r1, r2 = self.anomaly_params['occurence_pos_range']
+            prob = self.anomaly_params['occurence_prob']
+            amp_law = self.anomaly_params['spike_amp_law']
+            a1, a2 = self.anomaly_params['spike_amp_range']
+            
+            range_mask = np.zeros((self.dimensions, self.nb_steps+1), dtype=np.bool)
+            range_mask[int(r1*self.nb_steps/self.maturity):int(r2*self.nb_steps/self.maturity)] = True
+            if amp_law == 'uniform':
+                values = np.random.uniform(a1, a2, (self.dimensions, self.nb_steps+1))
+                neg = 2. * np.random.binomial(1,0.5,(self.dimensions, self.nb_steps+1)) - 1.
+                values *= neg
+            else:
+                NotImplementedError
+            pos = np.random.binomial(1,1-prob,(self.dimensions, self.nb_steps+1)).astype(np.bool)
+            mask = np.logical_or(pos, range_mask)
+            values[mask] = 0.
+            ad_labels[~mask] = 1
+
+            spikes = {'values': values,
+                      'labels': ad_labels}
+
+            return None, None, None, None, spikes
+
+
     def generate_paths(self, start_X=None, no_S0=True):
         # Diffusion of the variance: dv = -k(v-season(t))*dt + vol*dW
         if no_S0:
             self.S0 = None
-        if not self.changing_season:
-            self.get_seasons()
-            drift = lambda x, t: - self.speed * self.periodic_coeff(t) * (x - self.seasons(t))
-        diffusion = lambda x, t: self.volatility
-        if self.noise:
-            if self.noise_type == 'gaussian':
-                if isinstance(self.noise_cov, float):
-                    noise = lambda x, t: self.noise_cov * np.eye(self.dimensions)
-                if isinstance(self.noise_cov, list) and isinstance(self.noise_cov[0], float):
-                    NotImplementedError
-                if isinstance(self.noise_cov, list) and isinstance(self.noise_cov[0], list):
-                    NotImplementedError
-        else:
-            noise = lambda x, t: np.zeros((self.dimensions,self.dimensions))
 
-        spot_paths = np.empty(
-            (self.nb_paths, self.dimensions, self.nb_steps + 1))
+        self.get_components()
+
+        spot_paths = np.empty((self.nb_paths, self.dimensions, self.nb_steps + 1))
         deter_paths = np.empty_like(spot_paths)
         final_paths = np.empty_like(spot_paths)
         ad_labels = np.empty_like(spot_paths)
         seasonal_function = np.empty_like(spot_paths)
+
         dt = self.maturity / self.nb_steps
         period = self.maturity / self.season_nb
+
         if start_X is not None:
             spot_paths[:, :, 0] = start_X
         for i in range(self.nb_paths):
             if i % 100 == 0:
                 print("Generated {} paths".format(i))
-            if self.changing_season:
-                self.get_seasons()
-                drift = lambda x, t: - self.speed * self.periodic_coeff(t) * (x - self.seasons(t))
+
+            drift, diffusion, noise, anomalies, spikes = self.get_anomaly_fcts()
+            if drift is None:
+                drift = self.drift
+            if diffusion is None:
+                diffusion = self.diffusion
+            if noise is None:
+                noise = self.noise
+            if anomalies is None:
+                anomalies = self.anomalies
+
             if start_X is None:
                 spot_paths[i, :, 0] = self.S0
                 deter_paths[i, :, 0] = self.S0
-                final_paths[i, :, 0] = (spot_paths[i, :, 0] + noise(spot_paths[i, :, 0], (0) * dt))
+                final_paths[i, :, 0] = (spot_paths[i, :, 0] + noise(spot_paths[i, :, 0], (0) * dt)) # @ eps)
                 seasonal_function[i, :, 0] = (self.seasons(0.))
             for k in range(1, self.nb_steps + 1):
                 random_numbers_bm = np.random.normal(0, 1, self.dimensions)
                 dW = random_numbers_bm * np.sqrt(dt)
-                eps = np.random.normal(0, 1, self.dimensions)
                 spot_paths[i, :, k] = (
                         spot_paths[i, :, k - 1]
                         + drift(spot_paths[i, :, k - 1], (k - 1) * dt) * dt
                         + diffusion(spot_paths[i, :, k - 1], (k) * dt) @ dW)
-                final_paths[i, :, k] = (spot_paths[i, :, k] + noise(spot_paths[i, :, k], (k) * dt) @ eps)
+                final_paths[i, :, k] = (spot_paths[i, :, k] + noise(spot_paths[i, :, k], (k) * dt)) # @ eps)
                 deter_paths[i, :, k] = (
                         deter_paths[i, :, k - 1]
-                        + drift(deter_paths[i, :, k - 1], (k - 1) * dt) * dt)
-                ad_labels[i, :, k] = (self.anomalies((k - 1) * dt))
+                        + self.drift(deter_paths[i, :, k - 1], (k - 1) * dt) * dt)
                 seasonal_function[i,:,k] = (self.seasons((k - 1) * dt))
-        # stock_path dimension: [nb_paths, dimension, time_steps]
-
+                ad_labels[i, :, k] = (anomalies((k - 1) * dt))
+            if self.spike:
+                final_paths[i] += spikes['values']
+                ad_labels[i] = spikes['labels']
+        
+        # stock_path, final_paths, deter_paths, seasonal_function, ad_labels : [nb_paths, dimension, time_steps]
         # return season_pattern, ad_labels
         return final_paths, ad_labels, deter_paths, seasonal_function, dt, period
 

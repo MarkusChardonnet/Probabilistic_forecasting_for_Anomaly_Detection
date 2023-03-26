@@ -24,7 +24,7 @@ import gc
 from configs import config
 import models
 import data_utils
-from AD_modules import AD_module
+from AD_modules import AD_module, AD_module_2
 
 
 # =====================================================================================================================
@@ -277,12 +277,12 @@ def evaluate(
     obs_idx : list of observed batch idx across time [time_ptr[-1]], value in [0,batch]
     """
 
-    ad_module = AD_module(steps_ahead=steps_ahead, smoothing=5)
+    ad_module = AD_module_2(steps_ahead=steps_ahead, smoothing=5)
     optimizer = torch.optim.Adam(ad_module.parameters(), lr=0.001)
     criterion = nn.CrossEntropyLoss()
     ad_module.train()
 
-    plot_AD_module_params(ad_module, eval_path)
+    # plot_AD_module_params(ad_module, eval_path)
 
     for e in range(1): # change for learning parameters of AD module
     # with torch.no_grad():  # no gradient needed for evaluation
@@ -338,8 +338,11 @@ def evaluate(
             obs = torch.tensor(true_X, dtype=torch.float32).permute(2,0,1)
             cond_moments = torch.tensor(cond_moments, dtype=torch.float32)
             scores, mask = ad_module(obs, cond_moments)
+            ad_labels = torch.tensor(ad_labels).float().permute(2,0,1)
 
-            ad_labels = torch.tensor(ad_labels).permute(2,0,1)
+            ad_module.linear_solver(obs, ad_labels, cond_moments)
+            plot_AD_module_params(ad_module, eval_path)
+
             scores = scores[mask]
             ad_labels = ad_labels[mask]
 
@@ -350,6 +353,7 @@ def evaluate(
             for name, param in ad_module.named_parameters():
                 if param.requires_grad:
                     print( name, param.data )
+
  
 
             '''
@@ -394,32 +398,56 @@ def evaluate(
     return 0
 
 def plot_AD_module_params(ad_module, path, steps_ahead = None, dt=0.0025):
-    steps_weights = ad_module.state_dict()['steps_weighting.weight'].squeeze().clone().detach().numpy()
-    if steps_ahead is None:
-        steps_ahead = np.arange(len(steps_weights))
-        steps_ahead = [str(dt * s) for s in steps_ahead]
-    if ad_module.smoothing > 0:
+
+    if isinstance(ad_module, AD_module):
+
+        steps_weights = ad_module.state_dict()['steps_weighting.weight'].squeeze().clone().detach().numpy()
+        if steps_ahead is None:
+            steps_ahead = np.arange(len(steps_weights))
+            steps_ahead = [str(dt * s) for s in steps_ahead]
         smoothing_weights = ad_module.state_dict()['smoothing_weights.weight'].squeeze().clone().detach().numpy()
+        neighbors = [str(i) for i in range(-ad_module.smoothing, ad_module.smoothing+1)]
 
-    fig, ax = plt.subplots(figsize=(10,5))
-    ax.bar(steps_ahead, steps_weights, width = 0.1)
-    plt.title('Importance of different forecasting horizons for Anomaly Detection', fontsize=15)
-    plt.xlabel('Forecasting Horizons', fontsize=10)
-    plt.ylabel('Horizon Weight', fontsize=10)
-    ax.grid(False)
-    ax.tick_params(bottom=False, left=True)
-    plt.savefig(path + '/forecasting_horizon_weighting.png')
+        fig, ax = plt.subplots(figsize=(10,5))
+        ax.bar(steps_ahead, steps_weights, width = 0.1)
+        plt.title('Importance of different forecasting horizons for Anomaly Detection', fontsize=15)
+        plt.xlabel('Forecasting Horizons', fontsize=10)
+        plt.ylabel('Horizon Weight', fontsize=10)
+        ax.grid(False)
+        ax.tick_params(bottom=False, left=True)
+        plt.savefig(path + '/forecasting_horizon_weighting.png')
+        plt.close()
 
-    neighbors = [str(i) for i in range(-ad_module.smoothing, ad_module.smoothing+1)]
-    fig, ax = plt.subplots(figsize=(10,5))
-    ax.bar(neighbors, smoothing_weights, width = 0.1)
-    plt.title('Importance of neighbouring anomaly scores', fontsize=15)
-    plt.xlabel('Time neighbours', fontsize=10)
-    plt.ylabel('Neighbour Weights', fontsize=10)
-    ax.grid(False)
-    ax.tick_params(bottom=False, left=True)
-    plt.savefig(path + '/smoothing_weighting.png')
+        fig, ax = plt.subplots(figsize=(10,5))
+        ax.bar(neighbors, smoothing_weights, width = 0.1)
+        plt.title('Importance of neighbouring anomaly scores', fontsize=15)
+        plt.xlabel('Time neighbours', fontsize=10)
+        plt.ylabel('Neighbour Weights', fontsize=10)
+        ax.grid(False)
+        ax.tick_params(bottom=False, left=True)
+        plt.savefig(path + '/smoothing_weighting.png')
+        plt.close()
 
+    if isinstance(ad_module, AD_module_2):
+
+        weights = ad_module.state_dict()['weights.weight'].squeeze().clone().detach().numpy()
+        if steps_ahead is None:
+            steps_ahead = np.arange(len(weights)) + 1
+            steps_ahead = [str(dt * s) for s in steps_ahead]
+        neighbors = [str(i) for i in range(-ad_module.smoothing, ad_module.smoothing+1)]
+
+        fig, ax = plt.subplots(figsize=(10,8))
+        im = ax.imshow(weights)
+        ax.set_xticks(np.arange(weights.shape[1]))
+        ax.set_yticks(np.arange(weights.shape[0]))
+        ax.set_xticklabels(neighbors)
+        ax.set_yticklabels(steps_ahead)
+        fig.colorbar(im, ax=ax, shrink=0.5)
+        plt.title('Weights of scores smoothing on forecasting horizon and neighbouring timestamps', fontsize=15)
+        plt.xlabel('Neighbouring timestamps', fontsize=10)
+        plt.ylabel('Forecasting horizons', fontsize=10)
+        plt.savefig(path + '/weighting.png')
+        plt.close()
 
 def plot_one_path_with_pred(
         device, model, batch, stockmodel, delta_t, T,

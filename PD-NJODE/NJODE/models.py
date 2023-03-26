@@ -400,7 +400,7 @@ class FFNN(torch.nn.Module):
         if self.case == 0:
             pass
         elif self.case == 1:
-            identity = torch.zeros((nn_input.shape[0], self.output_size))
+            identity = torch.zeros((nn_input.shape[0], self.output_size)).to(self.device)
             identity[:, 0:nn_input.shape[1]] = nn_input
             out = identity + out
         elif self.case == 2:
@@ -410,6 +410,11 @@ class FFNN(torch.nn.Module):
         if self.clamp is not None:
             out = torch.clamp(out, min=-self.clamp, max=self.clamp)
         return out
+    
+    @property
+    def device(self):
+        device = next(self.parameters()).device
+        return device
 
 
 class NJODE(torch.nn.Module):
@@ -1065,7 +1070,7 @@ class NJODE(torch.nn.Module):
         # after every observation has been processed, propagating until T
         if until_T:
             if self.input_sig:
-                c_sig = torch.from_numpy(current_sig).float()
+                c_sig = torch.from_numpy(current_sig).float().to(self.device)
             while current_time < T - 1e-10 * delta_t:
                 if current_time < T - delta_t:
                     delta_t_ = delta_t
@@ -1146,12 +1151,12 @@ class NJODE(torch.nn.Module):
 
         if true_paths is None:
             if M is not None:
-                M = M.detach().numpy()[:, :dim_to]
+                M = M.detach().cpu().numpy()[:, :dim_to]
             _, true_path_t, true_path_y = stockmodel.compute_cond_exp(
-                times, time_ptr, X.detach().numpy()[:, :dim_to],
-                obs_idx.detach().numpy(),
-                delta_t, T, start_X.detach().numpy()[:, :dim_to],
-                n_obs_ot.detach().numpy(),
+                times, time_ptr, X.detach().cpu().numpy()[:, :dim_to],
+                obs_idx.detach().cpu().numpy(),
+                delta_t, T, start_X.detach().cpu().numpy()[:, :dim_to],
+                n_obs_ot.detach().cpu().numpy(),
                 return_path=True, get_loss=False, M=M, )
         else:
             true_t = np.linspace(0, T, true_paths.shape[2])
@@ -1162,10 +1167,10 @@ class NJODE(torch.nn.Module):
             true_path_y = np.transpose(true_path_y, axes=(2, 0, 1))
             true_path_t = true_t[which_t_ind]
 
-        if path_y.detach().numpy().shape == true_path_y.shape:
-            eval_loss = diff_fun(path_y.detach().numpy(), true_path_y)
+        if path_y.detach().cpu().numpy().shape == true_path_y.shape:
+            eval_loss = diff_fun(path_y.detach().cpu().numpy(), true_path_y)
         else:
-            print(path_y.detach().numpy().shape)
+            print(path_y.detach().cpu().numpy().shape)
             print(true_path_y.shape)
             raise ValueError("Shapes do not match!")
         if return_paths:

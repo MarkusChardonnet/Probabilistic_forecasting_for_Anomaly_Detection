@@ -811,7 +811,7 @@ def _get_X_with_func_appl(X, functions, axis):
     return Y
 
 
-def CustomCollateFnGen(func_names=None):
+def CustomCollateFnGen(func_names=None, obs_perc = None):
     """
     a function to get the costume collate function that can be used in
     torch.DataLoader with the wanted functions applied to the data as new
@@ -841,14 +841,22 @@ def CustomCollateFnGen(func_names=None):
             ad_labels = None
         observed_dates = np.concatenate([b['observed_dates'] for b in batch],
                                         axis=0)
+        
+        if obs_perc is not None:
+            observed_dates_new = np.random.random(size=observed_dates.shape)
+            observed_dates_new = (observed_dates_new < obs_perc)*1
+            observed_dates_new[:, 0] = 1
+            observed_dates = observed_dates_new * observed_dates
+            nb_obs = torch.tensor(np.sum(observed_dates[:, 1:], axis=1))
+
         masked = False
         mask = None
         if len(observed_dates.shape) == 3:
             masked = True
             mask = observed_dates
             observed_dates = observed_dates.max(axis=1)
-        nb_obs = torch.tensor(
-            np.concatenate([b['nb_obs'] for b in batch], axis=0))
+        if obs_perc is None:
+            nb_obs = torch.tensor(np.concatenate([b['nb_obs'] for b in batch], axis=0))
 
         # here axis=1, since we have elements of dim
         #    [batch_size, data_dimension] => add as new data_dimensions

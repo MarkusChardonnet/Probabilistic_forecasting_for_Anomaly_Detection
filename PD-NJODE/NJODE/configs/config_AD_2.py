@@ -165,27 +165,29 @@ for size in [50,100]:
 nn = ((150, 'tanh'), (150, 'relu'))
 param_list_AD_OrnsteinUhlenbeckWithSeason_3 = []
 param_dict_AD_OrnsteinUhlenbeckWithSeason_3_1 = {
-        'epochs': [100],
+        'epochs': [30],
         'batch_size': [200],
         'save_every': [1],
         'learning_rate': [0.001],
         'test_size': [0.2],
         'seed': [398],
-        'hidden_size': [100],
+        'hidden_size': [150],
         'bias': [True],
-        'dropout_rate': [0.1],
+        'dropout_rate': [0.2],
         'ode_nn': [nn],
         'readout_nn': [nn],
         'enc_nn': [nn],
         'use_rnn': [False],
         'input_sig': [True],
         'func_appl_X': [["power-2"]],              # [["power-2", "power-3", "power-4"]]
+        'add_pred': [[]],
         'solver': ["euler"],
+        # 'solver_delta_t_factor': [2],
         'weight': [0.5],
         'weight_decay': [1.],
         'data_dict': ['AD_OrnsteinUhlenbeckWithSeason_3_dict'],
         'plot': [True],
-        'which_loss': ['easy'],
+        'which_loss': ['ad'],
         'evaluate': [False],
         'paths_to_plot': [(0,1,2,3,4,)],
         'plot_variance': [True],
@@ -194,7 +196,9 @@ param_dict_AD_OrnsteinUhlenbeckWithSeason_3_1 = {
         'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_3_models_path],
         'use_cond_exp': [True],
         'input_current_t': [True],
-        'current_period': [True],
+        'periodic_current_t': [True],
+        'train_data_perc': [0.1],
+        'scale_dt': ['automatic'],            # (obs_perc / dt) 
         'enc_input_t': [False],
     }
 param_list_AD_OrnsteinUhlenbeckWithSeason_3 += get_parameter_array(param_dict=param_dict_AD_OrnsteinUhlenbeckWithSeason_3_1)

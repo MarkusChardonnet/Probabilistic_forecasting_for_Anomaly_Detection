@@ -70,7 +70,7 @@ def get_ckpt_model(ckpt_path, model, optimizer, device):
 
 
 def compute_loss(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
-                 weight=0.5, M_obs=None):
+                 weight=0.5, M_obs=None, output_vars=None):
     """
     loss function from the paper
     :param X_obs: torch.tensor, the true X values at the observations
@@ -107,7 +107,7 @@ def compute_loss(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
 
 
 def compute_loss_2(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
-                   weight=0.5, M_obs=None):
+                   weight=0.5, M_obs=None, output_vars=None):
     """
     similar to compute_loss, but using X_obs also in second part of loss
     instead of Y_obs
@@ -127,7 +127,7 @@ def compute_loss_2(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
 
 
 def compute_loss_3(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
-                   weight=0.5, M_obs=None):
+                   weight=0.5, M_obs=None, output_vars=None):
     """
     test loss function
     :param X_obs: torch.tensor, the true X values at the observations
@@ -159,13 +159,155 @@ def compute_loss_3(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
     outer = torch.sum(inner / n_obs_ot)
     return outer / batch_size
 
+'''def compute_loss_ad(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
+                   weight=0.5, M_obs=None, output_vars=None):
+    assert('id' in output_vars and 'power-2' in output_vars)
+    dim = int(X_obs.shape[1] / len(output_vars))
+    idx_id = np.argmax(np.array(output_vars) == 'id')
+    idx_id = np.arange(idx_id*dim,(idx_id+1)*dim)
+    idx_power2 = np.argmax(np.array(output_vars) == 'power-2')
+    idx_power2 = np.arange(idx_power2*dim,(idx_power2+1)*dim)
+
+    if M_obs is None:
+
+        inner = (torch.sqrt(torch.sum((X_obs[:,idx_id] - Y_obs[:,idx_id]) ** 2, dim=1) + eps) +
+                 torch.sqrt(torch.sum((Y_obs_bj[:,idx_id] - X_obs[:,idx_id]) ** 2, dim=1) + eps)) ** 2
+        inner += (torch.sqrt(torch.sum((X_obs[:,idx_power2] - Y_obs[:,idx_power2]) ** 2, dim=1) + eps) +
+                 torch.sqrt(torch.sum((Y_obs_bj[:,idx_power2] - X_obs[:,idx_power2]) ** 2, dim=1) + eps)) ** 2
+        
+        inner += (torch.sqrt(torch.sum(((X_obs[:,idx_id] - Y_obs_bj[:,idx_id].detach()) ** 2 - (Y_obs_bj[:,idx_power2] - Y_obs_bj[:,idx_id].detach() ** 2)) ** 2, dim=1) + eps) +
+                 torch.sqrt(torch.sum(((X_obs[:,idx_id] - Y_obs[:,idx_id].detach()) ** 2 - (Y_obs[:,idx_power2] - Y_obs[:,idx_id].detach() ** 2)) ** 2, dim=1) + eps)) ** 2
+
+    else:
+        NotImplementedError
+
+    outer = torch.sum(inner / n_obs_ot)
+    return outer / batch_size'''
+
+def compute_loss_ad(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
+                   weight=0.5, M_obs=None, output_vars=None):
+    assert('id' in output_vars and 'power-2' in output_vars)
+    dim = int(X_obs.shape[1] / len(output_vars))
+    idx_id = np.argmax(np.array(output_vars) == 'id')
+    idx_id = np.arange(idx_id*dim,(idx_id+1)*dim)
+    idx_power2 = np.argmax(np.array(output_vars) == 'power-2')
+    idx_power2 = np.arange(idx_power2*dim,(idx_power2+1)*dim)
+    idx_tot = np.concatenate([idx_id, idx_power2],axis=0)
+
+    if M_obs is None:
+
+        '''inner = (torch.sqrt(torch.sum((X_obs[:,idx_id] - Y_obs[:,idx_id]) ** 2, dim=1) + eps) +
+                 torch.sqrt(torch.sum((Y_obs_bj[:,idx_id] - X_obs[:,idx_id]) ** 2, dim=1) + eps)) ** 2
+        inner += (torch.sqrt(torch.sum((X_obs[:,idx_power2] - Y_obs[:,idx_power2]) ** 2, dim=1) + eps) +
+                 torch.sqrt(torch.sum((Y_obs_bj[:,idx_power2] - X_obs[:,idx_power2]) ** 2, dim=1) + eps)) ** 2
+        
+        inner += torch.sum(((X_obs[:,idx_id] - Y_obs_bj[:,idx_id].detach()) ** 2 - (Y_obs_bj[:,idx_power2] - Y_obs_bj[:,idx_id].detach() ** 2)) ** 2, dim=1)'''
+
+        inner = (torch.sqrt(torch.sum((X_obs[:,idx_tot] - Y_obs[:,idx_tot]) ** 2, dim=1) + eps) +
+                 torch.sqrt(torch.sum((Y_obs_bj[:,idx_tot] - X_obs[:,idx_tot]) ** 2, dim=1) + eps) + 
+                 torch.sqrt(torch.sum(((X_obs[:,idx_id] - Y_obs_bj[:,idx_id].detach()) ** 2 - (Y_obs_bj[:,idx_power2] - Y_obs_bj[:,idx_id].detach() ** 2)) ** 2, dim=1))) ** 2
+
+    else:
+        NotImplementedError
+
+    outer = torch.sum(inner / n_obs_ot)
+    return outer / batch_size
+
+'''def compute_loss_ad_var(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
+                   weight=0.5, M_obs=None, output_vars=None):
+    assert('id' in output_vars and 'power-2' in output_vars and 'var' in output_vars)
+    dim = int(X_obs.shape[1] / len(output_vars))
+    idx_id = np.argmax(np.array(output_vars) == 'id')
+    idx_id = np.arange(idx_id*dim,(idx_id+1)*dim)
+    idx_power2 = np.argmax(np.array(output_vars) == 'power-2')
+    idx_power2 = np.arange(idx_power2*dim,(idx_power2+1)*dim)
+    idx_var = np.argmax(np.array(output_vars) == 'var')
+    idx_var = np.arange(idx_var*dim,(idx_var+1)*dim)
+
+    if M_obs is None:
+
+        inner = (torch.sqrt(torch.sum((X_obs[:,idx_id] - Y_obs[:,idx_id]) ** 2, dim=1) + eps) +
+                 torch.sqrt(torch.sum((Y_obs_bj[:,idx_id] - X_obs[:,idx_id]) ** 2, dim=1) + eps)) ** 2
+        inner += (torch.sqrt(torch.sum((X_obs[:,idx_power2] - Y_obs[:,idx_power2]) ** 2, dim=1) + eps) +
+                 torch.sqrt(torch.sum((Y_obs_bj[:,idx_power2] - X_obs[:,idx_power2]) ** 2, dim=1) + eps)) ** 2
+        
+        inner += torch.sum((Y_obs_bj[:,idx_var] - Y_obs[:,idx_var]) ** 2, dim=1)
+
+        inner += (torch.sqrt(torch.sum((Y_obs_bj[:,idx_var] - (Y_obs_bj[:,idx_id].detach() - X_obs[:,idx_id]) ** 2) ** 2, dim=1) + eps) +
+                torch.sqrt(torch.sum((Y_obs[:,idx_var] - (Y_obs[:,idx_id].detach() - X_obs[:,idx_id]) ** 2) ** 2, dim=1) + eps)) ** 2
+
+        inner += (torch.sqrt(torch.sum((Y_obs_bj[:,idx_var] - (Y_obs_bj[:,idx_power2] - Y_obs_bj[:,idx_id].detach() ** 2)) ** 2, dim=1) + eps) +
+                 torch.sqrt(torch.sum((Y_obs[:,idx_var] - (Y_obs[:,idx_power2] - Y_obs[:,idx_id].detach() ** 2)) ** 2, dim=1) + eps)) ** 2
+
+    else:
+        NotImplementedError
+
+    outer = torch.sum(inner / n_obs_ot)
+    return outer / batch_size'''
+
+def compute_loss_ad_var2(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
+                   weight=0.5, M_obs=None, output_vars=None):
+    assert('id' in output_vars and 'var' in output_vars)
+    dim = int(X_obs.shape[1] / len(output_vars))
+    idx_id = np.argmax(np.array(output_vars) == 'id')
+    idx_id = np.arange(idx_id*dim,(idx_id+1)*dim)
+    idx_var = np.argmax(np.array(output_vars) == 'var')
+    idx_var = np.arange(idx_var*dim,(idx_var+1)*dim)
+
+    var_weight = 0.1
+
+    if M_obs is None:
+
+        inner = (torch.sqrt(torch.sum((X_obs[:,idx_id] - Y_obs[:,idx_id]) ** 2, dim=1) + eps) +
+                 torch.sqrt(torch.sum((Y_obs_bj[:,idx_id] - X_obs[:,idx_id]) ** 2, dim=1) + eps) +
+                 var_weight * torch.sqrt(torch.sum((Y_obs_bj[:,idx_var] - (Y_obs_bj[:,idx_id].detach() - X_obs[:,idx_id]) ** 2) ** 2, dim=1) + eps) +
+                torch.sqrt(torch.sum((Y_obs[:,idx_var]) ** 2, dim=1) + eps)) ** 2
+
+    else:
+        NotImplementedError
+
+    outer = torch.sum(inner / n_obs_ot)
+    return outer / batch_size
+
+def compute_loss_ad_var(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
+                   weight=0.5, M_obs=None, output_vars=None):
+    assert('id' in output_vars and 'power-2' in output_vars and 'var' in output_vars)
+    dim = int(X_obs.shape[1] / len(output_vars))
+    idx_id = np.argmax(np.array(output_vars) == 'id')
+    idx_id = np.arange(idx_id*dim,(idx_id+1)*dim)
+    idx_power2 = np.argmax(np.array(output_vars) == 'power-2')
+    idx_power2 = np.arange(idx_power2*dim,(idx_power2+1)*dim)
+    idx_var = np.argmax(np.array(output_vars) == 'var')
+    idx_var = np.arange(idx_var*dim,(idx_var+1)*dim)
+
+    var_weight = 0.1
+
+    if M_obs is None:
+
+        inner = (torch.sqrt(torch.sum((X_obs[:,idx_id] - Y_obs[:,idx_id]) ** 2, dim=1) + eps) +
+                 torch.sqrt(torch.sum((Y_obs_bj[:,idx_id] - X_obs[:,idx_id]) ** 2, dim=1) + eps)) ** 2
+        inner += (torch.sqrt(torch.sum((X_obs[:,idx_power2] - Y_obs[:,idx_power2]) ** 2, dim=1) + eps) +
+                 torch.sqrt(torch.sum((Y_obs_bj[:,idx_power2] - X_obs[:,idx_power2]) ** 2, dim=1) + eps)) ** 2
+
+        inner += var_weight * (torch.sqrt(torch.sum((Y_obs_bj[:,idx_var] - (Y_obs_bj[:,idx_id].detach() - X_obs[:,idx_id]) ** 2) ** 2, dim=1) + eps) +
+                torch.sqrt(torch.sum((Y_obs_bj[:,idx_var] - (Y_obs_bj[:,idx_power2].detach() - Y_obs_bj[:,idx_id].detach() ** 2)) ** 2, dim=1) + eps) + 
+                torch.sqrt(torch.sum((Y_obs[:,idx_var]) ** 2, dim=1) + eps)) ** 2
+
+    else:
+        NotImplementedError
+
+    outer = torch.sum(inner / n_obs_ot)
+    return outer / batch_size
 
 LOSS_FUN_DICT = {
     # dictionary of used loss functions. Reminder inputs: (X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
-    # weight=0.5, M_obs=None)
+    # weight=0.5, M_obs=None, output_vars=None)
     'standard': compute_loss,
     'easy': compute_loss_2,
-    'abs': compute_loss_3
+    'abs': compute_loss_3,
+    'ad': compute_loss_ad,
+    'ad_var': compute_loss_ad_var,
+    'ad_var2': compute_loss_ad_var2,
 }
 
 nonlinears = {  # dictionary of used non-linear activation functions. Reminder inputs
@@ -263,10 +405,8 @@ class ODEFunc(torch.nn.Module):
                         [self.sc_fun(x), self.sc_fun(h), tau, tdiff,
                         tau + tdiff], dim=1)
             else:
-                # time = ((tau + tdiff) % self.t_period)/self.t_period
                 z = 2. * torch.pi * (tau + tdiff) / self.t_period
                 time = torch.cat([torch.cos(z), torch.sin(z)], dim=1)
-                # print("size", time.size())
                 if self.input_sig:
                     input_f = torch.cat(
                         [self.sc_fun(x), self.sc_fun(h), tau, tdiff, time,
@@ -426,6 +566,7 @@ class NJODE(torch.nn.Module):
             ode_nn, readout_nn, enc_nn, use_rnn,
             bias=True, dropout_rate=0, solver="euler",
             weight=0.5, weight_decay=1., t_period=1.,       ###
+            output_vars = None, delta_t = None,
             **options
     ):
         """
@@ -471,6 +612,9 @@ class NJODE(torch.nn.Module):
         assert self.which_loss in LOSS_FUN_DICT
         print('using loss: {}'.format(self.which_loss))
 
+        if output_vars is not None:
+            self.output_vars = output_vars
+
         self.residual_enc_dec = True
         if 'residual_enc_dec' in options1:
             self.residual_enc_dec = options1['residual_enc_dec']
@@ -478,9 +622,13 @@ class NJODE(torch.nn.Module):
         if 'input_current_t' in options1:
             self.input_current_t = options1['input_current_t']
         self.t_period = None                               #######
-        if 'current_period' in options1:
-            if options1['current_period']:
+        if 'periodic_current_t' in options1:
+            if options1['periodic_current_t']:
                 self.t_period = t_period   #######
+        self.scale_dt = 1.
+        if 'scale_dt' in options1:
+            self.scale_dt = options1['scale_dt']
+                
         self.input_sig = False
         if 'input_sig' in options1:
             self.input_sig = options1['input_sig']
@@ -547,6 +695,8 @@ class NJODE(torch.nn.Module):
         self.solver = solver
         self.input_size = input_size
         self.hidden_size = hidden_size
+        self.output_size = output_size
+        self.delta_t = delta_t
 
         self.apply(init_weights)
 
@@ -572,7 +722,7 @@ class NJODE(torch.nn.Module):
             signature = None
         if self.solver == "euler":
             h = h + delta_t * self.ode_f(
-                x=last_X, h=h, tau=tau, tdiff=current_time - tau,
+                x=last_X, h=h, tau=tau, tdiff=self.scale_dt * (current_time - tau),
                 signature=signature)
         else:
             raise ValueError("Unknown solver '{}'.".format(self.solver))
@@ -905,12 +1055,16 @@ class NJODE(torch.nn.Module):
         """
         if which_loss is None:
             which_loss = self.which_loss
+        
+        if delta_t is None:
+            delta_t = self.delta_t
+        assert(delta_t is not None)
 
         last_X = start_X
         batch_size = start_X.size()[0]
         data_dim = start_X.size()[1]
         if dim_to is None:
-            dim_to = data_dim
+            dim_to = self.output_size
         if self.coord_wise_tau:
             tau = torch.tensor([[0.0]]).repeat(batch_size, data_dim).to(self.device)
         else:
@@ -946,7 +1100,7 @@ class NJODE(torch.nn.Module):
         h = self.encoder_map(
             start_X, mask=start_M, sig=c_sig,
             h=torch.zeros((batch_size, self.hidden_size)).to(self.device),
-            t=torch.cat((tau, current_time - tau), dim=1).to(self.device))
+            t=torch.cat((tau, self.scale_dt * (current_time - tau)), dim=1).to(self.device))
         # if self.encoder_map.use_lstm:
         #     self.c_ = torch.chunk(h.clone(), chunks=2, dim=1)[1]
 
@@ -1015,7 +1169,7 @@ class NJODE(torch.nn.Module):
             #     h[:, self.hidden_size//2:] = self.c_
             temp[i_obs.long()] = self.encoder_map(
                 X_obs_impute, mask=M_obs, sig=c_sig_iobs, h=h[i_obs],
-                t=torch.cat((tau[i_obs], current_time - tau[i_obs]), dim=1))
+                t=torch.cat((tau[i_obs], self.scale_dt * (current_time - tau[i_obs])), dim=1))
             h = temp
             # if self.encoder_map.use_lstm:
             #     self.c_ = torch.chunk(h.clone(), chunks=2, dim=1)[1]
@@ -1030,7 +1184,12 @@ class NJODE(torch.nn.Module):
                     X_obs=X_obs[:, :dim_to], Y_obs=Y[i_obs.long(), :dim_to],
                     Y_obs_bj=Y_bj[i_obs.long(), :dim_to],
                     n_obs_ot=n_obs_ot[i_obs.long()], batch_size=batch_size,
-                    weight=self.weight, M_obs=M_obs)
+                    weight=self.weight, M_obs=M_obs, output_vars=self.output_vars)
+                '''loss = loss + LOSS_FUN_DICT[which_loss](
+                    X_obs=X_obs[:, :], Y_obs=Y[i_obs.long(), :],
+                    Y_obs_bj=Y_bj[i_obs.long(), :],
+                    n_obs_ot=n_obs_ot[i_obs.long()], batch_size=batch_size,
+                    weight=self.weight, M_obs=M_obs, output_vars=self.output_vars)'''
 
             # make update of last_X and tau, that is not inplace 
             #    (otherwise problems in autograd)

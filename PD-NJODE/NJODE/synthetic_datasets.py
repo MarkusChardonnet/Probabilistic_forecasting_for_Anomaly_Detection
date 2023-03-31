@@ -524,7 +524,7 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
     
     def compute_cond_exp(self, times, time_ptr, X, obs_idx, delta_t, T, start_X,
                          n_obs_ot, return_path=True, get_loss=False,
-                         weight=0.5, store_and_use_stored=True,
+                         weight=0.5, store_and_use_stored=False,
                          start_time=None, mult = None, functions = None,
                          **kwargs):
         
@@ -539,12 +539,6 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
             if get_loss:
                 if self.loss is not None:
                     return self.loss
-
-        if functions is not None:
-            nb_moments = len(functions)+1
-            dim = int(start_X.shape[1] / nb_moments)
-        else:
-            dim = start_X.shape[1]
 
         y = start_X
         batch_size = start_X.shape[0]
@@ -577,12 +571,12 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
                     delta_t_ = delta_t
                 else:
                     delta_t_ = obs_time - current_time
-                y1 = y[:,:dim]
+                y1 = y[:,:self.dimensions]
                 y1 = self.next_cond_exp(y1, delta_t_, current_time)
                 current_time = current_time + delta_t_
                 diff_t = current_time * np.ones(batch_size) - last_times
                 cond_moments = self.cond_moments(cond_exp=y1, diff_t=diff_t, current_t=current_time, 
-                                            functions=functions, dim=dim)
+                                            functions=functions)
                 y = np.concatenate([y1,cond_moments], axis=1)
                 # print(cond_moments - np.power(y1,2))
                 # print("before jumps", np.sum((cond_moments - np.power(y1,2))<0))
@@ -625,12 +619,12 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
                 delta_t_ = delta_t
             else:
                 delta_t_ = T - current_time
-            y1 = y[:,:dim]
+            y1 = y[:,:self.dimensions]
             y1 = self.next_cond_exp(y1, delta_t_, current_time)
             current_time = current_time + delta_t_
             diff_t = current_time * np.ones(batch_size) - last_times
             cond_moments = self.cond_moments(cond_exp=y1, diff_t=diff_t, current_t=current_time, 
-                                        functions=functions, dim=dim)
+                                        functions=functions)
             y = np.concatenate([y1,cond_moments], axis=1)
 
             # Storing the predictions.
@@ -656,13 +650,26 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
     def get_optimal_loss(self, times, time_ptr, X, obs_idx, delta_t, T, start_X,
                          n_obs_ot, weight=0.5, M=None, mult=None, functions=None):
 
+        if mult is not None and mult > 1:
+            bs, dim = start_X.shape
+            _dim = round(dim / mult)
+            indices = np.arange(_dim)
+            for i,f in enumerate(functions):
+                if f[:5] == "power":
+                    indices = np.concatenate([indices, np.arange((i+1)*_dim,(i+2)*_dim)])
+            X = X[:, indices]
+            start_X = start_X[:, indices]
+            if M is not None:
+                M = M[:, indices]
+
         loss, _, _ = self.compute_cond_exp(
             times, time_ptr, X, obs_idx, delta_t, T, start_X, n_obs_ot,
             return_path=True, get_loss=True, weight=weight, M=M, functions=functions)
         return loss
         
-    def cond_moments(self, cond_exp, diff_t, current_t, functions, dim):  # and in higher dimension ????
+    def cond_moments(self, cond_exp, diff_t, current_t, functions):  # and in higher dimension ????
         nb_moments = len(functions)
+        dim = self.dimensions
         factor = self.speed * self.periodic_coeff(current_t)
         # cond_var = (self.volatility ** 2) * (1-np.exp(-2. * factor * diff_t)) / (2. * factor)
         vol = np.diagonal(self.volatility @ np.transpose(self.volatility))

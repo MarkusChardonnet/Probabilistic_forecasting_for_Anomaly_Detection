@@ -293,6 +293,21 @@ def train(
     T = dataset_metadata['maturity']
     delta_t = dataset_metadata['dt']  # copy metadata
     t_period = dataset_metadata['period']
+    if 'solver_delta_t_factor' in options:
+        model_delta_t = delta_t / options['solver_delta_t_factor']
+    else:
+        model_delta_t = delta_t
+
+    train_data_perc = None
+    if 'train_data_perc' in options:
+        train_data_perc = options['train_data_perc']
+    if 'scale_dt' in options:
+        if options['scale_dt'] == 'automatic':
+            options['scale_dt'] = 1./delta_t
+            if train_data_perc is not None:
+                options['scale_dt'] *= train_data_perc
+            if 'solver_delta_t_factor' in options:
+                options['scale_dt'] *= options['solver_delta_t_factor']
 
     # load raw data
     train_idx, val_idx = train_test_split(
@@ -320,15 +335,24 @@ def train(
             model_name=test_ds, time_id=test_ds_id, idx=None)
 
     # get data-loader for training
+    output_vars = ['id']
     if 'func_appl_X' in options:  # list of functions to apply to the paths in X
         functions = options['func_appl_X']
-        collate_fn, mult = data_utils.CustomCollateFnGen(functions, obs_perc=0.1)
+        collate_fn, mult = data_utils.CustomCollateFnGen(functions, obs_perc=train_data_perc)
         input_size = input_size * mult
         output_size = output_size * mult
+        output_vars += functions
     else:
         functions = None
-        collate_fn, mult = data_utils.CustomCollateFnGen(None)
+        collate_fn, mult = data_utils.CustomCollateFnGen(None, obs_perc=train_data_perc)
         mult = 1
+    
+    if 'add_pred' in options:
+        add_pred = options['add_pred']
+        nb_pred_add = len(add_pred)
+        mult += nb_pred_add
+        output_size += nb_pred_add * dimension
+        output_vars += add_pred
 
     dl = DataLoader(  # class to iterate over training data
         dataset=data_train, collate_fn=collate_fn,
@@ -384,8 +408,10 @@ def train(
         'dropout_rate': dropout_rate, 'batch_size': batch_size,
         'solver': solver, 'dataset': dataset, 'dataset_id': dataset_id,
         'learning_rate': learning_rate, 'test_size': test_size, 'seed': seed,
-        'weight': weight, 'weight_decay': weight_decay,
-        'optimal_eval_loss': opt_eval_loss, 'options': options}
+        'weight': weight, 'weight_decay': weight_decay, 
+        'optimal_eval_loss': opt_eval_loss, 
+        't_period': t_period, 'output_vars': output_vars, 'delta_t': model_delta_t,
+        'options': options}
     desc = json.dumps(params_dict, sort_keys=True)  # serialize to a JSON formatted str
 
     # get overview file
@@ -438,7 +464,7 @@ def train(
 
     # get the model & optimizer
     if 'other_model' not in options:  # take NJODE model if not specified otherwise
-        model = models.NJODE(t_period=t_period, **params_dict)  # get NJODE model class from
+        model = models.NJODE(**params_dict)  # get NJODE model class from
         model_name = 'NJODE'
     elif options['other_model'] == "GRU_ODE_Bayes":  # see train documentation
         model_name = 'GRU-ODE-Bayes'
@@ -609,7 +635,7 @@ def train(
             if 'other_model' not in options:
                 hT, loss = model(
                     times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx,
-                    delta_t=delta_t, T=T, start_X=start_X, n_obs_ot=n_obs_ot,
+                    delta_t=None, T=T, start_X=start_X, n_obs_ot=n_obs_ot,
                     return_path=False, get_loss=True, M=M, start_M=start_M)
             elif options['other_model'] == "GRU_ODE_Bayes":
                 if M is None:
@@ -658,9 +684,9 @@ def train(
 
                 if 'other_model' not in options:
                     hT, c_loss = model(
-                        times, time_ptr, X, obs_idx, delta_t, T, start_X,
-                        n_obs_ot, return_path=False, get_loss=True, M=M,
-                        start_M=start_M, which_loss='standard')
+                        times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx, delta_t=None, T=T, start_X=start_X,
+                        n_obs_ot=n_obs_ot, return_path=False, get_loss=True, M=M,
+                        start_M=start_M, which_loss=None) # which_loss='standart'
                 elif options['other_model'] == "GRU_ODE_Bayes":
                     if M is None:
                         M = torch.ones_like(X)
@@ -678,10 +704,10 @@ def train(
                 if mult is not None and mult > 1:
                     if 'other_model' not in options:
                         hT_corrected, c_loss_corrected = model(
-                            times, time_ptr, X, obs_idx, delta_t, T, start_X,
-                            n_obs_ot, return_path=False, get_loss=True, M=M,
-                            start_M=start_M, which_loss='standard',)
-                            # dim_to=dimension)
+                            times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx, delta_t=None, T=T, start_X=start_X,
+                            n_obs_ot=n_obs_ot, return_path=False, get_loss=True, M=M,
+                            start_M=start_M, which_loss='standard',
+                            dim_to=dimension)
                     loss_val_corrected += c_loss_corrected.detach().cpu().numpy()
 
                 # mean squared difference evaluation
@@ -737,7 +763,8 @@ def train(
                     model_name=model_name, save_extras=save_extras,
                     ylabels=ylabels, use_cond_exp=use_cond_exp,
                     same_yaxis=plot_same_yaxis, plot_obs_prob=plot_obs_prob,
-                    dataset_metadata=dataset_metadata)
+                    dataset_metadata=dataset_metadata,
+                    output_vars=output_vars)
                 print('optimal eval-loss (with current weight={:.5f}): '
                       '{:.5f}'.format(model.weight, curr_opt_loss))
             print('save model ...')
@@ -826,6 +853,7 @@ def plot_one_path_with_pred(
         save_extras={'bbox_inches': 'tight', 'pad_inches': 0.01},
         use_cond_exp=True, same_yaxis=False,
         plot_obs_prob=False, dataset_metadata=None,
+        output_vars=None
 ):
     """
     plot one path of the stockmodel together with optimal cond. exp. and its
@@ -888,7 +916,7 @@ def plot_one_path_with_pred(
 
     model.eval()  # put model in evaluation mode
     res = model.get_pred(
-        times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx, delta_t=delta_t,
+        times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx, delta_t=None,
         T=T, start_X=start_X, M=M, start_M=start_M)
     path_y_pred = res['pred'].detach().cpu().numpy()
     path_t_pred = res['pred_t']
@@ -915,6 +943,17 @@ def plot_one_path_with_pred(
             print(np.sum(path_var_pred < 0), " out of ", path_var_pred.reshape(-1).shape[0], " values")
             path_var_pred = np.maximum(0, path_var_pred)
         path_std_pred = np.sqrt(path_var_pred)
+
+        if (output_vars is not None) and ('var' in output_vars):
+            which = np.argmax(np.array(functions) == 'var')
+            path_var_2_pred = path_y_pred[:, :, (dim * which):(dim * (which + 1))]
+            if np.any(path_var_2_pred < 0):
+                print('WARNING: some predicted cond. variances 2 below 0 -> clip')
+                print(np.sum(path_var_2_pred < 0), " out of ", path_var_2_pred.reshape(-1).shape[0], " values")
+                path_var_2_pred = np.maximum(0, path_var_2_pred)
+            path_std_2_pred = np.sqrt(path_var_2_pred)
+        else:
+            path_std_2_pred = None
     else:
         plot_variance = False
     if use_cond_exp:
@@ -972,7 +1011,7 @@ def plot_one_path_with_pred(
                     path_t_pred,
                     path_y_pred[:, i, j] - std_factor * path_std_pred[:, i, j],
                     path_y_pred[:, i, j] + std_factor * path_std_pred[:, i, j],
-                    color=std_color)
+                    label=model_name + " derived variance", color=std_color)
             if use_cond_exp:
                 axs[j].plot(path_t_true, path_y_true[:, i, j],
                             label='true conditional expectation',
@@ -982,7 +1021,7 @@ def plot_one_path_with_pred(
                     path_t_true,
                     path_y_true[:, i, j] - std_factor * path_y_std_true[:, i, j],
                     path_y_true[:, i, j] + std_factor * path_y_std_true[:, i, j],
-                    color=true_std_color)
+                    label='true conditional variance', color=true_std_color)
 
             if plot_obs_prob and dataset_metadata is not None:
                 ax2 = axs[j].twinx()
@@ -1014,6 +1053,84 @@ def plot_one_path_with_pred(
         plt.savefig(save, **save_extras)
         plt.close()
 
+        if plot_variance:
+            if path_std_2_pred is not None:
+                fig, axs = plt.subplots(dim)
+                if dim == 1:
+                    axs = [axs]
+                for j in range(dim):
+                    # get the true_X at observed dates
+                    path_t_obs = []
+                    path_X_obs = []
+                    for k, od in enumerate(observed_dates[i]):
+                        if od == 1:
+                            if true_M is None or (true_M is not None and
+                                                true_M[i, j, k]==1):
+                                path_t_obs.append(path_t_true_X[k])
+                                path_X_obs.append(true_X[i, j, k])
+                    path_t_obs = np.array(path_t_obs)
+                    path_X_obs = np.array(path_X_obs)
+
+                    axs[j].plot(path_t_true_X, true_X[i, j, :], label='true path',
+                                color=colors[0])
+                    axs[j].scatter(path_t_obs, path_X_obs, label='observed',
+                                color=colors[0])
+                    axs[j].plot(path_t_pred, path_y_pred[:, i, j],
+                                label=model_name, color=colors[1])
+                    if plot_variance:
+                        # axs[j].plot(
+                        #     path_t_pred,
+                        #     path_y_pred[:, i, j] + std_factor*path_std_pred[:, i, j],
+                        #     color=colors[1])
+                        # axs[j].plot(
+                        #     path_t_pred,
+                        #     path_y_pred[:, i, j] - std_factor*path_std_pred[:, i, j],
+                        #     color=colors[1])
+                        axs[j].fill_between(
+                            path_t_pred,
+                            path_y_pred[:, i, j] - std_factor * path_std_2_pred[:, i, j],
+                            path_y_pred[:, i, j] + std_factor * path_std_2_pred[:, i, j],
+                            label=model_name + " direct variance", color=std_color)
+                    if use_cond_exp:
+                        axs[j].plot(path_t_true, path_y_true[:, i, j],
+                                    label='true conditional expectation',
+                                    linestyle=':', color=colors[2])
+                        if plot_variance:
+                            axs[j].fill_between(
+                            path_t_true,
+                            path_y_true[:, i, j] - std_factor * path_y_std_true[:, i, j],
+                            path_y_true[:, i, j] + std_factor * path_y_std_true[:, i, j],
+                            label='true conditional variance', color=true_std_color)
+
+                    if plot_obs_prob and dataset_metadata is not None:
+                        ax2 = axs[j].twinx()
+                        if "X_dependent_observation_prob" in dataset_metadata:
+                            prob_f = eval(
+                                dataset_metadata["X_dependent_observation_prob"])
+                            obs_perc = prob_f(true_X[:, :, :])[i]
+                        else:
+                            obs_perc = dataset_metadata['obs_perc']
+                            obs_perc = np.ones_like(path_t_true_X) * obs_perc
+                        ax2.plot(path_t_true_X, obs_perc, color="red",
+                                label="observation probability")
+                        ax2.set_ylim(-0.1, 1.1)
+                        ax2.set_ylabel("observation probability")
+                        axs[j].set_ylabel("X")
+                        ax2.legend()
+                    if ylabels:
+                        axs[j].set_ylabel(ylabels[j])
+                    if same_yaxis:
+                        low = np.min(true_X[i, :, :])
+                        high = np.max(true_X[i, :, :])
+                        eps = (high - low)*0.05
+                        axs[j].set_ylim([low-eps, high+eps])
+
+
+                axs[-1].legend()
+                plt.xlabel('$t$')
+                save = os.path.join(save_path, filename.format('{}_var'.format(i)))
+                plt.savefig(save, **save_extras)
+                plt.close()
     
         if plot_moments:
             for m in range(2,10):

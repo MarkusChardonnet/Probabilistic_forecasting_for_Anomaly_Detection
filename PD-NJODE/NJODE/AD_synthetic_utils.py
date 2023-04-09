@@ -55,7 +55,7 @@ class Season_NN(torch.nn.Module):
         for l in self.ffnn:
             if isinstance(l, torch.nn.Linear):
                 # torch.nn.init.uniform_(l.weight,-1.,1.)
-                torch.nn.init.normal_(l.weight,0.,1.)
+                torch.nn.init.normal_(l.weight,-0.1,0.1)
     
     def save(self, path):
         torch.save(self.state_dict(), path)

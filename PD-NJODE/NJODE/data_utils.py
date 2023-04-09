@@ -811,7 +811,7 @@ def _get_X_with_func_appl(X, functions, axis):
     return Y
 
 
-def CustomCollateFnGen(func_names=None, obs_perc = None):
+def CustomCollateFnGen(func_names=None, obs_perc = None, scaling_factor = 1):
     """
     a function to get the costume collate function that can be used in
     torch.DataLoader with the wanted functions applied to the data as new
@@ -899,9 +899,9 @@ def CustomCollateFnGen(func_names=None, obs_perc = None):
             M = torch.tensor(M, dtype=torch.float32)
         res = {'times': np.array(times), 'time_ptr': np.array(time_ptr),
                'obs_idx': torch.tensor(obs_idx, dtype=torch.long),
-               'start_X': start_X, 'n_obs_ot': nb_obs,
-               'X': torch.tensor(np.array(X), dtype=torch.float32),
-               'true_paths': stock_paths, 'observed_dates': observed_dates,
+               'start_X': scaling_factor * start_X, 'n_obs_ot': nb_obs,
+               'X': scaling_factor * torch.tensor(np.array(X), dtype=torch.float32),
+               'true_paths': scaling_factor * stock_paths, 'observed_dates': observed_dates,
                'true_mask': mask, 'ad_labels': ad_labels,
                'M': M, 'start_M': start_M}
         return res

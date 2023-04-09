@@ -36,12 +36,31 @@ The probabilistic forecasting is based on the PD-NJODE framework. This framework
     ```
 
 ### Training the probabilistic forecasting module
+
+Important flags:
+
+- **params**: name of the params list (defined in config.py) to use for parallel run
+- **NB_JOBS**: nb of parallel jobs to run with joblib
+- **USE_GPU**: whether to use GPU for training
+- **NB_CPUS**: nb of CPUs used by each training
+- **saved_models_path**: path where the models are saved
+
 - Training with PD-NJODE on the sythetic data :
     ```bash
     cd PD-NJODE/NJODE
-    python run.py --params=param_list_AD_OrnsteinUhlenbeckWithSeason_3 --NB_JOBS=4 --SEND=0 --USE_GPU=True --get_overview=overview_dict_AD_OrnsteinUhlenbeckWithSeason_3
+    python run.py --params=param_list_AD_OrnsteinUhlenbeckWithSeason_3 --NB_JOBS=1 --USE_GPU=True --get_overview=overview_dict_AD_OrnsteinUhlenbeckWithSeason_3
     ```
 
-### Training the Anomaly detection modules on data with ingested anomalies
+### Training / Evaluating the Anomaly detection modules on data with ingested anomalies
 
-### Evaluating the Anomaly Detection pipeline
+Important flags:
+
+- **ad_params**: name of the anomaly deteaction params list (defined in config.py)
+- **forecast_saved_models_path**: path where the forecast models are saved
+- **forecast_model_ids**: List of forecast model ids to run
+
+- Training and Evaluating the Anomaly Detection Module on synthetic data :
+    ```bash
+    cd PD-NJODE/NJODE
+    python run.py --forecast_model_ids=[0] --forecast_saved_models_path=../data/saved_models_AD_OrnsteinUhlenbeckWithSeason/ --ad_params=param_dict_AD_modules
+    ```

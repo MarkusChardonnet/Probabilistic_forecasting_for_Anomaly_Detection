@@ -6,6 +6,7 @@ implementation of the model for NJ-ODE
 
 # =====================================================================================================================
 import torch
+import torch.nn.functional as F
 import numpy as np
 import os
 import sys
@@ -13,6 +14,7 @@ import iisignature as sig
 import copy as copy
 import sklearn
 import scipy.linalg
+import matplotlib.pyplot as plt
 
 import data_utils
 
@@ -67,6 +69,30 @@ def get_ckpt_model(ckpt_path, model, optimizer, device):
     if 'retrain_epoch' in checkpt:
         model.retrain_epoch = checkpt['retrain_epoch']
     model.to(device)
+
+def compute_loss_ad_var2(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
+                   weight=0.5, M_obs=None, output_vars=None):
+    assert('id' in output_vars and 'var' in output_vars)
+    dim = int(Y_obs.shape[1] / len(output_vars))
+    idx_id = np.argmax(np.array(output_vars) == 'id')
+    idx_id = np.arange(idx_id*dim,(idx_id+1)*dim)
+    idx_var = np.argmax(np.array(output_vars) == 'var')
+    idx_var = np.arange(idx_var*dim,(idx_var+1)*dim)
+
+    weights = torch.tensor([weight,weight,1-weight,weight])
+
+    if M_obs is None:
+
+        inner = (weights[0] * torch.sqrt(torch.sum((X_obs[:,idx_id] - Y_obs[:,idx_id]) ** 2, dim=1) + eps) +
+                 weights[1] * torch.sqrt(torch.sum((Y_obs_bj[:,idx_id] - X_obs[:,idx_id]) ** 2, dim=1) + eps)) ** 2
+        inner += (weights[2] * torch.sum((Y_obs_bj[:,idx_var] - (Y_obs_bj[:,idx_id].detach() - X_obs[:,idx_id]) ** 2) ** 2, dim=1) + eps)
+        inner += (weights[3] * torch.sum((Y_obs[:,idx_var]) ** 2, dim=1) + eps)
+
+    else:
+        NotImplementedError
+
+    outer = torch.sum(inner / n_obs_ot)
+    return outer / batch_size
 
 
 def compute_loss(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
@@ -126,6 +152,20 @@ def compute_loss_2(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
     return outer / batch_size
 
 
+def compute_loss_2_bis(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
+                   weight=0.5, M_obs=None, output_vars=None):
+    """
+    similar to compute_loss, but using X_obs also in second part of loss
+    instead of Y_obs
+    """
+    if M_obs is None:
+        inner = 2*weight * torch.sum((X_obs - Y_obs) ** 2, dim=1) + 2*(1 - weight) * torch.sum((Y_obs_bj - X_obs) ** 2, dim=1)
+    else:
+        NotImplementedError
+    outer = torch.sum(inner / n_obs_ot)
+    return outer / batch_size
+
+
 def compute_loss_3(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
                    weight=0.5, M_obs=None, output_vars=None):
     """
@@ -159,144 +199,100 @@ def compute_loss_3(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
     outer = torch.sum(inner / n_obs_ot)
     return outer / batch_size
 
-'''def compute_loss_ad(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
-                   weight=0.5, M_obs=None, output_vars=None):
-    assert('id' in output_vars and 'power-2' in output_vars)
-    dim = int(X_obs.shape[1] / len(output_vars))
-    idx_id = np.argmax(np.array(output_vars) == 'id')
-    idx_id = np.arange(idx_id*dim,(idx_id+1)*dim)
-    idx_power2 = np.argmax(np.array(output_vars) == 'power-2')
-    idx_power2 = np.arange(idx_power2*dim,(idx_power2+1)*dim)
-
-    if M_obs is None:
-
-        inner = (torch.sqrt(torch.sum((X_obs[:,idx_id] - Y_obs[:,idx_id]) ** 2, dim=1) + eps) +
-                 torch.sqrt(torch.sum((Y_obs_bj[:,idx_id] - X_obs[:,idx_id]) ** 2, dim=1) + eps)) ** 2
-        inner += (torch.sqrt(torch.sum((X_obs[:,idx_power2] - Y_obs[:,idx_power2]) ** 2, dim=1) + eps) +
-                 torch.sqrt(torch.sum((Y_obs_bj[:,idx_power2] - X_obs[:,idx_power2]) ** 2, dim=1) + eps)) ** 2
-        
-        inner += (torch.sqrt(torch.sum(((X_obs[:,idx_id] - Y_obs_bj[:,idx_id].detach()) ** 2 - (Y_obs_bj[:,idx_power2] - Y_obs_bj[:,idx_id].detach() ** 2)) ** 2, dim=1) + eps) +
-                 torch.sqrt(torch.sum(((X_obs[:,idx_id] - Y_obs[:,idx_id].detach()) ** 2 - (Y_obs[:,idx_power2] - Y_obs[:,idx_id].detach() ** 2)) ** 2, dim=1) + eps)) ** 2
-
-    else:
-        NotImplementedError
-
-    outer = torch.sum(inner / n_obs_ot)
-    return outer / batch_size'''
-
 def compute_loss_ad(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
                    weight=0.5, M_obs=None, output_vars=None):
     assert('id' in output_vars and 'power-2' in output_vars)
-    dim = int(X_obs.shape[1] / len(output_vars))
+    dim = int(Y_obs.shape[1] / len(output_vars))
     idx_id = np.argmax(np.array(output_vars) == 'id')
     idx_id = np.arange(idx_id*dim,(idx_id+1)*dim)
     idx_power2 = np.argmax(np.array(output_vars) == 'power-2')
     idx_power2 = np.arange(idx_power2*dim,(idx_power2+1)*dim)
     idx_tot = np.concatenate([idx_id, idx_power2],axis=0)
 
-    if M_obs is None:
+    weight_2nd_mom = 1-weight
+    weight_var = weight_2nd_mom * 3.
+    weight_pos_var = weight_2nd_mom / 25.
+    weights = torch.tensor([1,
+                            1,
+                            weight_2nd_mom,
+                            weight_2nd_mom,
+                            weight_var,
+                            weight_pos_var])
 
-        '''inner = (torch.sqrt(torch.sum((X_obs[:,idx_id] - Y_obs[:,idx_id]) ** 2, dim=1) + eps) +
-                 torch.sqrt(torch.sum((Y_obs_bj[:,idx_id] - X_obs[:,idx_id]) ** 2, dim=1) + eps)) ** 2
-        inner += (torch.sqrt(torch.sum((X_obs[:,idx_power2] - Y_obs[:,idx_power2]) ** 2, dim=1) + eps) +
-                 torch.sqrt(torch.sum((Y_obs_bj[:,idx_power2] - X_obs[:,idx_power2]) ** 2, dim=1) + eps)) ** 2
+    outer = 0
+
+    if M_obs is None:
+        # fitting true conditional expectation
+        inner = weights[0] * torch.sum((X_obs[:,idx_id] - Y_obs[:,idx_id]) ** 2, dim=1)
+        inner += weights[1] * torch.sum((Y_obs_bj[:,idx_id] - X_obs[:,idx_id]) ** 2, dim=1)
+        # fitting true conditional expectation squared
+        inner += weights[2] * torch.sum((X_obs[:,idx_power2] - Y_obs[:,idx_power2]) ** 2, dim=1)
+        inner += weights[3] * torch.sum((Y_obs_bj[:,idx_power2] - X_obs[:,idx_power2]) ** 2, dim=1)
+        # calibrating true conditional expectation and expectation squared with each other
+        inner += weights[4] * torch.sum(((X_obs[:,idx_id] - Y_obs_bj[:,idx_id].detach()) ** 2 - 
+                                                    (Y_obs_bj[:,idx_power2] - Y_obs_bj[:,idx_id].detach() ** 2)) ** 2, dim=1)
         
-        inner += torch.sum(((X_obs[:,idx_id] - Y_obs_bj[:,idx_id].detach()) ** 2 - (Y_obs_bj[:,idx_power2] - Y_obs_bj[:,idx_id].detach() ** 2)) ** 2, dim=1)'''
-
-        inner = (torch.sqrt(torch.sum((X_obs[:,idx_tot] - Y_obs[:,idx_tot]) ** 2, dim=1) + eps) +
-                 torch.sqrt(torch.sum((Y_obs_bj[:,idx_tot] - X_obs[:,idx_tot]) ** 2, dim=1) + eps) + 
-                 torch.sqrt(torch.sum(((X_obs[:,idx_id] - Y_obs_bj[:,idx_id].detach()) ** 2 - (Y_obs_bj[:,idx_power2] - Y_obs_bj[:,idx_id].detach() ** 2)) ** 2, dim=1))) ** 2
-
-    else:
-        NotImplementedError
-
-    outer = torch.sum(inner / n_obs_ot)
-    return outer / batch_size
-
-'''def compute_loss_ad_var(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
-                   weight=0.5, M_obs=None, output_vars=None):
-    assert('id' in output_vars and 'power-2' in output_vars and 'var' in output_vars)
-    dim = int(X_obs.shape[1] / len(output_vars))
-    idx_id = np.argmax(np.array(output_vars) == 'id')
-    idx_id = np.arange(idx_id*dim,(idx_id+1)*dim)
-    idx_power2 = np.argmax(np.array(output_vars) == 'power-2')
-    idx_power2 = np.arange(idx_power2*dim,(idx_power2+1)*dim)
-    idx_var = np.argmax(np.array(output_vars) == 'var')
-    idx_var = np.arange(idx_var*dim,(idx_var+1)*dim)
-
-    if M_obs is None:
-
-        inner = (torch.sqrt(torch.sum((X_obs[:,idx_id] - Y_obs[:,idx_id]) ** 2, dim=1) + eps) +
-                 torch.sqrt(torch.sum((Y_obs_bj[:,idx_id] - X_obs[:,idx_id]) ** 2, dim=1) + eps)) ** 2
-        inner += (torch.sqrt(torch.sum((X_obs[:,idx_power2] - Y_obs[:,idx_power2]) ** 2, dim=1) + eps) +
-                 torch.sqrt(torch.sum((Y_obs_bj[:,idx_power2] - X_obs[:,idx_power2]) ** 2, dim=1) + eps)) ** 2
-        
-        inner += torch.sum((Y_obs_bj[:,idx_var] - Y_obs[:,idx_var]) ** 2, dim=1)
-
-        inner += (torch.sqrt(torch.sum((Y_obs_bj[:,idx_var] - (Y_obs_bj[:,idx_id].detach() - X_obs[:,idx_id]) ** 2) ** 2, dim=1) + eps) +
-                torch.sqrt(torch.sum((Y_obs[:,idx_var] - (Y_obs[:,idx_id].detach() - X_obs[:,idx_id]) ** 2) ** 2, dim=1) + eps)) ** 2
-
-        inner += (torch.sqrt(torch.sum((Y_obs_bj[:,idx_var] - (Y_obs_bj[:,idx_power2] - Y_obs_bj[:,idx_id].detach() ** 2)) ** 2, dim=1) + eps) +
-                 torch.sqrt(torch.sum((Y_obs[:,idx_var] - (Y_obs[:,idx_power2] - Y_obs[:,idx_id].detach() ** 2)) ** 2, dim=1) + eps)) ** 2
+        # enforging positive (derived) conditional variance
+        outer += weights[5] * torch.nn.SmoothL1Loss(beta=0.5)(F.relu((Y_obs_bj[:,idx_id].detach() ** 2).flatten() -Y_obs_bj[:,idx_power2].flatten()),
+                                                 torch.zeros(Y_obs_bj[:,idx_id].size(), device=Y_obs_bj.device).flatten())
+        # inner += weights[5] * torch.sum(F.relu((Y_obs_bj[:,idx_id].detach() ** 2) -Y_obs_bj[:,idx_power2]) ** 2, dim=1)
+        # inner += weights[5] * torch.sum(F.relu(Y_obs_bj[:,idx_id].detach() ** 2 - Y_obs_bj[:,idx_power2]), dim=1)
 
     else:
         NotImplementedError
 
-    outer = torch.sum(inner / n_obs_ot)
-    return outer / batch_size'''
-
-def compute_loss_ad_var2(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
-                   weight=0.5, M_obs=None, output_vars=None):
-    assert('id' in output_vars and 'var' in output_vars)
-    dim = int(X_obs.shape[1] / len(output_vars))
-    idx_id = np.argmax(np.array(output_vars) == 'id')
-    idx_id = np.arange(idx_id*dim,(idx_id+1)*dim)
-    idx_var = np.argmax(np.array(output_vars) == 'var')
-    idx_var = np.arange(idx_var*dim,(idx_var+1)*dim)
-
-    var_weight = 0.1
-
-    if M_obs is None:
-
-        inner = (torch.sqrt(torch.sum((X_obs[:,idx_id] - Y_obs[:,idx_id]) ** 2, dim=1) + eps) +
-                 torch.sqrt(torch.sum((Y_obs_bj[:,idx_id] - X_obs[:,idx_id]) ** 2, dim=1) + eps) +
-                 var_weight * torch.sqrt(torch.sum((Y_obs_bj[:,idx_var] - (Y_obs_bj[:,idx_id].detach() - X_obs[:,idx_id]) ** 2) ** 2, dim=1) + eps) +
-                torch.sqrt(torch.sum((Y_obs[:,idx_var]) ** 2, dim=1) + eps)) ** 2
-
-    else:
-        NotImplementedError
-
-    outer = torch.sum(inner / n_obs_ot)
+    outer += torch.sum(inner / n_obs_ot)
     return outer / batch_size
 
 def compute_loss_ad_var(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
                    weight=0.5, M_obs=None, output_vars=None):
     assert('id' in output_vars and 'power-2' in output_vars and 'var' in output_vars)
-    dim = int(X_obs.shape[1] / len(output_vars))
+    dim = int(Y_obs.shape[1] / len(output_vars))
     idx_id = np.argmax(np.array(output_vars) == 'id')
     idx_id = np.arange(idx_id*dim,(idx_id+1)*dim)
     idx_power2 = np.argmax(np.array(output_vars) == 'power-2')
     idx_power2 = np.arange(idx_power2*dim,(idx_power2+1)*dim)
     idx_var = np.argmax(np.array(output_vars) == 'var')
     idx_var = np.arange(idx_var*dim,(idx_var+1)*dim)
+    idx_tot = np.concatenate([idx_id, idx_power2],axis=0)
 
-    var_weight = 0.1
+    weight_2nd_mom = 1-weight
+    weight_pos_var = weight_2nd_mom / 25.
+    weights = torch.tensor([1,
+                            1,
+                            weight_2nd_mom,
+                            weight_2nd_mom,
+                            weight_2nd_mom,
+                            weight_2nd_mom,
+                            weight_2nd_mom,
+                            1,])
+    
+    outer = 0
 
     if M_obs is None:
 
-        inner = (torch.sqrt(torch.sum((X_obs[:,idx_id] - Y_obs[:,idx_id]) ** 2, dim=1) + eps) +
-                 torch.sqrt(torch.sum((Y_obs_bj[:,idx_id] - X_obs[:,idx_id]) ** 2, dim=1) + eps)) ** 2
-        inner += (torch.sqrt(torch.sum((X_obs[:,idx_power2] - Y_obs[:,idx_power2]) ** 2, dim=1) + eps) +
-                 torch.sqrt(torch.sum((Y_obs_bj[:,idx_power2] - X_obs[:,idx_power2]) ** 2, dim=1) + eps)) ** 2
+        # fitting true conditional expectation
+        inner = weights[0] * torch.sum((X_obs[:,idx_id] - Y_obs[:,idx_id]) ** 2, dim=1)
+        inner += weights[1] * torch.sum((Y_obs_bj[:,idx_id] - X_obs[:,idx_id]) ** 2, dim=1)
+        # fitting true conditional expectation squared
+        inner += weights[2] * torch.sum((X_obs[:,idx_power2] - Y_obs[:,idx_power2]) ** 2, dim=1)
+        inner += weights[3] * torch.sum((Y_obs_bj[:,idx_power2] - X_obs[:,idx_power2]) ** 2, dim=1)
+        # fitting true conditional variance (with respect to conditional expectation and expectation squared)
+        inner += weights[4] * torch.sum((Y_obs_bj[:,idx_var] - (Y_obs_bj[:,idx_id].detach() - X_obs[:,idx_id]) ** 2) ** 2, dim=1)
+        inner += weights[5] * torch.sum((Y_obs_bj[:,idx_var] - (Y_obs_bj[:,idx_power2] - Y_obs_bj[:,idx_id].detach() ** 2)) ** 2, dim=1)
+        # enforcing conditional variance positiveness
+        # inner += weights[7] * torch.sum(F.relu(- Y_obs_bj[:,idx_var]) ** 2, dim=1)
 
-        inner += var_weight * (torch.sqrt(torch.sum((Y_obs_bj[:,idx_var] - (Y_obs_bj[:,idx_id].detach() - X_obs[:,idx_id]) ** 2) ** 2, dim=1) + eps) +
-                torch.sqrt(torch.sum((Y_obs_bj[:,idx_var] - (Y_obs_bj[:,idx_power2].detach() - Y_obs_bj[:,idx_id].detach() ** 2)) ** 2, dim=1) + eps) + 
-                torch.sqrt(torch.sum((Y_obs[:,idx_var]) ** 2, dim=1) + eps)) ** 2
+        # enforcing zero conditional variance at observations
+        inner += weights[6] * torch.sum(Y_obs[:,idx_var] ** 2, dim=1)
+        # inner += weights[6] * torch.sum(torch.abs(Y_obs[:,idx_var]), dim=1)
+        # outer += weights[6] * torch.nn.SmoothL1Loss(beta=0.05)(Y_obs[:,idx_var].flatten(),
+        #                                        torch.zeros(Y_obs[:,idx_var].size(), device=Y_obs_bj.device).flatten())
 
     else:
         NotImplementedError
 
-    outer = torch.sum(inner / n_obs_ot)
+    outer += torch.sum(inner / n_obs_ot)
     return outer / batch_size
 
 LOSS_FUN_DICT = {
@@ -304,7 +300,9 @@ LOSS_FUN_DICT = {
     # weight=0.5, M_obs=None, output_vars=None)
     'standard': compute_loss,
     'easy': compute_loss_2,
+    'easy_bis': compute_loss_2_bis,
     'abs': compute_loss_3,
+    
     'ad': compute_loss_ad,
     'ad_var': compute_loss_ad_var,
     'ad_var2': compute_loss_ad_var2,
@@ -374,26 +372,73 @@ class ODEFunc(torch.nn.Module):
             self.sc_fun = torch.tanh
             print("neuralODE use input scaling with tanh")
 
+        self.input_features = {
+            "last X": np.array([]),
+            "hidden H": np.array([]),
+            "tau": np.array([]),
+            "t-tau": np.array([]),
+            "cos(t),sin(t)": np.array([]),
+            "signature": np.array([]),
+        }
+        self.save_features = False
+
+        self.weight_corres = [("last X", input_size), ("hidden H", hidden_size)]
         # create feed-forward NN, f(H,X,tau,t-tau)
         if coord_wise_tau:
             add = 2*input_size
+            self.weight_corres.append(("tau", input_size))
+            self.weight_corres.append(("t difference", input_size))
         else:
             add = 2
+            self.weight_corres.append(("tau", 1))
+            self.weight_corres.append(("t-tau", 1))
         if input_current_t:
             if coord_wise_tau:
                 add += 2*input_size
+                self.weight_corres.append(("cos(t),sin(t)", 2*input_size))
             else:
                 add += 2
+                self.weight_corres.append(("cos(t),sin(t)", 2))
         if input_sig:
             add += sig_depth
+            self.weight_corres.append(("signature", sig_depth))
         self.f = get_ffnn(  # get a feedforward NN with the given specifications
             input_size=input_size + hidden_size + add, output_size=hidden_size,
             nn_desc=ode_nn, dropout_rate=dropout_rate, bias=bias
         )
 
+    def plot_input_weights(self, path=None):
+        input_weights = self.state_dict()['f.0.weight'].clone().detach().cpu()
+        counter = 0
+        weight_dict = {}
+        for name, nb in self.weight_corres:
+            weights = input_weights[:,counter:counter+nb]
+            counter += nb
+            name_dict = name + '\n({} fea.)'.format(nb)
+            weight_dict[name_dict] = np.abs(np.array(weights).reshape(-1))
+        fig, ax = plt.subplots()
+        ax.boxplot(weight_dict.values())
+        ax.set_xticklabels(weight_dict.keys())
+        ax.set_title("Boxplot of ODE NN input features")
+        plt.savefig(path)
+
+    def input_features_save_and_reset(self, path):
+        if self.save_features:
+            fig, ax = plt.subplots()
+            ax.boxplot(self.input_features.values())
+            ax.set_xticklabels(self.input_features.keys())
+            ax.set_title("Boxplot of ODE NN input feature weights")
+            plt.savefig(path)
+            # for key in self.input_features:
+            #     self.input_features[key] = np.array([])
+            self.input_features = None
+            self.save_features = False
+
     def forward(self, x, h, tau, tdiff, signature=None):
         # dimension should be (batch, input_size) for x, (batch, hidden) for h, 
         #    (batch, 1) for times
+
+        time = None
         if self.input_current_t:
             if self.t_period is None:
                 if self.input_sig:
@@ -424,6 +469,17 @@ class ODEFunc(torch.nn.Module):
                 input_f = torch.cat(
                     [self.sc_fun(x), self.sc_fun(h), tau, tdiff], dim=1)
         df = self.f(input_f)
+
+        if self.save_features:
+            self.input_features["last X"] = np.concatenate([self.input_features["last X"], np.abs(x.clone().detach().cpu().numpy().reshape(-1))],axis=0)
+            self.input_features["hidden H"] = np.concatenate([self.input_features["hidden H"], np.abs(h.clone().detach().cpu().numpy().reshape(-1))],axis=0)
+            self.input_features["tau"] = np.concatenate([self.input_features["tau"], np.abs(tau.clone().detach().cpu().numpy().reshape(-1))],axis=0)
+            self.input_features["t-tau"] = np.concatenate([self.input_features["t-tau"], np.abs(tdiff.clone().detach().cpu().numpy().reshape(-1))],axis=0)
+            if signature is not None:
+                self.input_features["signature"] = np.concatenate([self.input_features["signature"], np.abs(signature.clone().detach().cpu().numpy().reshape(-1))],axis=0)
+            if time is not None:
+                self.input_features["cos(t),sin(t)"] = np.concatenate([self.input_features["cos(t),sin(t)"], np.abs(time.clone().detach().cpu().numpy().reshape(-1))],axis=0)
+
         return df
 
 
@@ -494,6 +550,7 @@ class FFNN(torch.nn.Module):
         self.ffnn = get_ffnn(
             input_size=in_size, output_size=output_size,
             nn_desc=nn_desc, dropout_rate=dropout_rate, bias=bias)
+
 
         if residual and not self.recurrent and not self.use_lstm:
             print('use residual network: input_size={}, output_size={}'.format(
@@ -690,6 +747,25 @@ class NJODE(torch.nn.Module):
             input_size=hidden_size, output_size=output_size, nn_desc=readout_nn,
             dropout_rate=dropout_rate, bias=bias,
             residual=self.residual_enc_dec, clamp=self.clamp)
+        
+        if 'add_readout_activation' in options1 and output_vars is not None:
+            self.add_readout_act = True
+            if options1['add_readout_activation'][0] == 'elu':
+                self.readout_act = torch.nn.ELU()
+            if options1['add_readout_activation'][0] == 'identity':
+                self.readout_act = torch.nn.Identity()
+            dim = int(output_size / len(output_vars))
+            readout_act_idx = []
+            if list(set(output_vars) & set(options1['add_readout_activation'][1])) == 0:
+                self.add_readout_act = False
+            for var in options1['add_readout_activation'][1]:
+                if var in output_vars:
+                    which = np.argmax(np.array(output_vars) == var)
+                    readout_act_idx = readout_act_idx + list(np.arange(dim * which, dim * (which+1)))
+            self.readout_act_idx = torch.tensor(readout_act_idx)
+        else:
+            self.add_readout_act = False
+
         self.get_classifier(classifier_dict=classifier_dict)
 
         self.solver = solver
@@ -712,8 +788,10 @@ class NJODE(torch.nn.Module):
             self.CEL = torch.nn.CrossEntropyLoss()
 
     def weight_decay_step(self):
-        inc = (self.weight - 0.5)
-        self.weight = 0.5 + inc * self.weight_decay
+        # inc = (self.weight - 0.5)
+        # self.weight = 0.5 + inc * self.weight_decay
+        self.weight *= self.weight_decay
+        print("New loss weight : " + str(self.weight_decay))
         return self.weight
 
     def ode_step(self, h, delta_t, current_time, last_X, tau, signature=None):
@@ -838,17 +916,23 @@ class NJODE(torch.nn.Module):
         if which_loss is None:
             which_loss = self.which_loss
 
+        if delta_t is None:
+            delta_t = self.delta_t
+        assert(delta_t is not None)
+
+        nb_steps = len(steps)
+        max_steps = max(steps)
+
         last_X = start_X
         batch_size = start_X.size()[0]
         data_dim = start_X.size()[1]
         if dim_to is None:
-            dim_to = data_dim
+            dim_to = self.output_size
         if self.coord_wise_tau:
-            tau = torch.tensor([[0.0]]).repeat(batch_size, data_dim)
+            tau = torch.tensor([[0.0]]).repeat(batch_size, data_dim).to(self.device)
         else:
-            tau = torch.tensor([[0.0]]).repeat(batch_size, 1)
+            tau = torch.tensor([[0.0]]).repeat(batch_size, 1).to(self.device)
         current_time = 0.0
-        project_time = 0.0
         loss = 0
         c_sig = None
 
@@ -878,12 +962,11 @@ class NJODE(torch.nn.Module):
 
         h = self.encoder_map(
             start_X, mask=start_M, sig=c_sig,
-            h=torch.zeros((batch_size, self.hidden_size)),
-            t=torch.cat((tau, current_time - tau), dim=1))
+            h=torch.zeros((batch_size, self.hidden_size)).to(self.device),
+            t=torch.cat((tau, self.scale_dt * (current_time - tau)), dim=1)).to(self.device)
 
-        path_t = [[] for i in range(steps)]
-        # path_h = []
-        path_y = [[] for i in range(steps)]
+        path_t = [[] for i in range(nb_steps)]
+        path_y = [[] for i in range(nb_steps)]
         h_at_last_obs = h.clone()
         sig_at_last_obs = c_sig
 
@@ -902,14 +985,16 @@ class NJODE(torch.nn.Module):
                         signature=c_sig)
                 else:
                     raise NotImplementedError
-                
-            path_t[0].append(current_time)
-            path_y[0].append(self.readout_map(h))
+            s = 0
+            if 1 in steps:
+                path_t[0].append(current_time)
+                path_y[0].append(self.apply_readout_map(h))
+                s += 1
 
             proj_h = h
             project_time = current_time
-            if i+steps-1 < len(times):
-                fut_obs_time = times[i+steps-1]
+            if i + max_steps - 1 < len(times):
+                fut_obs_time = times[i+max_steps-1]
             else:
                 fut_obs_time = times[-1]
             c = 1
@@ -925,8 +1010,10 @@ class NJODE(torch.nn.Module):
                 else:
                     raise NotImplementedError
                 
-                path_t[c].append(project_time)
-                path_y[c].append(self.readout_map(proj_h))
+                if c in steps:
+                    path_t[s].append(project_time)
+                    path_y[s].append(self.apply_readout_map(proj_h))
+                    s += 1
                 c += 1
 
                 # Storing the predictions.
@@ -942,7 +1029,7 @@ class NJODE(torch.nn.Module):
             i_obs = obs_idx[start:end]
             if self.masked:
                 if isinstance(M, np.ndarray):
-                    M_obs = torch.from_numpy(M[start:end])
+                    M_obs = torch.from_numpy(M[start:end]).to(self.device)
                 else:
                     M_obs = M[start:end]
             else:
@@ -953,10 +1040,10 @@ class NJODE(torch.nn.Module):
                 for j in i_obs:
                     current_sig[j, :] = signature[j][current_sig_nb[j]]
                 current_sig_nb[i_obs] += 1
-                c_sig = torch.from_numpy(current_sig).float()
+                c_sig = torch.from_numpy(current_sig).float().to(self.device)
 
             # Using RNNCell to update h. Also updating loss, tau and last_X
-            Y_bj = self.readout_map(h)
+            Y_bj = self.apply_readout_map(h)
             X_obs_impute = X_obs
             temp = h.clone()
             if self.masked:
@@ -969,11 +1056,11 @@ class NJODE(torch.nn.Module):
             #     h[:, self.hidden_size//2:] = self.c_
             temp[i_obs.long()] = self.encoder_map(
                 X_obs_impute, mask=M_obs, sig=c_sig_iobs, h=h[i_obs],
-                t=torch.cat((tau[i_obs], current_time - tau[i_obs]), dim=1))
+                t=torch.cat((tau[i_obs], self.scale_dt * (current_time - tau[i_obs])), dim=1))
             h = temp
             # if self.encoder_map.use_lstm:
             #     self.c_ = torch.chunk(h.clone(), chunks=2, dim=1)[1]
-            Y = self.readout_map(h)
+            Y = self.apply_readout_map(h)
 
             # update h and sig at last observation
             h_at_last_obs[i_obs.long()] = h[i_obs.long()].clone()
@@ -984,7 +1071,7 @@ class NJODE(torch.nn.Module):
                     X_obs=X_obs[:, :dim_to], Y_obs=Y[i_obs.long(), :dim_to],
                     Y_obs_bj=Y_bj[i_obs.long(), :dim_to],
                     n_obs_ot=n_obs_ot[i_obs.long()], batch_size=batch_size,
-                    weight=self.weight, M_obs=M_obs)
+                    weight=self.weight, M_obs=M_obs, output_vars=self.output_vars)
 
             # make update of last_X and tau, that is not inplace 
             #    (otherwise problems in autograd)
@@ -1007,6 +1094,12 @@ class NJODE(torch.nn.Module):
         #            torch.stack(path_y)[:, :, :dim_to]
         return h, loss, [np.array(path_t[c]) for c in range(len(path_t))], \
                    [torch.stack(path_y[c])[:, :, :dim_to] for c in range(len(path_y))]
+    
+    def apply_readout_map(self, input):
+        x = self.readout_map(input)
+        if self.add_readout_act:
+            x[:,self.readout_act_idx] = self.readout_act(x[:,self.readout_act_idx]) + 1
+        return x
 
     def forward(self, times, time_ptr, X, obs_idx, delta_t, T, start_X,
                 n_obs_ot, return_path=False, get_loss=True, until_T=False,
@@ -1107,7 +1200,7 @@ class NJODE(torch.nn.Module):
         if return_path:
             path_t = [0]
             path_h = [h]
-            path_y = [self.readout_map(h)]
+            path_y = [self.apply_readout_map(h)]
         h_at_last_obs = h.clone()
         sig_at_last_obs = c_sig
 
@@ -1132,7 +1225,7 @@ class NJODE(torch.nn.Module):
                 if return_path:
                     path_t.append(current_time)
                     path_h.append(h)
-                    path_y.append(self.readout_map(h))
+                    path_y.append(self.apply_readout_map(h))
 
             # Reached an observation - only update those elements of the batch, 
             #    for which an observation is made
@@ -1156,7 +1249,7 @@ class NJODE(torch.nn.Module):
                 c_sig = torch.from_numpy(current_sig).float().to(self.device)
 
             # Using RNNCell to update h. Also updating loss, tau and last_X
-            Y_bj = self.readout_map(h)
+            Y_bj = self.apply_readout_map(h)
             X_obs_impute = X_obs
             temp = h.clone()
             if self.masked:
@@ -1173,7 +1266,7 @@ class NJODE(torch.nn.Module):
             h = temp
             # if self.encoder_map.use_lstm:
             #     self.c_ = torch.chunk(h.clone(), chunks=2, dim=1)[1]
-            Y = self.readout_map(h)
+            Y = self.apply_readout_map(h)
 
             # update h and sig at last observation
             h_at_last_obs[i_obs.long()] = h[i_obs.long()].clone()
@@ -1246,7 +1339,7 @@ class NJODE(torch.nn.Module):
                 if return_path:
                     path_t.append(current_time)
                     path_h.append(h)
-                    path_y.append(self.readout_map(h))
+                    path_y.append(self.apply_readout_map(h))
 
         if return_at_last_obs:
             return h_at_last_obs, sig_at_last_obs

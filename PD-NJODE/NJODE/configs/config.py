@@ -5,8 +5,9 @@ author: Florian Krach
 from configs.config_NJODE1 import *
 from configs.config_LOB import *
 from configs.config_AD import *
-from configs.config_AD_2 import *
-from configs.config_AD_anomalies import *
+from configs.config_AD_dataset import *
+from configs.config_AD_dataset_anomalies import *
+from configs.config_AD_model import *
 
 import numpy as np
 import socket

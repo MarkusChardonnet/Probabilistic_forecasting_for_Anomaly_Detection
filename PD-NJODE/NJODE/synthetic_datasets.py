@@ -9,6 +9,7 @@ from math import sqrt, exp, isnan, gamma
 import numpy as np
 import tqdm
 from scipy.integrate import quad
+from scipy.linalg import expm
 import matplotlib.pyplot as plt
 import copy, os, sys
 import pickle
@@ -393,7 +394,16 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
         self.get_season_generator(season_params)
 
         # to change
-        self.speed = speed
+        if speed is not None:
+            if isinstance(speed, float):
+                self.speed = speed * np.eye(self.dimensions)
+            if isinstance(speed, list) and isinstance(speed[0], float):
+                self.speed = np.array(speed) * np.eye(self.dimensions)
+            if isinstance(speed, list) and isinstance(speed[0], list):
+                self.speed = np.array(speed)
+            assert(self.speed.shape == (self.dimensions, self.dimensions))
+        else:
+            NotImplementedError
 
         if noise is not None:
             self.noise_type = noise['type']
@@ -507,13 +517,9 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
         if self.S0 is None:
             self.S0 = season_patterns[:,0]
 
-        '''def seasons(t):
-            return self.season_patterns[:,int(t*self.nb_steps/self.maturity)]
-        def anomalies(t):
-            return self.ad_labels[:,int(t*self.nb_steps/self.maturity)]'''
         self.seasons = lambda t: self.season_patterns[:,int(t*self.nb_steps/self.maturity)]
         self.anomalies = lambda t: self.ad_labels[:,int(t*self.nb_steps/self.maturity)]
-        self.drift = lambda x, t: - self.speed * self.periodic_coeff(t) * (x - self.seasons(t))
+        self.drift = lambda x, t: - self.periodic_coeff(t) * self.speed @ (x - self.seasons(t))
         self.diffusion = lambda x, t: self.volatility
         if self.noise_type == 'gaussian':
             def noise(x, t):
@@ -542,6 +548,11 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
 
         y = start_X
         batch_size = start_X.shape[0]
+        '''dim_obs = y.shape[1]
+        dim_tot = self.dimensions * len(functions)
+        if dim_obs != dim_tot:
+            y = np.concatenate([y, np.zeros((batch_size, dim_tot-dim_obs))],axis=1)'''
+
         current_time = 0.0
         if start_time:
             current_time = start_time
@@ -571,6 +582,8 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
                     delta_t_ = delta_t
                 else:
                     delta_t_ = obs_time - current_time
+
+                '''
                 y1 = y[:,:self.dimensions]
                 y1 = self.next_cond_exp(y1, delta_t_, current_time)
                 current_time = current_time + delta_t_
@@ -578,8 +591,10 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
                 cond_moments = self.cond_moments(cond_exp=y1, diff_t=diff_t, current_t=current_time, 
                                             functions=functions)
                 y = np.concatenate([y1,cond_moments], axis=1)
-                # print(cond_moments - np.power(y1,2))
-                # print("before jumps", np.sum((cond_moments - np.power(y1,2))<0))
+                '''
+                current_time = current_time + delta_t_
+                diff_t = current_time * np.ones(batch_size) - last_times
+                y = self.next_cond_moments(y, diff_t, delta_t, current_time, functions)
 
                 # Storing the conditional expectation
                 if return_path:
@@ -619,14 +634,21 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
                 delta_t_ = delta_t
             else:
                 delta_t_ = T - current_time
+            
+            '''
             y1 = y[:,:self.dimensions]
             y1 = self.next_cond_exp(y1, delta_t_, current_time)
             current_time = current_time + delta_t_
             diff_t = current_time * np.ones(batch_size) - last_times
+            
             cond_moments = self.cond_moments(cond_exp=y1, diff_t=diff_t, current_t=current_time, 
                                         functions=functions)
             y = np.concatenate([y1,cond_moments], axis=1)
-
+            '''
+            current_time = current_time + delta_t_
+            diff_t = current_time * np.ones(batch_size) - last_times
+            y = self.next_cond_moments(y, diff_t, delta_t, current_time, functions)
+            
             # Storing the predictions.
             if return_path:
                 path_t.append(current_time)
@@ -666,8 +688,48 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
             times, time_ptr, X, obs_idx, delta_t, T, start_X, n_obs_ot,
             return_path=True, get_loss=True, weight=weight, M=M, functions=functions)
         return loss
+
+    def next_cond_moments(self, y, diff_t, delta_t, current_t, functions):  # and in higher dimension ????
+
+        self.get_components()
+
+        nb_functions = len(functions)
+        dim = self.dimensions
+        batch_size = y.shape[0]
+
+        res = np.zeros((batch_size, dim * (nb_functions+1)))
+
+        factor = np.expand_dims(self.periodic_coeff(current_t) *  self.speed, axis=0)
+        diff_t = np.expand_dims(diff_t, axis=(1,2))
+        vol = np.diagonal(self.volatility @ np.transpose(self.volatility)).reshape(1, dim, dim)
+
+        
+        cond_exp_integral = delta_t * np.matmul(np.tile(factor, (batch_size, 1, 1)), 
+                                                np.tile(np.expand_dims(self.seasons(current_t),axis=(0,2)), 
+                                                        (batch_size, 1, 1))).reshape(batch_size,dim)
+
+        mat_diff_t = - np.tile(factor, (batch_size, 1, 1)) * np.tile(diff_t, (1, dim, dim))
+        exp_term_diff_t = np.concatenate([expm(m).reshape(1,dim,dim) for m in mat_diff_t], axis=0)
+        cond_var_add = np.matmul(np.matmul(exp_term_diff_t, np.tile(vol, (batch_size, 1, 1))), exp_term_diff_t.transpose((0,2,1)))
+        cond_var_add = delta_t * np.diagonal(cond_var_add, axis1=1, axis2=2)
+
+        mat_delta_t = - np.tile(factor, (batch_size, 1, 1)) * np.tile(np.array([delta_t]).reshape(1,1,1), (batch_size, dim, dim))
+        exp_term_delta_t = np.concatenate([expm(m).reshape(1,dim,dim) for m in mat_delta_t], axis=0)
+        prev_con_exp = y[:,:dim]
+        cond_exp = np.matmul(exp_term_delta_t, prev_con_exp.reshape(batch_size,dim,1)).reshape(batch_size,dim) + cond_exp_integral
+        res[:,:dim] = cond_exp
+
+        for i,f in enumerate(functions):
+            if f == "power-2":
+                cond_var = y[:,(i+1)*dim:(i+2)*dim] - np.power(prev_con_exp,2)
+                cond_var += cond_var_add
+                cond_exp_2 = cond_var + np.power(cond_exp, 2)
+                res[:,(i+1)*dim:(i+2)*dim] = cond_exp_2
+        return res
         
     def cond_moments(self, cond_exp, diff_t, current_t, functions):  # and in higher dimension ????
+        # if functions[0] == 'id':
+        #     functions = functions[1:]
         nb_moments = len(functions)
         dim = self.dimensions
         factor = self.speed * self.periodic_coeff(current_t)
@@ -683,6 +745,8 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
             if f == "power-2":
                 cond_exp_2 = cond_var + np.power(cond_exp, 2)
                 res[:,i*dim:(i+1)*dim] = cond_exp_2
+            # if f == "var":
+            #    res[:,i*dim:(i+1)*dim] = cond_var
         return res
 
     def next_cond_exp(self, y, delta_t, current_t): # dimension of self.speed, in case batch !!!
@@ -778,7 +842,7 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
 
             seasons = lambda t: season_patterns[:,int(t*self.nb_steps/self.maturity)]
             anomalies = lambda t: ad_labels[:,int(t*self.nb_steps/self.maturity)]
-            drift = lambda x, t: - self.speed * self.periodic_coeff(t) * (x - seasons(t))
+            drift = lambda x, t: - self.periodic_coeff(t) * self.speed @ (x - seasons(t))
 
             return drift, None, None, anomalies, None
         
@@ -845,7 +909,7 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
 
             seasons = lambda t: season_patterns[:,int(t*self.nb_steps/self.maturity)]
             anomalies = lambda t: ad_labels[:,int(t*self.nb_steps/self.maturity)]
-            drift = lambda x, t: - self.speed * self.periodic_coeff(t) * (x - seasons(t))
+            drift = lambda x, t: - self.periodic_coeff(t) * self.speed @ (x - seasons(t))
 
             return drift, None, None, anomalies, None
         
@@ -876,7 +940,7 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
 
             seasons = lambda t: season_patterns[:,int(t*self.nb_steps/self.maturity)]
             anomalies = lambda t: ad_labels[:,int(t*self.nb_steps/self.maturity)]
-            drift = lambda x, t: - self.speed * self.periodic_coeff(t) * (x - seasons(t))
+            drift = lambda x, t: - self.periodic_coeff(t) * self.speed @ (x - seasons(t))
 
             return drift, None, None, anomalies, None
         
@@ -894,12 +958,14 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
                     if cutoff_level_law == 'uniform':
                         c0, c1 = self.anomaly_params['cutoff_level_range']
                         cutoff_level = float(np.random.uniform(c0,c1,1))
+                    elif cutoff_level_law == 'current_level':
+                        cutoff_level = self.seasons(p[0])
                     season_patterns[j,p0:p1] = cutoff_level
                     ad_labels[j,p0:p1] = 1
 
             seasons = lambda t: season_patterns[:,int(t*self.nb_steps/self.maturity)]
             anomalies = lambda t: ad_labels[:,int(t*self.nb_steps/self.maturity)]
-            drift = lambda x, t: - self.speed * self.periodic_coeff(t) * (x - seasons(t))
+            drift = lambda x, t: - self.periodic_coeff(t) * self.speed @ (x - seasons(t))
 
             return drift, None, None, anomalies, None
         

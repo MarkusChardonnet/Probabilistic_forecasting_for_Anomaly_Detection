@@ -1,7 +1,11 @@
-AD_OrnsteinUhlenbeckWithSeason_3_deformation_dict = {
+from configs.config_AD_dataset import *
+
+# AD_OrnsteinUhlenbeckWithSeason_deformation_dict = AD_OrnsteinUhlenbeckWithSeason_3_dict
+
+AD_OrnsteinUhlenbeckWithSeason_deformation_dict = {
     'model_name': "AD_OrnsteinUhlenbeckWithSeason",
-    'nb_paths': 100, 'nb_steps': 400,
-    'dimension': 2, 'obs_perc': 1., 'S0': None,
+    'nb_paths': 1000, 'nb_steps': 400,
+    'dimension': 1, 'obs_perc': 1., 'S0': None,
     'maturity': 1., 'return_vol': False,
     'speed': 15., 
     'noise': {'type': "gaussian", 'cov': 0.0},
@@ -15,11 +19,11 @@ AD_OrnsteinUhlenbeckWithSeason_3_deformation_dict = {
         'seas_length': 200,
         'seas_nb': 2,
         'seas_type': 'NN',
-        'nn_layers': [(16, 'tanh'),(16, 'tanh')],
+        'nn_layers': [(16, 'relu'),(16, 'relu')],
         'nn_bias': True,
         'nn_input': (['cos', 'sin'], 1),
-        'new_seas': True,
-        'seas_path': "configs/models/AD_OrnsteinUhlenBeck_NN_season_3",
+        'new_seas': False,
+        'seas_path': "configs/models/AD_OrnsteinUhlenBeck_NN_season",
         'changing_seas': False,
     },
     'anomaly_params': {
@@ -36,10 +40,10 @@ AD_OrnsteinUhlenbeckWithSeason_3_deformation_dict = {
     }
 }
 
-AD_OrnsteinUhlenbeckWithSeason_3_diffusion_dict = {
+AD_OrnsteinUhlenbeckWithSeason_diffusion_dict = {
     'model_name': "AD_OrnsteinUhlenbeckWithSeason",
-    'nb_paths': 100, 'nb_steps': 400,
-    'dimension': 2, 'obs_perc': 1., 'S0': None,
+    'nb_paths': 1000, 'nb_steps': 400,
+    'dimension': 1, 'obs_perc': 1., 'S0': None,
     'maturity': 1., 'return_vol': False,
     'speed': 15., 
     'noise': {'type': "gaussian", 'cov': 0.0},
@@ -53,11 +57,11 @@ AD_OrnsteinUhlenbeckWithSeason_3_diffusion_dict = {
         'seas_length': 200,
         'seas_nb': 2,
         'seas_type': 'NN',
-        'nn_layers': [(16, 'tanh'),(16, 'tanh')],
+        'nn_layers': [(16, 'relu'),(16, 'relu')],
         'nn_bias': True,
         'nn_input': (['cos', 'sin'], 1),
-        'new_seas': True,
-        'seas_path': "configs/models/AD_OrnsteinUhlenBeck_NN_season_3",
+        'new_seas': False,
+        'seas_path': "configs/models/AD_OrnsteinUhlenBeck_NN_season_2",
         'changing_seas': False,
     },
     'anomaly_params': {
@@ -78,10 +82,10 @@ AD_OrnsteinUhlenbeckWithSeason_3_diffusion_dict = {
     }
 }
 
-AD_OrnsteinUhlenbeckWithSeason_3_noise_dict = {
+AD_OrnsteinUhlenbeckWithSeason_noise_dict = {
     'model_name': "AD_OrnsteinUhlenbeckWithSeason",
-    'nb_paths': 100, 'nb_steps': 400,
-    'dimension': 2, 'obs_perc': 1., 'S0': None,
+    'nb_paths': 1000, 'nb_steps': 400,
+    'dimension': 1, 'obs_perc': 1., 'S0': None,
     'maturity': 1., 'return_vol': False,
     'speed': 15., 
     'noise': {'type': "gaussian", 'cov': 0.0},
@@ -95,11 +99,11 @@ AD_OrnsteinUhlenbeckWithSeason_3_noise_dict = {
         'seas_length': 200,
         'seas_nb': 2,
         'seas_type': 'NN',
-        'nn_layers': [(16, 'tanh'),(16, 'tanh')],
+        'nn_layers': [(16, 'relu'),(16, 'relu')],
         'nn_bias': True,
         'nn_input': (['cos', 'sin'], 1),
-        'new_seas': True,
-        'seas_path': "configs/models/AD_OrnsteinUhlenBeck_NN_season_3",
+        'new_seas': False,
+        'seas_path': "configs/models/AD_OrnsteinUhlenBeck_NN_season_2",
         'changing_seas': False,
     },
     'anomaly_params': {
@@ -120,10 +124,10 @@ AD_OrnsteinUhlenbeckWithSeason_3_noise_dict = {
     }
 }
 
-AD_OrnsteinUhlenbeckWithSeason_3_cutoff_dict = {
+AD_OrnsteinUhlenbeckWithSeason_cutoff_dict = {
     'model_name': "AD_OrnsteinUhlenbeckWithSeason",
-    'nb_paths': 100, 'nb_steps': 400,
-    'dimension': 2, 'obs_perc': 1., 'S0': None,
+    'nb_paths': 1000, 'nb_steps': 400,
+    'dimension': 1, 'obs_perc': 1., 'S0': None,
     'maturity': 1., 'return_vol': False,
     'speed': 15., 
     'noise': {'type': "gaussian", 'cov': 0.0},
@@ -137,11 +141,11 @@ AD_OrnsteinUhlenbeckWithSeason_3_cutoff_dict = {
         'seas_length': 200,
         'seas_nb': 2,
         'seas_type': 'NN',
-        'nn_layers': [(16, 'tanh'),(16, 'tanh')],
+        'nn_layers': [(16, 'relu'),(16, 'relu')],
         'nn_bias': True,
         'nn_input': (['cos', 'sin'], 1),
-        'new_seas': True,
-        'seas_path': "configs/models/AD_OrnsteinUhlenBeck_NN_season_3",
+        'new_seas': False,
+        'seas_path': "configs/models/AD_OrnsteinUhlenBeck_NN_season",
         'changing_seas': False,
     },
     'anomaly_params': {
@@ -156,15 +160,15 @@ AD_OrnsteinUhlenbeckWithSeason_3_cutoff_dict = {
         'dim_occurence_prob': 1.,
         'dim_occurence_pos': 'indep', # or 'same'
 
-        'cutoff_level_law': 'uniform',
+        'cutoff_level_law': 'current_level',
         'cutoff_level_range': (0.,1.),
     }
 }
 
-AD_OrnsteinUhlenbeckWithSeason_3_scale_dict = {
+AD_OrnsteinUhlenbeckWithSeason_scale_dict = {
     'model_name': "AD_OrnsteinUhlenbeckWithSeason",
-    'nb_paths': 100, 'nb_steps': 400,
-    'dimension': 2, 'obs_perc': 1., 'S0': None,
+    'nb_paths': 1000, 'nb_steps': 400,
+    'dimension': 1, 'obs_perc': 1., 'S0': None,
     'maturity': 1., 'return_vol': False,
     'speed': 15., 
     'noise': {'type': "gaussian", 'cov': 0.0},
@@ -178,11 +182,11 @@ AD_OrnsteinUhlenbeckWithSeason_3_scale_dict = {
         'seas_length': 200,
         'seas_nb': 2,
         'seas_type': 'NN',
-        'nn_layers': [(16, 'tanh'),(16, 'tanh')],
+        'nn_layers': [(16, 'relu'),(16, 'relu')],
         'nn_bias': True,
         'nn_input': (['cos', 'sin'], 1),
-        'new_seas': True,
-        'seas_path': "configs/models/AD_OrnsteinUhlenBeck_NN_season_3",
+        'new_seas': False,
+        'seas_path': "configs/models/AD_OrnsteinUhlenBeck_NN_season_2",
         'changing_seas': False,
     },
     'anomaly_params': {
@@ -202,10 +206,10 @@ AD_OrnsteinUhlenbeckWithSeason_3_scale_dict = {
     }
 }
 
-AD_OrnsteinUhlenbeckWithSeason_3_trend_dict = {
+AD_OrnsteinUhlenbeckWithSeason_trend_dict = {
     'model_name': "AD_OrnsteinUhlenbeckWithSeason",
-    'nb_paths': 100, 'nb_steps': 400,
-    'dimension': 2, 'obs_perc': 1., 'S0': None,
+    'nb_paths': 1000, 'nb_steps': 400,
+    'dimension': 1, 'obs_perc': 1., 'S0': None,
     'maturity': 1., 'return_vol': False,
     'speed': 15., 
     'noise': {'type': "gaussian", 'cov': 0.0},
@@ -219,11 +223,11 @@ AD_OrnsteinUhlenbeckWithSeason_3_trend_dict = {
         'seas_length': 200,
         'seas_nb': 2,
         'seas_type': 'NN',
-        'nn_layers': [(16, 'tanh'),(16, 'tanh')],
+        'nn_layers': [(16, 'relu'),(16, 'relu')],
         'nn_bias': True,
         'nn_input': (['cos', 'sin'], 1),
-        'new_seas': True,
-        'seas_path': "configs/models/AD_OrnsteinUhlenBeck_NN_season_3",
+        'new_seas': False,
+        'seas_path': "configs/models/AD_OrnsteinUhlenBeck_NN_season_2",
         'changing_seas': False,
     },
     'anomaly_params': {
@@ -244,10 +248,10 @@ AD_OrnsteinUhlenbeckWithSeason_3_trend_dict = {
     }
 }
 
-AD_OrnsteinUhlenbeckWithSeason_3_spike_dict = {
+AD_OrnsteinUhlenbeckWithSeason_spike_dict = {
     'model_name': "AD_OrnsteinUhlenbeckWithSeason",
-    'nb_paths': 100, 'nb_steps': 400,
-    'dimension': 2, 'obs_perc': 1., 'S0': None,
+    'nb_paths': 1000, 'nb_steps': 400,
+    'dimension': 1, 'obs_perc': 1., 'S0': None,
     'maturity': 1., 'return_vol': False,
     'speed': 15., 
     'noise': {'type': "gaussian", 'cov': 0.0},
@@ -261,11 +265,11 @@ AD_OrnsteinUhlenbeckWithSeason_3_spike_dict = {
         'seas_length': 200,
         'seas_nb': 2,
         'seas_type': 'NN',
-        'nn_layers': [(16, 'tanh'),(16, 'tanh')],
+        'nn_layers': [(16, 'relu'),(16, 'relu')],
         'nn_bias': True,
         'nn_input': (['cos', 'sin'], 1),
-        'new_seas': True,
-        'seas_path': "configs/models/AD_OrnsteinUhlenBeck_NN_season_3",
+        'new_seas': False,
+        'seas_path': "configs/models/AD_OrnsteinUhlenBeck_NN_season_2",
         'changing_seas': False,
     },
     'anomaly_params': {

@@ -182,7 +182,7 @@ def evaluate(
         N_DATASET_WORKERS = n_dataset_workers
 
     if USE_GPU and torch.cuda.is_available():
-        gpu_num = 0
+        gpu_num = 1
         device = torch.device("cuda:{}".format(gpu_num))
         torch.cuda.set_device(gpu_num)
     else:
@@ -267,12 +267,12 @@ def evaluate(
 
     dl = DataLoader(  # class to iterate over training data
         dataset=data_train, collate_fn=collate_fn, shuffle=True, 
-        batch_size=10)
-        # batch_size=batch_size)
+        #batch_size=10)
+        batch_size=batch_size)
     dl_test = DataLoader(  # class to iterate over training data
         dataset=data_test, collate_fn=collate_fn, shuffle=True, 
-        batch_size=10)
-        # batch_size=len(test_idx))
+        #batch_size=10)
+        batch_size=len(test_idx))
 
     eval_path = '../data/anomaly_detection/' + anomaly_data_dict + '/'
     # if not os.path.exists(eval_model_path):
@@ -324,9 +324,14 @@ def evaluate(
 
     best_score_val = np.inf
 
+    weights_filename = "epoch-{}".format(0)
+    plot_AD_module_params(ad_module, steps_ahead=steps_ahead, 
+                                  path=eval_weights_path, filename=weights_filename)
+
     print("Starting training ... ")
     for e in range(epochs): # change for learning parameters of AD module
-        print("Epoch {}".format(e+1))
+        epoch = e+1
+        print("Epoch {}".format(epoch))
         ad_module.train()
         for i, b in enumerate(dl):  # iterate over dataloader for validation set
             print("iteration {}".format(i+1))
@@ -387,17 +392,15 @@ def evaluate(
                 loss = criterion(ad_scores, ad_labels)
                 loss.backward()
                 optimizer.step()
+            
+            del path_t, path_y, cond_moments
 
-            weights_filename = "epoch-{}".format(e)
-            plot_AD_module_params(ad_module, steps_ahead=steps_ahead, 
-                                  path=eval_weights_path, filename=weights_filename)
-
-            break
+            # break
 
         with torch.no_grad():
             tot_score_val = 0
             ad_module.eval()
-            print("Evaluation epoch {}".format(e))
+            print("Evaluation epoch {}".format(epoch))
 
             for i, b in enumerate(dl_test):
                 
@@ -448,26 +451,32 @@ def evaluate(
                 ad_scores, mask = ad_module(obs, cond_moments)
                 ad_scores = ad_scores.detach().cpu().numpy()
                 ad_labels = ad_labels.transpose((2,0,1))
-                predicted_ad_labels = ad_module.get_predicted_label(obs, cond_moments).detach().cpu().numpy()
-                # predicted_ad_labels = predicted_ad_labels.transpose((1, 2, 0))
+                predicted_ad_labels, _ = ad_module.get_predicted_label(obs, cond_moments)
+                predicted_ad_labels = predicted_ad_labels.detach().cpu().numpy()
 
-                metrics_filename = "epoch-{}".format(e)
+
+                weights_filename = "epoch-{}".format(epoch)
+                plot_AD_module_params(ad_module, steps_ahead=steps_ahead, 
+                                  path=eval_weights_path, filename=weights_filename)
+                metrics_filename = "epoch-{}".format(epoch)
                 score_val, threshold = compute_metrics(ad_labels, ad_scores, mask, autom_thres = autom_thres,
                                              path=eval_metrics_path, filename = metrics_filename)
                 tot_score_val += score_val
                 ad_module.threshold = threshold
 
-                break
+                del path_t, path_y, cond_moments
+
+                #break
 
 
         if tot_score_val > best_score_val:
-            AD_module.save_checkpoint(ad_module, optimizer, model_path_save_best, ad_module, e)
-        AD_modules.save_checkpoint(ad_module, optimizer, model_path_save_last, e)
+            AD_module.save_checkpoint(ad_module, optimizer, model_path_save_best, ad_module, epoch)
+        AD_modules.save_checkpoint(ad_module, optimizer, model_path_save_last, epoch)
 
         if plot:
             batch = next(iter(dl_test))
 
-            plot_filename = 'epoch-{}'.format(e)
+            plot_filename = 'epoch-{}'.format(epoch)
             plot_filename = plot_filename + '_path-{}.png'
             print("Plotting ..")
             plot_one_path_with_pred(device, forecast_model, ad_module, batch, delta_t, T,
@@ -545,6 +554,7 @@ def compute_metrics(ad_labels, ad_scores, mask, autom_thres = None, filename = '
         fpr, tpr, thresholds  = metrics.roc_curve(ad_labels, ad_scores)
         #create ROC curve
         plt.plot(fpr,tpr)
+        plt.plot(fpr, thresholds, color='r')
         plt.ylabel('True Positive Rate')
         plt.xlabel('False Positive Rate')
         plt.savefig(path + filename + '-roc_curve')
@@ -555,12 +565,12 @@ def compute_metrics(ad_labels, ad_scores, mask, autom_thres = None, filename = '
         if autom_thres[0] == 'FPR_limit':
             limit = float(autom_thres[1])
             indices = np.arange(len(fpr))
-            indices[fpr <= limit]
+            indices[fpr > limit] = 0
             idx = np.argmax(indices)
         if autom_thres[0] == 'TPR_limit':
             limit = float(autom_thres[1])
-            indices = np.arange(len(fpr))
-            indices[tpr >= limit]
+            indices = np.arange(len(tpr))
+            indices[tpr < limit] = np.inf
             idx = np.argmin(indices)
         threshold = thresholds[idx]
 
@@ -580,6 +590,9 @@ def compute_metrics(ad_labels, ad_scores, mask, autom_thres = None, filename = '
         score = metrics.balanced_accuracy_score(ad_labels, predicted_ad_labels)
     elif metric == 'roc_auc':
         score = metrics.roc_auc_score(ad_labels, predicted_ad_labels)
+
+    print(idx)
+    print("Threshold found : {} for FPR of {} and TPR of : {}".format(threshold, fpr[idx], tpr[idx]))
 
 
     # print(score)
@@ -789,7 +802,7 @@ def plot_AD_module_params(ad_module, path, filename, steps_ahead = None, dt=0.00
 
     if isinstance(ad_module, AD_module):
 
-        weights = ad_module.state_dict()['weights.weight'].squeeze().clone().detach().numpy()
+        weights = ad_module.get_weights().squeeze().clone().detach().numpy()
         steps_ahead = [str(dt * s) for s in steps_ahead]
         neighbors = [str(i) for i in range(-ad_module.smoothing, ad_module.smoothing+1)]
 
@@ -799,7 +812,7 @@ def plot_AD_module_params(ad_module, path, filename, steps_ahead = None, dt=0.00
         ax.set_yticks(np.arange(weights.shape[0]))
         ax.set_xticklabels(neighbors)
         ax.set_yticklabels(steps_ahead)
-        fig.colorbar(im, ax=ax, shrink=0.5)
+        fig.colorbar(im, ax=ax, shrink=0.25)
         plt.title('Weights of scores smoothing on forecasting horizon and neighbouring timestamps', fontsize=15)
         plt.xlabel('Neighbouring timestamps', fontsize=10)
         plt.ylabel('Forecasting horizons', fontsize=10)
@@ -819,7 +832,7 @@ def plot_one_path_with_pred(
     prop_cycle = plt.rcParams['axes.prop_cycle']  # change style of plot?
     colors = prop_cycle.by_key()['color']
     if plot_forecast_predictions:
-        std_color = [list(matplotlib.colors.to_rgb(colors[c])) + [0.5] for c in range(len(forecast_horizons_to_plot))]
+        std_color = [list(matplotlib.colors.to_rgb(colors[c])) + [0.5] for c in range(len(forecast_horizons_to_plot) + 2)]
     makedirs(save_path)
     
     times = batch["times"]
@@ -872,15 +885,17 @@ def plot_one_path_with_pred(
     ad_scores, mask = ad_module(obs, cond_moments)
     ad_scores = ad_scores.detach().cpu().numpy()
     ad_labels = ad_labels.transpose((2,0,1))
-    predicted_ad_labels = ad_module.get_predicted_label(obs, cond_moments).detach().cpu().numpy()
+    predicted_ad_labels, scores = ad_module.get_predicted_label(obs, cond_moments)
     # predicted_ad_labels = predicted_ad_labels.transpose((1, 2, 0))
 
+    scores = scores.detach().cpu().numpy().transpose((1, 2, 0))
     ad_labels = ad_labels.transpose((1, 2, 0))
-    predicted_ad_labels = predicted_ad_labels.transpose((1, 2, 0))
+    predicted_ad_labels = predicted_ad_labels.detach().cpu().numpy().transpose((1, 2, 0))
     mask_pred_path = np.ma.masked_where((predicted_ad_labels == 1), true_X)
     mask_pred_path_w_anomaly = np.ma.masked_where((predicted_ad_labels == 0), true_X)
     mask_data_path = np.ma.masked_where((ad_labels == 1), true_X)
     mask_data_path_w_anomaly = np.ma.masked_where((ad_labels == 0), true_X)
+    mask_pred_scores = np.ma.masked_where((np.isnan(scores)), scores)
 
 
     for a in paths_to_plot:
@@ -906,17 +921,19 @@ def plot_one_path_with_pred(
                         color=colors[0])
             axs[j][0].plot(path_t_true_X, mask_data_path_w_anomaly[a, j, :], label='true path, anomaly',
                         color=colors[1])
-            axs[j][0].set_title("Anomaly Detection, dimension {}".format(j+1))
+            axs[j][1].set_title("Anomaly Detection, dimension {}".format(j+1))
             axs[j][1].plot(path_t_true_X, mask_pred_path[a, j, :], label='true path, no predicted anomaly',
                         color=colors[0])
             axs[j][1].plot(path_t_true_X, mask_pred_path_w_anomaly[a, j, :], label='true path, predicted anomaly',
                         color=colors[1])
+            axs[j][1].plot(path_t_true_X, mask_pred_scores[a, j, :], label='Predicted scores',
+                        color=colors[2])
 
             if plot_forecast_predictions:
                 for h,s in enumerate(forecast_horizons_to_plot):
                     step_idx = steps_ahead.index(s)
                     exp_prediction = cond_moments[:,a,j,0,step_idx].detach().cpu().numpy()
-                    axs[j][1].plot(path_t_true_X, exp_prediction, label=model_name + " prediction {} steps ahead".format(s), color=colors[h+2])
+                    axs[j][1].plot(path_t_true_X, exp_prediction, label=model_name + " expectation prediction {} steps ahead".format(s), color=colors[h+2])
                     if plot_variance:
                         assert(('var' in output_vars) or ('power-2' in output_vars))
                         if 'var' in output_vars:
@@ -934,13 +951,12 @@ def plot_one_path_with_pred(
                         axs[j][1].fill_between(path_t_true_X,
                             exp_prediction - std_factor * std_prediction,
                             exp_prediction + std_factor * std_prediction,
-                            label='true conditional standart deviation', color=std_color[h])
+                            label="standart deviation ({} factor) prediction {} steps ahead".format(std_factor, s), color=std_color[h+2])
             
             axs[j][0].legend()
             axs[j][1].legend()
 
-        axs[0][0].legend()
-        axs[0][1].legend()
+        plt.ylim([0., 1.])
         plt.xlabel('$t$')
         plt.suptitle("Anomaly detection on {} anomalies".format(anomaly_type))
         save = os.path.join(save_path, filename.format(a))

@@ -70,30 +70,6 @@ def get_ckpt_model(ckpt_path, model, optimizer, device):
         model.retrain_epoch = checkpt['retrain_epoch']
     model.to(device)
 
-def compute_loss_ad_var2(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
-                   weight=0.5, M_obs=None, output_vars=None):
-    assert('id' in output_vars and 'var' in output_vars)
-    dim = int(Y_obs.shape[1] / len(output_vars))
-    idx_id = np.argmax(np.array(output_vars) == 'id')
-    idx_id = np.arange(idx_id*dim,(idx_id+1)*dim)
-    idx_var = np.argmax(np.array(output_vars) == 'var')
-    idx_var = np.arange(idx_var*dim,(idx_var+1)*dim)
-
-    weights = torch.tensor([weight,weight,1-weight,weight])
-
-    if M_obs is None:
-
-        inner = (weights[0] * torch.sqrt(torch.sum((X_obs[:,idx_id] - Y_obs[:,idx_id]) ** 2, dim=1) + eps) +
-                 weights[1] * torch.sqrt(torch.sum((Y_obs_bj[:,idx_id] - X_obs[:,idx_id]) ** 2, dim=1) + eps)) ** 2
-        inner += (weights[2] * torch.sum((Y_obs_bj[:,idx_var] - (Y_obs_bj[:,idx_id].detach() - X_obs[:,idx_id]) ** 2) ** 2, dim=1) + eps)
-        inner += (weights[3] * torch.sum((Y_obs[:,idx_var]) ** 2, dim=1) + eps)
-
-    else:
-        NotImplementedError
-
-    outer = torch.sum(inner / n_obs_ot)
-    return outer / batch_size
-
 
 def compute_loss(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
                  weight=0.5, M_obs=None, output_vars=None):
@@ -120,9 +96,10 @@ def compute_loss(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
     :return: torch.tensor (with the loss, reduced to 1 dim)
     """
     if M_obs is None:
-        inner = (2 * weight * torch.sqrt(torch.sum((X_obs - Y_obs) ** 2, dim=1) + eps) +
-                 2 * (1 - weight) * torch.sqrt(torch.sum((Y_obs_bj - Y_obs) ** 2, dim=1)
-                                               + eps)) ** 2
+        # inner = (2 * weight * torch.sqrt(torch.sum((X_obs - Y_obs) ** 2, dim=1) + eps) +
+        #          2 * (1 - weight) * torch.sqrt(torch.sum((Y_obs_bj - Y_obs) ** 2, dim=1) + eps)) ** 2
+        inner = (torch.sqrt(torch.sum((X_obs - Y_obs) ** 2, dim=1) + eps) +
+                 torch.sqrt(torch.sum((Y_obs_bj - Y_obs) ** 2, dim=1) + eps)) ** 2
     else:
         inner = (2 * weight * torch.sqrt(
             torch.sum(M_obs * (X_obs - Y_obs) ** 2, dim=1) + eps) +
@@ -139,9 +116,10 @@ def compute_loss_2(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
     instead of Y_obs
     """
     if M_obs is None:
-        inner = (2*weight * torch.sqrt(torch.sum((X_obs - Y_obs) ** 2, dim=1) + eps) +
-                 2*(1 - weight) * torch.sqrt(torch.sum((Y_obs_bj - X_obs) ** 2, dim=1)
-                                           + eps)) ** 2
+        #inner = (2*weight * torch.sqrt(torch.sum((X_obs - Y_obs) ** 2, dim=1) + eps) +
+        #         2*(1 - weight) * torch.sqrt(torch.sum((Y_obs_bj - X_obs) ** 2, dim=1) + eps)) ** 2
+        inner = (torch.sqrt(torch.sum((X_obs - Y_obs) ** 2, dim=1) + eps) +
+                torch.sqrt(torch.sum((Y_obs_bj - X_obs) ** 2, dim=1) + eps)) ** 2
     else:
         inner = (2*weight * torch.sqrt(
             torch.sum(M_obs * (X_obs - Y_obs) ** 2, dim=1) + eps) +
@@ -159,7 +137,8 @@ def compute_loss_2_bis(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
     instead of Y_obs
     """
     if M_obs is None:
-        inner = 2*weight * torch.sum((X_obs - Y_obs) ** 2, dim=1) + 2*(1 - weight) * torch.sum((Y_obs_bj - X_obs) ** 2, dim=1)
+        # inner = 2*weight * torch.sum((X_obs - Y_obs) ** 2, dim=1) + 2*(1 - weight) * torch.sum((Y_obs_bj - X_obs) ** 2, dim=1)
+        inner = torch.sum((X_obs - Y_obs) ** 2, dim=1) + torch.sum((Y_obs_bj - X_obs) ** 2, dim=1)
     else:
         NotImplementedError
     outer = torch.sum(inner / n_obs_ot)
@@ -209,15 +188,14 @@ def compute_loss_ad(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
     idx_power2 = np.arange(idx_power2*dim,(idx_power2+1)*dim)
     idx_tot = np.concatenate([idx_id, idx_power2],axis=0)
 
-    weight_2nd_mom = 1-weight
-    weight_var = weight_2nd_mom * 3.
-    weight_pos_var = weight_2nd_mom / 25.
     weights = torch.tensor([1,
                             1,
-                            weight_2nd_mom,
-                            weight_2nd_mom,
-                            weight_var,
-                            weight_pos_var])
+                            0.1,
+                            0.1,
+                            0.1,
+                            0.1])
+
+    weights[2:] *= weight
 
     outer = 0
 
@@ -225,17 +203,19 @@ def compute_loss_ad(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
         # fitting true conditional expectation
         inner = weights[0] * torch.sum((X_obs[:,idx_id] - Y_obs[:,idx_id]) ** 2, dim=1)
         inner += weights[1] * torch.sum((Y_obs_bj[:,idx_id] - X_obs[:,idx_id]) ** 2, dim=1)
+
         # fitting true conditional expectation squared
         inner += weights[2] * torch.sum((X_obs[:,idx_power2] - Y_obs[:,idx_power2]) ** 2, dim=1)
         inner += weights[3] * torch.sum((Y_obs_bj[:,idx_power2] - X_obs[:,idx_power2]) ** 2, dim=1)
+
         # calibrating true conditional expectation and expectation squared with each other
         inner += weights[4] * torch.sum(((X_obs[:,idx_id] - Y_obs_bj[:,idx_id].detach()) ** 2 - 
                                                     (Y_obs_bj[:,idx_power2] - Y_obs_bj[:,idx_id].detach() ** 2)) ** 2, dim=1)
         
         # enforging positive (derived) conditional variance
-        outer += weights[5] * torch.nn.SmoothL1Loss(beta=0.5)(F.relu((Y_obs_bj[:,idx_id].detach() ** 2).flatten() -Y_obs_bj[:,idx_power2].flatten()),
-                                                 torch.zeros(Y_obs_bj[:,idx_id].size(), device=Y_obs_bj.device).flatten())
-        # inner += weights[5] * torch.sum(F.relu((Y_obs_bj[:,idx_id].detach() ** 2) -Y_obs_bj[:,idx_power2]) ** 2, dim=1)
+        #outer += weights[5] * torch.nn.SmoothL1Loss(beta=0.5)(F.relu((Y_obs_bj[:,idx_id].detach() ** 2).flatten() -Y_obs_bj[:,idx_power2].flatten()),
+        #                                         torch.zeros(Y_obs_bj[:,idx_id].size(), device=Y_obs_bj.device).flatten())
+        inner += weights[5] * torch.sum(F.relu((Y_obs_bj[:,idx_id].detach() ** 2) -Y_obs_bj[:,idx_power2]) ** 2, dim=1)
         # inner += weights[5] * torch.sum(F.relu(Y_obs_bj[:,idx_id].detach() ** 2 - Y_obs_bj[:,idx_power2]), dim=1)
 
     else:
@@ -256,16 +236,24 @@ def compute_loss_ad_var(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
     idx_var = np.arange(idx_var*dim,(idx_var+1)*dim)
     idx_tot = np.concatenate([idx_id, idx_power2],axis=0)
 
-    weight_2nd_mom = 1-weight
-    weight_pos_var = weight_2nd_mom / 25.
+    '''weights = torch.tensor([1,
+                            1,
+                            0.1,
+                            0.1,
+                            0.1,
+                            0.01,
+                            1,
+                            1,])'''
     weights = torch.tensor([1,
                             1,
-                            weight_2nd_mom,
-                            weight_2nd_mom,
-                            weight_2nd_mom,
-                            weight_2nd_mom,
-                            weight_2nd_mom,
+                            0.1,
+                            0.1,
+                            0.1,
+                            0.05,
+                            1,
                             1,])
+    weights[4:6] *= weight
+    # print(weights)
     
     outer = 0
 
@@ -274,17 +262,73 @@ def compute_loss_ad_var(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
         # fitting true conditional expectation
         inner = weights[0] * torch.sum((X_obs[:,idx_id] - Y_obs[:,idx_id]) ** 2, dim=1)
         inner += weights[1] * torch.sum((Y_obs_bj[:,idx_id] - X_obs[:,idx_id]) ** 2, dim=1)
+
         # fitting true conditional expectation squared
         inner += weights[2] * torch.sum((X_obs[:,idx_power2] - Y_obs[:,idx_power2]) ** 2, dim=1)
         inner += weights[3] * torch.sum((Y_obs_bj[:,idx_power2] - X_obs[:,idx_power2]) ** 2, dim=1)
+
         # fitting true conditional variance (with respect to conditional expectation and expectation squared)
         inner += weights[4] * torch.sum((Y_obs_bj[:,idx_var] - (Y_obs_bj[:,idx_id].detach() - X_obs[:,idx_id]) ** 2) ** 2, dim=1)
         inner += weights[5] * torch.sum((Y_obs_bj[:,idx_var] - (Y_obs_bj[:,idx_power2] - Y_obs_bj[:,idx_id].detach() ** 2)) ** 2, dim=1)
+
         # enforcing conditional variance positiveness
-        # inner += weights[7] * torch.sum(F.relu(- Y_obs_bj[:,idx_var]) ** 2, dim=1)
+        # inner += weights[6] * torch.sum(F.relu(- Y_obs_bj[:,idx_var]) ** 2, dim=1)
 
         # enforcing zero conditional variance at observations
-        inner += weights[6] * torch.sum(Y_obs[:,idx_var] ** 2, dim=1)
+        inner += weights[7] * torch.sum(Y_obs[:,idx_var] ** 2, dim=1)
+        # inner += weights[6] * torch.sum(torch.abs(Y_obs[:,idx_var]), dim=1)
+        # outer += weights[6] * torch.nn.SmoothL1Loss(beta=0.05)(Y_obs[:,idx_var].flatten(),
+        #                                        torch.zeros(Y_obs[:,idx_var].size(), device=Y_obs_bj.device).flatten())
+
+    else:
+        NotImplementedError
+
+    outer += torch.sum(inner / n_obs_ot)
+    return outer / batch_size
+
+def compute_loss_ad_var_pos(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
+                   weight=0.5, M_obs=None, output_vars=None):
+    assert('id' in output_vars and 'power-2' in output_vars and 'var' in output_vars)
+    dim = int(Y_obs.shape[1] / len(output_vars))
+    idx_id = np.argmax(np.array(output_vars) == 'id')
+    idx_id = np.arange(idx_id*dim,(idx_id+1)*dim)
+    idx_power2 = np.argmax(np.array(output_vars) == 'power-2')
+    idx_power2 = np.arange(idx_power2*dim,(idx_power2+1)*dim)
+    idx_var = np.argmax(np.array(output_vars) == 'var')
+    idx_var = np.arange(idx_var*dim,(idx_var+1)*dim)
+    idx_tot = np.concatenate([idx_id, idx_power2],axis=0)
+
+    weights = torch.tensor([1,
+                            1,
+                            0.1,
+                            0.1,
+                            0.1,
+                            0.05,
+                            1,
+                            1,])
+    weights[4:6] *= weight
+    
+    outer = 0
+
+    if M_obs is None:
+
+        # fitting true conditional expectation
+        inner = weights[0] * torch.sum((X_obs[:,idx_id] - Y_obs[:,idx_id]) ** 2, dim=1)
+        inner += weights[1] * torch.sum((Y_obs_bj[:,idx_id] - X_obs[:,idx_id]) ** 2, dim=1)
+
+        # fitting true conditional expectation squared
+        inner += weights[2] * torch.sum((X_obs[:,idx_power2] - Y_obs[:,idx_power2]) ** 2, dim=1)
+        inner += weights[3] * torch.sum((Y_obs_bj[:,idx_power2] - X_obs[:,idx_power2]) ** 2, dim=1)
+
+        # fitting true conditional variance (with respect to conditional expectation and expectation squared)
+        inner += weights[4] * torch.sum((Y_obs_bj[:,idx_var] - (Y_obs_bj[:,idx_id].detach() - X_obs[:,idx_id]) ** 2) ** 2, dim=1)
+        inner += weights[5] * torch.sum((Y_obs_bj[:,idx_var] - (Y_obs_bj[:,idx_power2] - Y_obs_bj[:,idx_id].detach() ** 2)) ** 2, dim=1)
+
+        # enforcing conditional variance positiveness
+        inner += weights[6] * torch.sum(F.relu(- Y_obs_bj[:,idx_var]) ** 2, dim=1)
+
+        # enforcing zero conditional variance at observations
+        inner += weights[7] * torch.sum(Y_obs[:,idx_var] ** 2, dim=1)
         # inner += weights[6] * torch.sum(torch.abs(Y_obs[:,idx_var]), dim=1)
         # outer += weights[6] * torch.nn.SmoothL1Loss(beta=0.05)(Y_obs[:,idx_var].flatten(),
         #                                        torch.zeros(Y_obs[:,idx_var].size(), device=Y_obs_bj.device).flatten())
@@ -305,7 +349,7 @@ LOSS_FUN_DICT = {
     
     'ad': compute_loss_ad,
     'ad_var': compute_loss_ad_var,
-    'ad_var2': compute_loss_ad_var2,
+    'ad_var_pos': compute_loss_ad_var_pos,
 }
 
 nonlinears = {  # dictionary of used non-linear activation functions. Reminder inputs
@@ -622,9 +666,9 @@ class NJODE(torch.nn.Module):
             self, input_size, hidden_size, output_size,
             ode_nn, readout_nn, enc_nn, use_rnn,
             bias=True, dropout_rate=0, solver="euler",
-            weight=0.5, weight_decay=1., t_period=1.,       ###
-            output_vars = None, delta_t = None,
-            **options
+            weight=0.5, weight_evolve=None, t_period=1.,       ###
+            input_vars=None, output_vars=None, 
+            delta_t = None, **options
     ):
         """
         init the model
@@ -657,7 +701,16 @@ class NJODE(torch.nn.Module):
         self.epoch = 1
         self.retrain_epoch = 0
         self.weight = weight
-        self.weight_decay = weight_decay
+        # self.weight_decay = weight_decay
+        self.weight_evolve_type = None
+        if weight_evolve is not None:
+            self.weight_initial = self.weight
+            self.weight_evolve_type = weight_evolve['type']
+            if self.weight_evolve_type == 'decay':
+                self.weight_decay = weight_evolve['decay']
+            if self.weight_evolve_type == 'linear':
+                self.weight_target = weight_evolve['target']
+                self.weight_reach = weight_evolve['reach']
         self.use_rnn = use_rnn  # use RNN for jumps
 
         # get options from the options of train input
@@ -671,6 +724,8 @@ class NJODE(torch.nn.Module):
 
         if output_vars is not None:
             self.output_vars = output_vars
+        if input_vars is not None:
+            self.input_vars = input_vars
 
         self.residual_enc_dec = True
         if 'residual_enc_dec' in options1:
@@ -787,11 +842,15 @@ class NJODE(torch.nn.Module):
             self.SM = torch.nn.Softmax(dim=1)
             self.CEL = torch.nn.CrossEntropyLoss()
 
-    def weight_decay_step(self):
+    def weight_step(self):
         # inc = (self.weight - 0.5)
         # self.weight = 0.5 + inc * self.weight_decay
-        self.weight *= self.weight_decay
-        print("New loss weight : " + str(self.weight_decay))
+        # self.weight *= self.weight_decay
+        if self.weight_evolve_type == 'linear':
+            self.weight = self.weight_initial * (1 - self.epoch / self.weight_reach) + self.weight_target * (self.epoch / self.weight_reach)
+        elif self.weight_evolve_type == 'decay':
+            NotImplementedError
+        print("New loss weight : " + str(self.weight))
         return self.weight
 
     def ode_step(self, h, delta_t, current_time, last_X, tau, signature=None):
@@ -1010,11 +1069,11 @@ class NJODE(torch.nn.Module):
                 else:
                     raise NotImplementedError
                 
+                c += 1
                 if c in steps:
                     path_t[s].append(project_time)
                     path_y[s].append(self.apply_readout_map(proj_h))
                     s += 1
-                c += 1
 
                 # Storing the predictions.
                 # path_t.append(project_time)
@@ -1100,6 +1159,35 @@ class NJODE(torch.nn.Module):
         if self.add_readout_act:
             x[:,self.readout_act_idx] = self.readout_act(x[:,self.readout_act_idx]) + 1
         return x
+
+    def forward_random_encoder_decoder(self, batch_size, dimension):
+
+        assert(len(self.output_vars) * dimension == self.output_size)
+
+        t = torch.tensor(np.random.exponential(size=(batch_size,1))).to(self.device)
+        tau = torch.tensor(np.random.uniform(size=(batch_size,1))).to(self.device)
+        X = torch.tensor(np.random.uniform(size=(batch_size,dimension))).to(self.device)
+        zeros = torch.zeros(size=(batch_size,dimension)).to(self.device)
+        X_in = X
+        for f in self.output_vars:
+            if f[:5] == 'power':
+                m = int(f[6:])
+                X_in = torch.cat((X_in, X ** m),dim=1)
+        X_out = X_in
+        for f in self.output_vars:
+            if f == 'var':
+                X_out = torch.cat((X_out,zeros),dim=1)
+        sig = torch.tensor(np.random.uniform(size=(batch_size,self.sig_depth))).to(self.device)
+        h = torch.tensor(np.random.uniform(low=-1., size=(batch_size,self.hidden_size))).to(self.device)
+
+        h = self.encoder_map(
+                X_in, sig=sig, h=h,
+                t=torch.cat((tau, t), dim=1))
+        Y = self.apply_readout_map(h)
+
+        loss = torch.sum((X_out - Y) ** 2, dim=1) 
+        loss = torch.sum(loss) / batch_size
+        return loss
 
     def forward(self, times, time_ptr, X, obs_idx, delta_t, T, start_X,
                 n_obs_ot, return_path=False, get_loss=True, until_T=False,
@@ -1363,8 +1451,9 @@ class NJODE(torch.nn.Module):
     def evaluate(self, times, time_ptr, X, obs_idx, delta_t, T, start_X,
                  n_obs_ot, stockmodel, cond_exp_fun_kwargs=None,
                  diff_fun=lambda x, y: np.nanmean((x - y) ** 2),
+                 diff_fun_std=lambda x, y: np.nanstd((x - y) ** 2),
                  return_paths=False, M=None, true_paths=None, start_M=None,
-                 true_mask=None, mult=None):
+                 true_mask=None, eval_vars=['exp']):
         """
         evaluate the model at its current training state against the true
         conditional expectation
@@ -1391,40 +1480,80 @@ class NJODE(torch.nn.Module):
         """
         self.eval()
 
-        dim = start_X.shape[1]
-        dim_to = dim
-        if mult is not None and mult > 1:
-            dim_to = round(dim/mult)
+        dim = round(start_X.shape[1]/len(self.input_vars))
 
         _, _, path_t, path_h, path_y = self.forward(
             times, time_ptr, X, obs_idx, delta_t, T, start_X, None,
             return_path=True, get_loss=False, until_T=True, M=M,
-            start_M=start_M, dim_to=dim_to)
+            start_M=start_M)
 
         if true_paths is None:
             if M is not None:
-                M = M.detach().cpu().numpy()[:, :dim_to]
+                M = M.detach().cpu().numpy()
             _, true_path_t, true_path_y = stockmodel.compute_cond_exp(
-                times, time_ptr, X.detach().cpu().numpy()[:, :dim_to],
+                times, time_ptr, X.detach().cpu().numpy(),
                 obs_idx.detach().cpu().numpy(),
-                delta_t, T, start_X.detach().cpu().numpy()[:, :dim_to],
+                delta_t, T, start_X.detach().cpu().numpy(),
                 n_obs_ot.detach().cpu().numpy(),
-                return_path=True, get_loss=False, M=M, )
+                return_path=True, get_loss=False, M=M, functions=self.input_vars)
         else:
             true_t = np.linspace(0, T, true_paths.shape[2])
             which_t_ind = []
             for t in path_t:
                 which_t_ind.append(np.argmin(np.abs(true_t - t)))
-            true_path_y = true_paths[:, :dim_to, which_t_ind]
+            true_path_y = true_paths[:, :, which_t_ind]
             true_path_y = np.transpose(true_path_y, axes=(2, 0, 1))
             true_path_t = true_t[which_t_ind]
 
-        if path_y.detach().cpu().numpy().shape == true_path_y.shape:
-            eval_loss = diff_fun(path_y.detach().cpu().numpy(), true_path_y)
-        else:
-            print(path_y.detach().cpu().numpy().shape)
-            print(true_path_y.shape)
-            raise ValueError("Shapes do not match!")
+        eval_loss = {}
+        if 'exp' in eval_vars:
+            assert('id' in self.input_vars and 'id' in self.output_vars)
+            which_true = np.argmax(np.array(self.input_vars) == 'id')
+            which_pred = np.argmax(np.array(self.output_vars) == 'id')
+            true_path_y_id = true_path_y[:,:,dim*which_true:dim*(which_true+1)]
+            path_y_id = path_y[:,:,dim*which_true:dim*(which_true+1)].detach().cpu().numpy()
+            if path_y_id.shape == true_path_y_id.shape:
+                eval_loss['exp_mean'] = diff_fun(path_y_id, true_path_y_id)
+                eval_loss['exp_std'] = diff_fun_std(path_y_id, true_path_y_id)
+            else:
+                print(path_y_id.shape)
+                print(true_path_y_id.shape)
+                raise ValueError("Shapes do not match!")
+        if 'std' in eval_vars:
+            assert('var' in self.input_vars or ('power-2' in self.input_vars and 'id' in self.input_vars))
+            assert('var' in self.output_vars or ('power-2' in self.output_vars and 'id' in self.output_vars))
+
+            if 'var' in self.input_vars:
+                which_true = np.argmax(np.array(self.input_vars) == 'var')
+                true_path_y_var = true_path_y[:,:,dim*which_true:dim*(which_true+1)]
+            elif 'power-2' in self.input_vars:
+                which_true = np.argmax(np.array(self.input_vars) == 'power-2')
+                true_path_y_p2 = true_path_y[:,:,dim*which_true:dim*(which_true+1)]
+                true_path_y_var = true_path_y_p2 - np.power(true_path_y_id,2)
+
+            if 'var' in self.output_vars:
+                which_pred = np.argmax(np.array(self.output_vars) == 'var')
+                path_y_var = path_y[:,:,dim*which_pred:dim*(which_pred+1)].detach().cpu().numpy()
+            elif 'power-2' in self.output_vars:
+                which_pred = np.argmax(np.array(self.output_vars) == 'power-2')
+                path_y_p2 = path_y[:,:,dim*which_pred:dim*(which_pred+1)].detach().cpu().numpy()
+                path_y_var = path_y_p2 - np.power(path_y_id,2)
+
+            if np.any(true_path_y_var < 0):
+                true_path_y_var = np.maximum(0, true_path_y_var)
+            true_path_y_std = np.sqrt(true_path_y_var)
+            if np.any(path_y_var < 0):
+                path_y_var = np.maximum(0, path_y_var)
+            path_y_std = np.sqrt(path_y_var)
+
+            if path_y_var.shape == true_path_y_var.shape:
+                eval_loss['std_mean'] = diff_fun(path_y_std, true_path_y_std)
+                eval_loss['std_std'] = diff_fun_std(path_y_std, true_path_y_std)
+            else:
+                print(path_y_var.shape)
+                print(true_path_y_var.shape)
+                raise ValueError("Shapes do not match!")
+
         if return_paths:
             return eval_loss, path_t, true_path_t, path_y, true_path_y
         else:

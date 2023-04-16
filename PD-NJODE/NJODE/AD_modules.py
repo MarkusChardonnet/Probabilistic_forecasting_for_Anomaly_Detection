@@ -26,10 +26,10 @@ def gaussian_scoring_2_moments(obs,
         else:
             cond_var = np.maximum(min_var_val, cond_var)
     cond_std = np.sqrt(cond_var)
-    z_scores = (np.tile(np.expand_dims(obs,axis=3),(1,1,1,nb_steps_ahead)) - cond_exp) / cond_std
+    z_scores = np.abs((np.tile(np.expand_dims(obs,axis=3),(1,1,1,nb_steps_ahead)) - cond_exp)) / cond_std
     if scoring_metric == 'p-value':
         p_vals = 2*scipy.stats.norm.sf(z_scores) # computes survival function, 2 factor for two sided
-        scores = 1 - p_vals
+        scores = - np.log(p_vals + 1e-10)
     # scores : [nb_steps, nb_samples, dimension, steps_ahead]
     return scores
 
@@ -67,6 +67,189 @@ def get_ckpt_model(ckpt_path, model, optimizer, device):
     optimizer.load_state_dict(checkpt['optimizer_state_dict'])
     model.load_state_dict(state_dict)
     model.to(device)
+
+
+
+class AD_module(torch.nn.Module): # AD_module_1D, AD_module_ND
+    def __init__(self, 
+                 output_vars,
+                 steps_ahead,
+                 scoring_metric = 'p-value',
+                 distribution_class = 'gaussian',
+                 smoothing = 0,
+                 smooth_padding = 0,
+                 activation_weights = 'sigmoid',
+                 activation_fct = 'sigmoid',
+                 replace_values = None,
+                 class_thres = 0.5,
+                 factorize_weights = True,
+                 ):
+        super(AD_module, self).__init__()
+        self.output_vars = output_vars
+        self.scoring_metric = scoring_metric
+        self.distribution_class = distribution_class
+        self.replace_values = replace_values
+        self.steps_ahead = steps_ahead
+        self.nb_steps_ahead = len(steps_ahead)
+        self.threshold = class_thres
+        self.smoothing = smoothing
+        self.smooth_padding = smooth_padding
+
+        # random init of weights ?
+        self.factorize_weights = factorize_weights
+        ran = (-10.,-3.)
+        if factorize_weights: 
+            # 2*self.smoothing+1
+            self.steps_weights = torch.nn.Parameter(torch.FloatTensor(self.nb_steps_ahead).uniform_(ran[0], ran[1]))
+            self.smooth_weights = torch.nn.Parameter(torch.FloatTensor(2*self.smoothing+1).uniform_(0., 1.))
+
+            # self.weights = self.smooth_weights.repeat(self.nb_steps_ahead,1) * self.steps_weights.repeat(2*self.smoothing+1,1).transpose(1,0)
+        else:
+            self.weights = torch.nn.Parameter(torch.FloatTensor(self.nb_steps_ahead,2*self.smoothing+1).uniform_(ran[0], ran[1]))
+
+        if activation_fct == 'sigmoid':
+            self.act = torch.nn.Sigmoid()
+        elif activation_fct == 'id':
+            self.act = torch.nn.Identity()
+
+        if activation_weights == 'sigmoid':
+            self.act_weights = torch.nn.Sigmoid()
+        elif activation_weights == 'softmax':
+            self.act_weights = torch.nn.Softmax(dim=0)
+        elif activation_weights == 'relu':
+            self.act_weights = torch.nn.ReLU()
+        elif activation_weights == 'identity':
+            self.act_weights = torch.nn.Identity()
+
+    def get_washout_mask(self, cond_moments, washout_border = 'automatic'):
+        nb_steps = cond_moments.size()[0]
+        if washout_border == 'automatic':
+            mask = torch.all(~torch.isnan(cond_moments).reshape(nb_steps,-1), dim=1)
+        return mask
+    
+    def get_operation_mask(self, mask, nb_steps):
+        valid_enum = torch.arange(nb_steps)
+        valid_enum[~mask] = nb_steps
+        valid_first = torch.argmin(valid_enum)
+        conv_mask = torch.ones(nb_steps, dtype=torch.bool)
+        conv_mask[:self.smoothing - self.smooth_padding + valid_first] = 0
+        conv_mask[self.smooth_padding - self.smoothing:] = 0
+        mask = torch.bitwise_and(mask, conv_mask)
+
+        return mask
+
+    def get_individual_scores(self, cond_moments, obs):
+        if self.distribution_class == 'gaussian':
+            assert(('id' in self.output_vars) and (('var' in self.output_vars) or ('power-2' in self.output_vars)))
+            which = np.argmax(np.array(self.output_vars) == 'id')
+            cond_exp = cond_moments[:,:,:,which,:].cpu().numpy()
+            if 'var' in self.output_vars:
+                which = np.argmax(np.array(self.output_vars) == 'var')
+                cond_exp_2 = cond_moments[:,:,:,which,:].cpu().numpy()
+                cond_var = cond_exp_2 - cond_exp ** 2
+            elif 'power-2' in self.output_vars:
+                which = np.argmax(np.array(self.output_vars) == 'power-2')
+                cond_var = cond_moments[:,:,:,which,:].cpu().numpy()
+            scores_valid = gaussian_scoring_2_moments(obs=obs.numpy(), cond_exp=cond_exp, cond_var=cond_var, 
+                                                      scoring_metric=self.scoring_metric, replace_var=self.replace_values['var'])
+            scores_valid = torch.tensor(scores_valid, dtype=torch.float32)
+
+        return scores_valid
+
+    def get_weights(self):
+        if self.factorize_weights:
+            smooth_weights = self.smooth_weights.repeat(self.nb_steps_ahead,1)
+            steps_weights = self.steps_weights.repeat(2*self.smoothing+1,1).transpose(1,0)
+            weights = torch.mul(smooth_weights, steps_weights)
+        else:
+            weights = self.weights
+        # weights = self.act_weights(weights.reshape(-1)).reshape(self.nb_steps_ahead,2*self.smoothing+1)
+        weights = self.act_weights(weights)
+        return weights
+
+    def forward(self, obs, cond_moments,
+                    washout_border = 'automatic'):
+        # obs : [nb_steps, nb_samples, dimension]
+        # cond_moments : [nb_steps, nb_samples, dimension, nb_moments, steps_ahead]
+        nb_steps = obs.size()[0]
+        nb_samples = obs.size()[1]
+        dimension = obs.size()[2]
+
+        # eventually put this into another method called get_washout_mask
+        mask = self.get_washout_mask(cond_moments, washout_border)
+        obs_valid = obs[mask]
+        cond_moments_valid = cond_moments[mask]
+
+        scores = self.get_individual_scores(cond_moments_valid, obs_valid)
+
+        # scores = torch.zeros((nb_steps, nb_samples, dimension, self.nb_steps_ahead))
+        # scores[mask] = scores_valid
+        scores = scores.permute(1,2,0,3)
+
+        # print(torch.mean(scores.reshape(-1,self.nb_steps_ahead),dim=0))
+
+        weights = self.get_weights().reshape(-1,1)
+
+        unfold_scores = scores.unfold(dimension=2, size=2*self.smoothing+1, step=1)
+        unfold_scores = unfold_scores.reshape(-1, (2 * self.smoothing + 1) * self.nb_steps_ahead)
+        aggregated_scores = torch.matmul(unfold_scores, weights).reshape((nb_samples, dimension, -1)).permute(2,0,1)
+
+        # eventually put this into another method called get_operation_mask
+        mask = self.get_operation_mask(mask, nb_steps)
+
+        final_scores = torch.zeros((nb_steps, nb_samples, dimension))
+        final_scores[mask] = self.act(aggregated_scores - 2)
+        # scores : [nb_steps, nb_samples, dimension]
+        # mask : [nb_steps, nb_samples, dimension]
+        return final_scores, mask
+
+    def get_predicted_label(self, obs, cond_moments,
+                    washout_border = 'automatic'):
+        
+        scores, mask = self(obs, cond_moments, washout_border)
+
+        # scores = scores.detach().cpu().numpy()
+        labels = torch.zeros_like(scores)
+        masked_scores = scores[mask]
+        masked_labels = labels[mask]
+        masked_labels[masked_scores > self.threshold] = 1
+        labels[mask] = masked_labels
+
+        return labels, scores
+
+    def linear_solver(self, obs, labels, cond_moments, washout_border='automatic'):
+        # obs : [nb_steps, nb_samples, dimension]
+        # labels : [nb_steps, nb_samples, dimension]
+        # cond_moments : [nb_steps, nb_samples, dimension, nb_moments, steps_ahead]
+        assert(isinstance(self.activation,torch.nn.Identity))
+
+        nb_steps = obs.size()[0]
+        nb_samples = obs.size()[1]
+        dimension = obs.size()[2]
+        
+        mask = self.get_washout_mask(cond_moments, washout_border)
+        obs_valid = obs[mask]
+        cond_moments_valid = cond_moments[mask]
+
+        scores_valid = self.get_individual_scores(cond_moments_valid, obs_valid)
+
+        scores = torch.zeros((nb_steps, nb_samples, dimension, self.nb_steps_ahead))
+        scores[mask] = scores_valid
+
+        op_mask = self.get_operation_mask(mask, nb_steps)
+        
+        labels = labels[op_mask].permute(1,2,0)
+        scores = scores[mask].permute(1,2,0,3)
+
+        unfold_scores = scores.unfold(dimension=2, size=2*self.smoothing+1, step=1).reshape(-1, (2 * self.smoothing + 1) * self.nb_steps_ahead)
+        unfold_labels = labels.reshape(-1).unsqueeze(1)
+
+        ls_weights = torch.linalg.lstsq(unfold_scores,unfold_labels).solution
+        ls_weights = ls_weights.reshape(2 * self.smoothing + 1, self.nb_steps_ahead).permute(1,0).unsqueeze(0)
+
+        self.weights.weight = torch.nn.Parameter(ls_weights)
+
+
 
 '''
 class AD_module(torch.nn.Module): # AD_module_1D, AD_module_ND
@@ -137,6 +320,8 @@ class AD_module(torch.nn.Module): # AD_module_1D, AD_module_ND
     
 '''
 
+
+'''
 class AD_module(torch.nn.Module): # AD_module_1D, AD_module_ND
     def __init__(self, 
                  output_vars,
@@ -160,6 +345,7 @@ class AD_module(torch.nn.Module): # AD_module_1D, AD_module_ND
         self.steps_weighting = torch.nn.Linear(in_features=self.nb_steps, out_features=1, bias=False)
         self.smoothing = smoothing
         self.smooth_padding = smooth_padding
+
         self.weights = torch.nn.Conv1d(in_channels=self.nb_steps, out_channels=1, kernel_size=2*self.smoothing+1, 
                                                      bias=False, padding=smooth_padding)
         if activation_fct == 'sigmoid':
@@ -201,6 +387,9 @@ class AD_module(torch.nn.Module): # AD_module_1D, AD_module_ND
             scores_valid = torch.tensor(scores_valid, dtype=torch.float32)
 
         return scores_valid
+    
+    def get_weights(self):
+        return self.weights.weight
 
     def forward(self, obs, cond_moments,
                     washout_border = 'automatic'):
@@ -242,10 +431,12 @@ class AD_module(torch.nn.Module): # AD_module_1D, AD_module_ND
         labels = torch.zeros_like(scores)
         masked_scores = scores[mask]
         masked_labels = labels[mask]
-        masked_labels[masked_scores > 0.5] = 1
+        masked_labels[masked_scores > self.threshold] = 1
         labels[mask] = masked_labels
 
-        return labels
+        print(self.threshold)
+
+        return labels, scores
 
     def linear_solver(self, obs, labels, cond_moments, washout_border='automatic'):
         # obs : [nb_steps, nb_samples, dimension]
@@ -279,4 +470,4 @@ class AD_module(torch.nn.Module): # AD_module_1D, AD_module_ND
 
         self.weights.weight = torch.nn.Parameter(ls_weights)
 
-
+'''

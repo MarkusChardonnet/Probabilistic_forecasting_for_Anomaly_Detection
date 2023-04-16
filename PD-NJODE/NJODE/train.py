@@ -1,5 +1,5 @@
 """
-author: Florian Krach & Calypso Herrera
+author: Florian Krach & Calypso Herrera & Markus Chardonnet
 
 implementation of the training (and evaluation) of NJ-ODE
 """
@@ -85,7 +85,7 @@ def train(
         hidden_size=10, bias=True, dropout_rate=0.1,
         ode_nn=default_ode_nn, readout_nn=default_readout_nn,
         enc_nn=default_enc_nn, use_rnn=False,
-        solver="euler", weight=0.5, weight_decay=1.,
+        solver="euler", weight=0.5, # weight_decay=1.,
         dataset='BlackScholes', dataset_id=None, data_dict=None,
         plot=True, paths_to_plot=(0,),
         saved_models_path=saved_models_path,
@@ -229,6 +229,13 @@ def train(
                                         the covariate_map is used as a mapping
                                         to get the initial h (for controlled
                                         ODE-RNN this is done by the encoder)
+            'add_pred'      
+            'train_data_perc'
+            'fixed_data_perc'
+            'scale_dt'
+            'weight_evolve'
+            'solver_delta_t_factor'
+            'articial_train_encdec 
     """
 
     global ANOMALY_DETECTION, USE_GPU, SEND, N_CPUS, N_DATASET_WORKERS
@@ -302,16 +309,27 @@ def train(
     if 'data_scaling_factor' in options:
         data_scaling_factor = options['data_scaling_factor']
 
+    fixed_data_perc = None
     train_data_perc = None
     if 'train_data_perc' in options:
         train_data_perc = options['train_data_perc']
+    elif 'fixed_data_perc' in options:
+        fixed_data_perc = options['fixed_data_perc']
     if 'scale_dt' in options:
         if options['scale_dt'] == 'automatic':
             options['scale_dt'] = 1./delta_t
             if train_data_perc is not None:
                 options['scale_dt'] *= train_data_perc
+            elif fixed_data_perc is not None:
+                options['scale_dt'] *= fixed_data_perc
             if 'solver_delta_t_factor' in options:
                 options['scale_dt'] *= options['solver_delta_t_factor']
+    if 'weight_evolve' in options:
+        weight_evolve = options['weight_evolve']
+        weight_evolve_type = options['weight_evolve']['type']
+        if weight_evolve_type == 'linear':
+            if options['weight_evolve']['reach'] == None:
+                options['weight_evolve']['reach'] = epochs
 
     # load raw data
     train_idx, val_idx = train_test_split(
@@ -324,10 +342,14 @@ def train(
             train_idx = np.random.choice(
                 train_idx, train_set_size, replace=False
             )
+    if 'validation_size' in options:
+        val_set_size = options['validation_size']
+        if val_set_size < len(val_idx):
+            val_idx = val_idx[:val_set_size]
     data_train = data_utils.IrregularDataset(
-        model_name=dataset, time_id=dataset_id, idx=train_idx)
+        model_name=dataset, time_id=dataset_id, idx=train_idx, obs_perc=fixed_data_perc)
     data_val = data_utils.IrregularDataset(
-        model_name=dataset, time_id=dataset_id, idx=val_idx)
+        model_name=dataset, time_id=dataset_id, idx=val_idx, obs_perc=fixed_data_perc)
     test_data_dict = None
     if 'test_data_dict' in options:
         test_data_dict = options['test_data_dict']
@@ -338,7 +360,8 @@ def train(
         data_val = data_utils.IrregularDataset(
             model_name=test_ds, time_id=test_ds_id, idx=None)
 
-    # get data-loader for training
+    # specify the input and output variables of the model, as function of X
+    input_vars = ['id']
     output_vars = ['id']
     if 'func_appl_X' in options:  # list of functions to apply to the paths in X
         functions = options['func_appl_X']
@@ -346,18 +369,27 @@ def train(
         input_size = input_size * mult
         output_size = output_size * mult
         output_vars += functions
+        input_vars += functions
     else:
         functions = None
         collate_fn, mult = data_utils.CustomCollateFnGen(None, obs_perc=train_data_perc) #, scaling_factor=data_scaling_factor)
         mult = 1
-    
+    # if we predict additional variables (the output size gets bigger than input size)
     if 'add_pred' in options:
         add_pred = options['add_pred']
         nb_pred_add = len(add_pred)
-        mult += nb_pred_add
+        #mult += nb_pred_add
         output_size += nb_pred_add * dimension
         output_vars += add_pred
+    
+    # in case we want to evaluate the predictions, specifies the output variables
+    if 'evaluate' in options and options['evaluate']:
+        if 'evaluate_vars' in options:
+            eval_vars = options['evaluate_vars']
+        else:
+            eval_vars = None
 
+    # get data-loader for training
     dl = DataLoader(  # class to iterate over training data
         dataset=data_train, collate_fn=collate_fn,
         shuffle=True, batch_size=batch_size, num_workers=N_DATASET_WORKERS)
@@ -395,7 +427,7 @@ def train(
         dataset_metadata['model_name']](**dataset_metadata)
     if use_cond_exp:
         opt_eval_loss = compute_optimal_eval_loss(
-            dl_val, stockmodel, delta_t, T, mult=mult, functions=functions)
+            dl_val, stockmodel, delta_t, T, mult=mult)
         initial_print += '\noptimal eval loss (achieved by true cond exp): ' \
                      '{:.5f}'.format(opt_eval_loss)
     else:
@@ -412,9 +444,10 @@ def train(
         'dropout_rate': dropout_rate, 'batch_size': batch_size,
         'solver': solver, 'dataset': dataset, 'dataset_id': dataset_id,
         'learning_rate': learning_rate, 'test_size': test_size, 'seed': seed,
-        'weight': weight, 'weight_decay': weight_decay, 
+        'weight': weight, 'weight_evolve': weight_evolve, # 'weight_decay': weight_decay, 
         'optimal_eval_loss': opt_eval_loss, 
-        't_period': t_period, 'output_vars': output_vars, 'delta_t': model_delta_t,
+        't_period': t_period, 'delta_t': model_delta_t,
+        'output_vars': output_vars, 'input_vars': input_vars,
         'options': options}
     desc = json.dumps(params_dict, sort_keys=True)  # serialize to a JSON formatted str
 
@@ -524,7 +557,10 @@ def train(
     # load saved model if wanted/possible
     best_eval_loss = np.infty
     if 'evaluate' in options and options['evaluate']:
-        metr_columns = METR_COLUMNS + ['evaluation_mean_diff']
+        eval_vars_names = []
+        for v in eval_vars:
+            eval_vars_names += [v + '_mean', v + '_std']
+        metr_columns = METR_COLUMNS + eval_vars_names
     else:
         metr_columns = METR_COLUMNS
     if resume_training:
@@ -539,7 +575,7 @@ def train(
             df_metric = pd.read_csv(model_metric_file, index_col=0)
             best_eval_loss = np.min(df_metric['eval_loss'].values)
             model.epoch += 1
-            model.weight_decay_step()
+            model.weight_step()
             initial_print += '\nepoch: {}, weight: {}'.format(
                 model.epoch, model.weight)
         except Exception as e:
@@ -563,7 +599,7 @@ def train(
             path_to_plot=paths_to_plot, save_path=plot_save_path,
             filename=plot_filename, plot_variance=plot_variance,
             plot_moments=plot_moments, output_vars=output_vars,
-            functions=functions, std_factor=std_factor,
+            functions=input_vars, std_factor=std_factor,
             model_name=model_name, save_extras=save_extras, ylabels=ylabels,
             same_yaxis=plot_same_yaxis, plot_obs_prob=plot_obs_prob,
             dataset_metadata=dataset_metadata)
@@ -618,6 +654,25 @@ def train(
         print('# trainable parameters={}\n'.format(nr_trainable_params))
         print('start training ...')
 
+    pre_train = False
+    if 'pre-train' in options:
+        pre_train = options['pre-train']
+    if pre_train:
+        model.train()
+        tot_loss = 0
+        print_every = 1000
+        for ep in range(10000):
+            optimizer.zero_grad()
+            loss = model.forward_random_encoder_decoder(batch_size=batch_size, dimension=dimension)
+            loss.backward()
+            optimizer.step()
+            tot_loss += loss.detach().clone()
+            if ep % print_every == 0 and ep > 0:
+                # print("training of encoder - decoder pair : epoch {}".format(ep))
+                # print("Average loss : {}".format(tot_loss / print_every))
+                tot_loss = 0
+
+
     metric_app = []
     while model.epoch <= epochs:
         t = time.time()  # return the time in seconds since the epoch
@@ -661,6 +716,13 @@ def train(
                 print(r"current loss: {}".format(loss.detach().cpu().numpy()))
         train_time = time.time() - t  # difference between current time and start time
 
+        if pre_train:
+            for ep in range(1):
+                optimizer.zero_grad()
+                loss = model.forward_random_encoder_decoder(batch_size=batch_size, dimension=dimension)
+                loss.backward()
+                optimizer.step()
+
         # -------- evaluation --------
         t = time.time()
         batch = None
@@ -668,7 +730,10 @@ def train(
             loss_val = 0
             loss_val_corrected = 0
             num_obs = 0
-            eval_msd = 0
+            eval_msd = {}
+            for v in eval_vars:
+                eval_msd[v+'_mean']=0
+                eval_msd[v+'_std']=0
             model.eval()  # set model in evaluation mode
             for i, b in enumerate(dl_val):  # iterate over dataloader for validation set
                 if plot:
@@ -693,7 +758,7 @@ def train(
                     hT, c_loss = model(
                         times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx, delta_t=None, T=T, start_X=start_X,
                         n_obs_ot=n_obs_ot, return_path=False, get_loss=True, M=M,
-                        start_M=start_M, which_loss=None) # which_loss='standart'
+                        start_M=start_M, which_loss='standard', dim_to=dimension*len(functions)) # which_loss='standard'
                 elif options['other_model'] == "GRU_ODE_Bayes":
                     if M is None:
                         M = torch.ones_like(X)
@@ -728,13 +793,16 @@ def train(
                         start_X=start_X, n_obs_ot=n_obs_ot,
                         stockmodel=stockmodel, return_paths=False, M=M,
                         start_M=start_M, true_paths=true_paths,
-                        true_mask=true_mask,) # mult=mult)
-                    eval_msd += _eval_msd
+                        true_mask=true_mask, eval_vars=eval_vars,) # mult=mult)
+                    for v, value in _eval_msd.items():
+                        eval_msd[v] += value
 
             eval_time = time.time() - t
             loss_val = loss_val / num_obs
             loss_val_corrected /= num_obs
-            eval_msd = eval_msd / num_obs
+            for v, value in eval_msd.items():
+                eval_msd[v] /= num_obs
+            # eval_msd = eval_msd / num_obs
             train_loss = loss.detach().cpu().numpy()
             print_str = "epoch {}, weight={:.5f}, train-loss={:.5f}, " \
                         "optimal-eval-loss={:.5f}, eval-loss={:.5f}, ".format(
@@ -745,10 +813,16 @@ def train(
                     loss_val_corrected)
             print(print_str)
         if 'evaluate' in options and options['evaluate']:
-            metric_app.append([model.epoch, train_time, eval_time, train_loss,
-                               loss_val, opt_eval_loss, eval_msd])
-            print("evaluation mean square difference={:.5f}".format(
-                eval_msd))
+            l = [model.epoch, train_time, eval_time, train_loss,
+                               loss_val, opt_eval_loss]
+            for v, value in eval_msd.items():
+                l.append(value)
+            metric_app.append(l)
+            # print("evaluation mean square difference={:.5f}".format(eval_msd))
+            string = "evaluation mean square difference : "
+            for v, value in eval_msd.items():
+                string += "{:.5f} for ".format(value) + v +", "
+            print(string)
         else:
             metric_app.append([model.epoch, train_time, eval_time, train_loss,
                                loss_val, opt_eval_loss])
@@ -766,7 +840,7 @@ def train(
                     path_to_plot=paths_to_plot, save_path=plot_save_path,
                     filename=plot_filename, plot_variance=plot_variance,
                     plot_moments=plot_moments, output_vars=output_vars,
-                    functions=functions, std_factor=std_factor,
+                    functions=input_vars, std_factor=std_factor,
                     model_name=model_name, save_extras=save_extras,
                     ylabels=ylabels, use_cond_exp=use_cond_exp,
                     same_yaxis=plot_same_yaxis, plot_obs_prob=plot_obs_prob,
@@ -803,7 +877,8 @@ def train(
         print("-"*100)
 
         model.epoch += 1
-        model.weight_decay_step()
+
+        model.weight_step()
 
     # send notification
     if SEND and not skip_training:
@@ -827,7 +902,7 @@ def train(
     return 0
 
 
-def compute_optimal_eval_loss(dl_val, stockmodel, delta_t, T, mult=None, functions = None):
+def compute_optimal_eval_loss(dl_val, stockmodel, delta_t, T, mult = None):
     """
     compute optimal evaluation loss (with the true cond. exp.) on the
     test-dataset
@@ -852,7 +927,7 @@ def compute_optimal_eval_loss(dl_val, stockmodel, delta_t, T, mult=None, functio
         num_obs += 1
         opt_loss += stockmodel.get_optimal_loss(
             times, time_ptr, X, obs_idx, delta_t, T, start_X, n_obs_ot, M=M,
-            mult=mult, functions=functions)
+            mult=mult)
     return opt_loss / num_obs
 
 
@@ -896,6 +971,8 @@ def plot_one_path_with_pred(
     :param dataset_metadata: needed if plot_obs_prob=true, the metadata of the
         used dataset to extract the observation probability
     :return: optimal loss
+
+    :param output_vars: list of str, the output variables of the model that depend on X
     """
     if model_name is None or model_name == "NJODE":
         model_name = 'our model'
@@ -933,8 +1010,18 @@ def plot_one_path_with_pred(
     path_t_pred = res['pred_t']
 
     # get variance path
-    if plot_variance and (functions is not None) and ('power-2' in functions):
-        which = np.argmax(np.array(functions) == 'power-2')+1
+    if plot_variance and (output_vars is not None) and ('var' in output_vars):
+        which = np.argmax(np.array(output_vars) == 'var')
+        path_var_pred = path_y_pred[:, :, (dim * which):(dim * (which + 1))]
+        if np.any(path_var_pred < 0):
+            print('WARNING: some predicted cond. variances below 0 -> clip')
+            print(np.sum(path_var_pred < 0), " out of ", path_var_pred.reshape(-1).shape[0], " values")
+            path_var_pred = np.maximum(0, path_var_pred)
+        path_std_pred = np.sqrt(path_var_pred)
+    #else:
+    #    path_std_2_pred = None
+    elif plot_variance and (functions is not None) and ('power-2' in functions):
+        which = np.argmax(np.array(functions) == 'power-2')
         y2 = path_y_pred[:, :, (dim * which):(dim * (which + 1))]
         path_var_pred = y2 - np.power(path_y_pred[:, :, 0:dim], 2)
         if np.any(path_var_pred < 0):
@@ -942,18 +1029,10 @@ def plot_one_path_with_pred(
             print(np.sum(path_var_pred < 0), " out of ", path_var_pred.reshape(-1).shape[0], " values")
             path_var_pred = np.maximum(0, path_var_pred)
         path_std_pred = np.sqrt(path_var_pred)
+    #else:
+    #    path_std_pred = None
     else:
         path_std_pred = None
-    if plot_variance and (output_vars is not None) and ('var' in output_vars):
-        which = np.argmax(np.array(output_vars) == 'var')
-        path_var_2_pred = path_y_pred[:, :, (dim * which):(dim * (which + 1))]
-        if np.any(path_var_2_pred < 0):
-            print('WARNING: some predicted cond. variances 2 below 0 -> clip')
-            print(np.sum(path_var_2_pred < 0), " out of ", path_var_2_pred.reshape(-1).shape[0], " values")
-            path_var_2_pred = np.maximum(0, path_var_2_pred)
-        path_std_2_pred = np.sqrt(path_var_2_pred)
-    else:
-        path_std_2_pred = None
     if ((output_vars is None) or ('var' not in output_vars)) and ((functions is None) or ('power-2' not in functions)):
         plot_variance = False
 
@@ -967,7 +1046,7 @@ def plot_one_path_with_pred(
             M=M, functions=functions)
         if plot_variance:
             if (functions is not None) and ('power-2' in functions):
-                which = np.argmax(np.array(functions) == 'power-2')+1
+                which = np.argmax(np.array(functions) == 'power-2')
                 path_y2_true = path_y_true[:, :, (dim * which):(dim * (which + 1))]
                 path_y_var_true = path_y2_true - np.power(path_y_true[:, :, 0:dim], 2)
                 if np.any(path_y_var_true < 0):
@@ -1049,14 +1128,15 @@ def plot_one_path_with_pred(
                 eps = (high - low)*0.05
                 axs[j].set_ylim([low-eps, high+eps])
 
-
-        axs[-1].legend()
+        for j in range(dim):
+            axs[j].set_ylim(-0.05, 1.4)
+        axs[-1].legend(loc='upper right', fontsize='small')
         plt.xlabel('$t$')
         save = os.path.join(save_path, filename.format(i))
         plt.savefig(save, **save_extras)
         plt.close()
 
-        if plot_variance and (path_std_2_pred is not None):
+        '''if plot_variance and (path_std_2_pred is not None):
             #value_dict['true std'] =  path_y_std_true[:, i, :].reshape(-1)
             #value_dict['predicted std (self computed)'] =  path_std_2_pred[:, i, :].reshape(-1)
             fig, axs = plt.subplots(dim)
@@ -1122,17 +1202,18 @@ def plot_one_path_with_pred(
                     eps = (high - low)*0.05
                     axs[j].set_ylim([low-eps, high+eps])
 
-
-            axs[-1].legend()
+            for j in range(dim):
+                axs[j].set_ylim(-0.05, 1.4)
+            axs[-1].legend(loc='upper right', fontsize='small')
             plt.xlabel('$t$')
             save = os.path.join(save_path, filename.format('{}_var'.format(i)))
             plt.savefig(save, **save_extras)
-            plt.close()
+            plt.close()'''
     
         if plot_moments:
             for m in range(2,10):
                 if 'power-{}'.format(m) in functions:
-                    which = np.argmax(np.array(functions) == 'power-{}'.format(m))+1
+                    which = np.argmax(np.array(functions) == 'power-{}'.format(m))
                     fig, axs = plt.subplots(dim)
                     if dim == 1:
                         axs = [axs]
@@ -1184,8 +1265,9 @@ def plot_one_path_with_pred(
                             eps = (high - low)*0.05
                             axs[j].set_ylim([low-eps, high+eps])
 
-
-                    axs[-1].legend()
+                    for j in range(dim):
+                        axs[j].set_ylim(-0.05, 1.4)
+                    axs[-1].legend(loc='upper right', fontsize='small')
                     plt.xlabel('$t$')
                     save = os.path.join(save_path, filename.format('{}_moment_{}'.format(i,m)))
                     plt.savefig(save, **save_extras)

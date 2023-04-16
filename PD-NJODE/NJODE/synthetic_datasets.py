@@ -531,7 +531,7 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
     def compute_cond_exp(self, times, time_ptr, X, obs_idx, delta_t, T, start_X,
                          n_obs_ot, return_path=True, get_loss=False,
                          weight=0.5, store_and_use_stored=False,
-                         start_time=None, mult = None, functions = None,
+                         start_time=None, functions = None,
                          **kwargs):
         
         if return_path and store_and_use_stored:
@@ -614,8 +614,6 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
             temp[i_obs] = X_obs
             y = temp
             Y = y
-            # print(y[:,1] - np.power(y[:,0],2))
-            # print("after jumps", np.sum((y[:,1] - np.power(y[:,0],2))<0))
 
             if get_loss:
                 loss = loss + compute_loss(X_obs=X_obs, Y_obs=Y[i_obs],
@@ -667,37 +665,69 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
             return loss, np.array(path_t), np.array(path_y)
         else:
             return loss
+
+    '''
+    def compute_loss(self, X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
+                    weight=0.5, functions=None, loss_vars=None):
+
+        dim = round(X_obs.shape[1]/len(functions))
+
+        losses = {}
+
+        if 'id' in loss_vars and 'id' in functions:
+
+            which_fct = np.argmax(np.array(functions) == 'id')
+            X_obs_id = X_obs[:,which_fct*dim:(which_fct+1)*dim]
+            Y_obs_id = Y_obs[:,which_fct*dim:(which_fct+1)*dim]
+            Y_obs_bj_id = Y_obs_bj[:,which_fct*dim:(which_fct+1)*dim]
+
+            inner = weight * np.sum((X_obs_id - Y_obs_id) ** 2, axis=1) + weight * np.sum((Y_obs_bj_id - Y_obs_id) ** 2, axis=1)
+            outer = np.sum(inner / n_obs_ot) / batch_size
+
+            losses['id'] = outer
+
+        if 'var' in loss_vars and 'power-2' in functions:
+
+            which_fct = np.argmax(np.array(functions) == 'power-2')
+            X_obs_p2 = X_obs[:,which_fct*dim:(which_fct+1)*dim]
+            Y_obs_p2 = Y_obs[:,which_fct*dim:(which_fct+1)*dim]
+            Y_obs_bj_p2 = Y_obs_bj[:,which_fct*dim:(which_fct+1)*dim]
+
+            inner = weight * np.sum((X_obs_p2 - Y_obs_p2) ** 2, axis=1) + weight * np.sum((Y_obs_bj_p2 - Y_obs_p2) ** 2, axis=1)
+            outer = np.sum(inner / n_obs_ot) / batch_size
+
+            losses['var'] = outer
+        
+        return outer
+    '''
     
         
     def get_optimal_loss(self, times, time_ptr, X, obs_idx, delta_t, T, start_X,
-                         n_obs_ot, weight=0.5, M=None, mult=None, functions=None):
+                         n_obs_ot, weight=0.5, M=None, mult=None):
 
         if mult is not None and mult > 1:
             bs, dim = start_X.shape
             _dim = round(dim / mult)
-            indices = np.arange(_dim)
-            for i,f in enumerate(functions):
-                if f[:5] == "power":
-                    indices = np.concatenate([indices, np.arange((i+1)*_dim,(i+2)*_dim)])
-            X = X[:, indices]
-            start_X = start_X[:, indices]
+            X = X[:, :_dim]
+            start_X = start_X[:, :_dim]
             if M is not None:
-                M = M[:, indices]
+                M = M[:, :_dim]
 
         loss, _, _ = self.compute_cond_exp(
             times, time_ptr, X, obs_idx, delta_t, T, start_X, n_obs_ot,
-            return_path=True, get_loss=True, weight=weight, M=M, functions=functions)
+            return_path=True, get_loss=True, weight=weight, M=M)
         return loss
 
-    def next_cond_moments(self, y, diff_t, delta_t, current_t, functions):  # and in higher dimension ????
+    def next_cond_moments(self, y, diff_t, delta_t, current_t, functions=None):  # and in higher dimension ????
 
         self.get_components()
+        if functions is None:
+            functions = ['id']
 
-        nb_functions = len(functions)
         dim = self.dimensions
         batch_size = y.shape[0]
 
-        res = np.zeros((batch_size, dim * (nb_functions+1)))
+        res = np.zeros((batch_size, dim * len(functions)))
 
         factor = np.expand_dims(self.periodic_coeff(current_t) *  self.speed, axis=0)
         diff_t = np.expand_dims(diff_t, axis=(1,2))
@@ -715,18 +745,23 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
 
         mat_delta_t = - np.tile(factor, (batch_size, 1, 1)) * np.tile(np.array([delta_t]).reshape(1,1,1), (batch_size, dim, dim))
         exp_term_delta_t = np.concatenate([expm(m).reshape(1,dim,dim) for m in mat_delta_t], axis=0)
-        prev_con_exp = y[:,:dim]
+
+        which = np.argmax(np.array(functions) == 'id')
+        prev_con_exp = y[:,dim*which:dim*(which+1)]
         cond_exp = np.matmul(exp_term_delta_t, prev_con_exp.reshape(batch_size,dim,1)).reshape(batch_size,dim) + cond_exp_integral
-        res[:,:dim] = cond_exp
+        res[:,dim*which:dim*(which+1)] = cond_exp
 
         for i,f in enumerate(functions):
             if f == "power-2":
-                cond_var = y[:,(i+1)*dim:(i+2)*dim] - np.power(prev_con_exp,2)
+                #cond_var = y[:,(i+1)*dim:(i+2)*dim] - np.power(prev_con_exp,2)
+                cond_var = y[:,i*dim:(i+1)*dim] - np.power(prev_con_exp,2)
                 cond_var += cond_var_add
                 cond_exp_2 = cond_var + np.power(cond_exp, 2)
-                res[:,(i+1)*dim:(i+2)*dim] = cond_exp_2
+                #res[:,(i+1)*dim:(i+2)*dim] = cond_exp_2
+                res[:,i*dim:(i+1)*dim] = cond_exp_2
         return res
-        
+    
+    '''    
     def cond_moments(self, cond_exp, diff_t, current_t, functions):  # and in higher dimension ????
         # if functions[0] == 'id':
         #     functions = functions[1:]
@@ -755,6 +790,7 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
         integral = delta_t * self.speed * np.exp(factor * current_t) * self.seasons(current_t)    # redundant operation
         res = y * np.exp(- factor * delta_t) + np.exp(- factor * current_t) * integral
         return res
+    '''
 
     def get_anomaly_fcts(self):
         assert(self.season_type == 'NN')

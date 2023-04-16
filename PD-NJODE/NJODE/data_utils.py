@@ -723,7 +723,7 @@ class IrregularDataset(Dataset):
     """
     class for iterating over a dataset
     """
-    def __init__(self, model_name, time_id=None, idx=None):
+    def __init__(self, model_name, time_id=None, idx=None, obs_perc=None):
         stock_paths, observed_dates, nb_obs, hyperparam_dict = load_dataset(
             stock_model_name=model_name, time_id=time_id)
         if idx is None:
@@ -732,6 +732,10 @@ class IrregularDataset(Dataset):
         self.stock_paths = stock_paths[idx]
         self.observed_dates = observed_dates[idx]
         self.nb_obs = nb_obs[idx]
+        if obs_perc is not None:
+            samples = np.random.random(size=self.observed_dates.shape)
+            self.observed_dates = (samples < obs_perc)*1
+            self.observed_dates[:, 0] = 1
 
     def __len__(self):
         return len(self.nb_obs)

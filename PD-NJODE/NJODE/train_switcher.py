@@ -3,6 +3,7 @@ author: Florian Krach
 """
 
 import train
+import KPI_train
 import climate_train
 import physionet_train
 import LOB_train
@@ -30,6 +31,8 @@ def train_switcher(**params):
     if params['dataset'] in list(synthetic_datasets.DATASETS) or \
             'combined' in params['dataset'] or 'FBM[' in params['dataset']:
         return train.train(**params)
+    elif params['dataset'] in ['Cloud_KPI']:
+        return KPI_train.train(**params)
     elif params['dataset'] in ['climate', 'Climate']:
         return climate_train.train(**params)
     elif params['dataset'] in ['physionet', 'Physionet']:

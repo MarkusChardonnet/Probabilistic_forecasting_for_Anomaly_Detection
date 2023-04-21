@@ -260,10 +260,10 @@ param_dict_AD_OrnsteinUhlenbeckWithSeason_5 = {
 
 
 plot_paths_AD_OrnsteinUhlenbeckWithSeason_dict = {
-    'model_ids': [28,29],
-    'saved_models_path': AD_OrnsteinUhlenbeckWithSeason_models_path,
+    'model_ids': [9],
+    'saved_models_path': "{}saved_models_AD_OrnsteinUhlenbeckWithSeason_dim2/".format(data_path),
     'which': 'last', 
-    'paths_to_plot': [0,1,2,3,4,],
+    'paths_to_plot': [0],
     'save_extras': {'bbox_inches': 'tight', 'pad_inches': 0.01},
 }
 

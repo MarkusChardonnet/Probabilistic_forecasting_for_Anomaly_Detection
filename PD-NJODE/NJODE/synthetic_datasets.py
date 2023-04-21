@@ -665,41 +665,6 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
             return loss, np.array(path_t), np.array(path_y)
         else:
             return loss
-
-    '''
-    def compute_loss(self, X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
-                    weight=0.5, functions=None, loss_vars=None):
-
-        dim = round(X_obs.shape[1]/len(functions))
-
-        losses = {}
-
-        if 'id' in loss_vars and 'id' in functions:
-
-            which_fct = np.argmax(np.array(functions) == 'id')
-            X_obs_id = X_obs[:,which_fct*dim:(which_fct+1)*dim]
-            Y_obs_id = Y_obs[:,which_fct*dim:(which_fct+1)*dim]
-            Y_obs_bj_id = Y_obs_bj[:,which_fct*dim:(which_fct+1)*dim]
-
-            inner = weight * np.sum((X_obs_id - Y_obs_id) ** 2, axis=1) + weight * np.sum((Y_obs_bj_id - Y_obs_id) ** 2, axis=1)
-            outer = np.sum(inner / n_obs_ot) / batch_size
-
-            losses['id'] = outer
-
-        if 'var' in loss_vars and 'power-2' in functions:
-
-            which_fct = np.argmax(np.array(functions) == 'power-2')
-            X_obs_p2 = X_obs[:,which_fct*dim:(which_fct+1)*dim]
-            Y_obs_p2 = Y_obs[:,which_fct*dim:(which_fct+1)*dim]
-            Y_obs_bj_p2 = Y_obs_bj[:,which_fct*dim:(which_fct+1)*dim]
-
-            inner = weight * np.sum((X_obs_p2 - Y_obs_p2) ** 2, axis=1) + weight * np.sum((Y_obs_bj_p2 - Y_obs_p2) ** 2, axis=1)
-            outer = np.sum(inner / n_obs_ot) / batch_size
-
-            losses['var'] = outer
-        
-        return outer
-    '''
     
         
     def get_optimal_loss(self, times, time_ptr, X, obs_idx, delta_t, T, start_X,
@@ -731,7 +696,7 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
 
         factor = np.expand_dims(self.periodic_coeff(current_t) *  self.speed, axis=0)
         diff_t = np.expand_dims(diff_t, axis=(1,2))
-        vol = np.diagonal(self.volatility @ np.transpose(self.volatility)).reshape(1, dim, dim)
+        vol = np.matmul(self.volatility, np.transpose(self.volatility)).reshape(1, dim, dim)
 
         
         cond_exp_integral = delta_t * np.matmul(np.tile(factor, (batch_size, 1, 1)), 
@@ -1053,7 +1018,7 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
         if start_X is not None:
             spot_paths[:, :, 0] = start_X
         for i in range(self.nb_paths):
-            if i % 100 == 0:
+            if i % 100 == 0 and i != 0:
                 print("Generated {} paths".format(i))
 
             drift, diffusion, noise, anomalies, spikes = self.get_anomaly_fcts()

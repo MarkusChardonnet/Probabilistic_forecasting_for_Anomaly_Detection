@@ -3,494 +3,453 @@ import numpy as np
 from configs.config_utils import get_parameter_array, get_dataset_overview, \
     makedirs, data_path, training_data_path
 
+
+batch_size = 200
+learning_rate = 0.001
+seed = 398
+hidden_size = 150
+bias = True
+dropout_rate = 0.1
+test_size = 0.2
+ode_nn_1 = ((300, 'tanh'), (300, 'relu'))
+ode_nn_2 = ((400, 'tanh'), (400, 'relu'))
+enc_nn = ((200, 'tanh'), (200, 'tanh'))
+readout_nn = ((200, 'tanh'), (200, 'tanh'))
+use_rnn = True
+input_sig = True
+func_appl_X = ["power-2"]
+add_pred = ["var"]
+solver = "euler"
+solver_delta_t_factor = 1
+weight = 0
+weight_evolve = {'type':'linear', 'target': 1, 'reach': None}
+eval_metrics = ['exp','std']
+std_factor = 1.96
+plot_variance = True
+plot_moments = True
+paths_to_plot = (0,1,2,3,4,)
+input_current_t = True
+enc_input_t = False
+validation_size = 200
+scale_dt = 'automatic'
+train_data_perc = 0.1
+
+
+###### MAIN DATASET
+AD_OrnsteinUhlenbeckWithSeason_models_path_experiments = "{}saved_models_AD_OrnsteinUhlenbeckWithSeason_EXPERIMENTS/".format(data_path)
+param_list_AD_OrnsteinUhlenbeckWithSeason_experiments = []
+
+# base setup
+AD_OrnsteinUhlenbeckWithSeason_models_path_base = "{}saved_models_AD_OrnsteinUhlenbeckWithSeason_base/".format(data_path)
+param_list_AD_OrnsteinUhlenbeckWithSeason_base = []
+param_dict_AD_OrnsteinUhlenbeckWithSeason_1_base = {
+        'epochs': [50],
+        'batch_size': [batch_size],
+        'save_every': [1],
+        'learning_rate': [learning_rate],
+        'test_size': [test_size],
+        'seed': [seed],
+        'hidden_size': [hidden_size],
+        'bias': [bias],
+        'dropout_rate': [dropout_rate],
+        'ode_nn': [ode_nn_1],
+        'readout_nn': [readout_nn],
+        'enc_nn': [enc_nn],
+        'use_rnn': [use_rnn],
+        'input_sig': [input_sig],
+        'func_appl_X': [func_appl_X],              # [["power-2", "power-3", "power-4"]]
+        'add_pred': [add_pred],
+        'solver': [solver],
+        'solver_delta_t_factor': [solver_delta_t_factor],
+        'weight': [weight],
+        'weight_evolve': [weight_evolve],
+        'data_dict': ['AD_OrnsteinUhlenbeckWithSeason_3_dict'],
+        'plot': [True],
+        'which_loss': ['variance'],
+        'which_eval_loss': ['eval_variance'],
+        'evaluate': [True],
+        'eval_metrics': [eval_metrics],
+        'paths_to_plot': [paths_to_plot],
+        'plot_variance': [plot_variance],
+        'std_factor': [std_factor],
+        'plot_moments': [plot_moments],
+        # 'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_models_path_base],
+        'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_models_path_experiments],
+        'use_cond_exp': [True],
+        'input_current_t': [input_current_t],
+        'periodic_current_t': [True],
+        'validation_size': [validation_size],
+        'train_data_perc': [train_data_perc],
+        'scale_dt': [scale_dt],
+        'enc_input_t': [enc_input_t],
+    }
+param_list_AD_OrnsteinUhlenbeckWithSeason_base += get_parameter_array(param_dict=param_dict_AD_OrnsteinUhlenbeckWithSeason_1_base)
+param_list_AD_OrnsteinUhlenbeckWithSeason_experiments += get_parameter_array(param_dict=param_dict_AD_OrnsteinUhlenbeckWithSeason_1_base)
+
+# with smaller dataset sizes (200 and 1000), but equal number of forward passes
 AD_OrnsteinUhlenbeckWithSeason_models_path_dataset_size = "{}saved_models_AD_OrnsteinUhlenbeckWithSeason_dataset_size/".format(data_path)
 param_list_AD_OrnsteinUhlenbeckWithSeason_dataset_size = []
-ode_nn_1 = ((300, 'tanh'), (300, 'relu'))
-enc_nn = ((200, 'tanh'), (200, 'tanh'))
-readout_nn = ((200, 'tanh'), (200, 'tanh'))
 param_dict_AD_OrnsteinUhlenbeckWithSeason_1_dataset_size = {
-        'epochs': [50],
-        'batch_size': [200],
-        'save_every': [1],
-        'learning_rate': [0.001],
-        'test_size': [0.2],
-        'seed': [398],
-        'hidden_size': [150],
-        'bias': [True],
-        'dropout_rate': [0.1],
-        'ode_nn': [ode_nn_1],
-        'readout_nn': [readout_nn],
-        'enc_nn': [enc_nn],
-        'use_rnn': [True],
-        'input_sig': [True],
-        'func_appl_X': [["power-2"]],              # [["power-2", "power-3", "power-4"]]
-        'add_pred': [['var']],
-        'solver': ["euler"],
-        'solver_delta_t_factor': [1],
-        #'weight': [1],
-        #'weight_decay': [0.99],
-        'weight': [0],
-        'weight_evolve': [{'type':'linear', 'target': 1, 'reach': None}],
-        'data_dict': ['AD_OrnsteinUhlenbeckWithSeason_3_dict'],
-        'plot': [True],
-        'which_loss': ['ad_var'],
-        'evaluate': [True],
-        'evaluate_vars': [['exp','std']],
-        'paths_to_plot': [(0,1,2,3,4,)],
-        'plot_variance': [True],
-        'std_factor': [1.96],
-        'plot_moments': [True],
-        'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_models_path_dataset_size],
-        'use_cond_exp': [True],
-        'input_current_t': [True],
-        'periodic_current_t': [True],
-        'validation_size': [200],
-        'train_data_perc': [0.1],
-        'scale_dt': ['automatic'],
-        'enc_input_t': [False],
-    }
-param_list_AD_OrnsteinUhlenbeckWithSeason_dataset_size += get_parameter_array(param_dict=param_dict_AD_OrnsteinUhlenbeckWithSeason_1_dataset_size)
-param_dict_AD_OrnsteinUhlenbeckWithSeason_2_dataset_size = {
         'epochs': [4000],
-        'batch_size': [200],
+        'batch_size': [batch_size],
         'save_every': [100],
-        'learning_rate': [0.001],
-        'test_size': [0.2],
-        'seed': [398],
-        'hidden_size': [150],
-        'bias': [True],
-        'dropout_rate': [0.1],
+        'learning_rate': [learning_rate],
+        'test_size': [test_size],
+        'seed': [seed],
+        'hidden_size': [hidden_size],
+        'bias': [bias],
+        'dropout_rate': [dropout_rate],
         'ode_nn': [ode_nn_1],
         'readout_nn': [readout_nn],
         'enc_nn': [enc_nn],
-        'use_rnn': [True],
-        'input_sig': [True],
-        'func_appl_X': [["power-2"]],              # [["power-2", "power-3", "power-4"]]
-        'add_pred': [['var']],
-        'solver': ["euler"],
-        'solver_delta_t_factor': [1],
-        'weight': [0],
-        'weight_evolve': [{'type':'linear', 'target': 1, 'reach': None}],
+        'use_rnn': [use_rnn],
+        'input_sig': [input_sig],
+        'func_appl_X': [func_appl_X],
+        'add_pred': [add_pred],
+        'solver': [solver],
+        'solver_delta_t_factor': [solver_delta_t_factor],
+        'weight': [weight],
+        'weight_evolve': [weight_evolve],
         'data_dict': ['AD_OrnsteinUhlenbeckWithSeason_3_dict'],
         'plot': [True],
-        'which_loss': ['ad_var'],
+        'which_loss': ['variance'],
+        'which_eval_loss': ['eval_variance'],
         'evaluate': [True],
-        'evaluate_vars': [['exp','std']],
-        'paths_to_plot': [(0,1,2,3,4,)],
-        'plot_variance': [True],
-        'std_factor': [1.96],
-        'plot_moments': [True],
-        'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_models_path_dataset_size],
+        'eval_metrics': [['exp','std']],
+        'paths_to_plot': [paths_to_plot],
+        'plot_variance': [plot_variance],
+        'std_factor': [std_factor],
+        'plot_moments': [plot_moments],
+        # 'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_models_path_dataset_size],
+        'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_models_path_experiments],
         'use_cond_exp': [True],
-        'input_current_t': [True],
+        'input_current_t': [input_current_t],
         'periodic_current_t': [True],
         'training_size': [1000],
-        'validation_size': [200],
-        'train_data_perc': [0.1],
-        'scale_dt': ['automatic'],
-        'enc_input_t': [False],
+        'validation_size': [validation_size],
+        'train_data_perc': [train_data_perc],
+        'scale_dt': [scale_dt],
+        'enc_input_t': [enc_input_t],
+    }
+param_list_AD_OrnsteinUhlenbeckWithSeason_dataset_size += get_parameter_array(param_dict=param_dict_AD_OrnsteinUhlenbeckWithSeason_1_dataset_size)
+param_list_AD_OrnsteinUhlenbeckWithSeason_experiments += get_parameter_array(param_dict=param_dict_AD_OrnsteinUhlenbeckWithSeason_1_dataset_size)
+param_dict_AD_OrnsteinUhlenbeckWithSeason_2_dataset_size = {
+        'epochs': [20000],
+        'batch_size': [batch_size],
+        'save_every': [500],
+        'learning_rate': [learning_rate],
+        'test_size': [test_size],
+        'seed': [seed],
+        'hidden_size': [hidden_size],
+        'bias': [bias],
+        'dropout_rate': [dropout_rate],
+        'ode_nn': [ode_nn_1],
+        'readout_nn': [readout_nn],
+        'enc_nn': [enc_nn],
+        'use_rnn': [use_rnn],
+        'input_sig': [input_sig],
+        'func_appl_X': [func_appl_X],
+        'add_pred': [add_pred],
+        'solver': [solver],
+        'solver_delta_t_factor': [solver_delta_t_factor],
+        'weight': [weight],
+        'weight_evolve': [weight_evolve],
+        'data_dict': ['AD_OrnsteinUhlenbeckWithSeason_3_dict'],
+        'plot': [True],
+        'which_loss': ['variance'],
+        'which_eval_loss': ['eval_variance'],
+        'evaluate': [True],
+        'eval_metrics': [['exp','std']],
+        'paths_to_plot': [paths_to_plot],
+        'plot_variance': [plot_variance],
+        'std_factor': [std_factor],
+        'plot_moments': [plot_moments],
+        # 'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_models_path_dataset_size],
+        'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_models_path_experiments],
+        'use_cond_exp': [True],
+        'input_current_t': [input_current_t],
+        'periodic_current_t': [True],
+        'training_size': [200],
+        'validation_size': [validation_size],
+        'train_data_perc': [train_data_perc],
+        'scale_dt': [scale_dt],
+        'enc_input_t': [enc_input_t],
     }
 param_list_AD_OrnsteinUhlenbeckWithSeason_dataset_size += get_parameter_array(param_dict=param_dict_AD_OrnsteinUhlenbeckWithSeason_2_dataset_size)
-param_dict_AD_OrnsteinUhlenbeckWithSeason_3_dataset_size = {
-        'epochs': [20000],
-        'batch_size': [200],
-        'save_every': [500],
-        'learning_rate': [0.001],
-        'test_size': [0.2],
-        'seed': [398],
-        'hidden_size': [150],
-        'bias': [True],
-        'dropout_rate': [0.1],
-        'ode_nn': [ode_nn_1],
-        'readout_nn': [readout_nn],
-        'enc_nn': [enc_nn],
-        'use_rnn': [True],
-        'input_sig': [True],
-        'func_appl_X': [["power-2"]],              # [["power-2", "power-3", "power-4"]]
-        'add_pred': [['var']],
-        'solver': ["euler"],
-        'solver_delta_t_factor': [1],
-        'weight': [0],
-        'weight_evolve': [{'type':'linear', 'target': 1, 'reach': None}],
-        'data_dict': ['AD_OrnsteinUhlenbeckWithSeason_3_dict'],
-        'plot': [True],
-        'which_loss': ['ad_var'],
-        'evaluate': [True],
-        'evaluate_vars': [['exp','std']],
-        'paths_to_plot': [(0,1,2,3,4,)],
-        'plot_variance': [True],
-        'std_factor': [1.96],
-        'plot_moments': [True],
-        'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_models_path_dataset_size],
-        'use_cond_exp': [True],
-        'input_current_t': [True],
-        'periodic_current_t': [True],
-        'training_size': [200],
-        'validation_size': [200],
-        'train_data_perc': [0.1],
-        'scale_dt': ['automatic'],
-        'enc_input_t': [False],
-    }
-param_list_AD_OrnsteinUhlenbeckWithSeason_dataset_size += get_parameter_array(param_dict=param_dict_AD_OrnsteinUhlenbeckWithSeason_3_dataset_size)
+param_list_AD_OrnsteinUhlenbeckWithSeason_experiments += get_parameter_array(param_dict=param_dict_AD_OrnsteinUhlenbeckWithSeason_2_dataset_size)
 
-
+# without the term enforcing variance positiveness
 AD_OrnsteinUhlenbeckWithSeason_models_path_var_pos = "{}saved_models_AD_OrnsteinUhlenbeckWithSeason_var_pos/".format(data_path)
 param_list_AD_OrnsteinUhlenbeckWithSeason_var_pos = []
-ode_nn_1 = ((300, 'tanh'), (300, 'relu'))
-enc_nn = ((200, 'tanh'), (200, 'tanh'))
-readout_nn = ((200, 'tanh'), (200, 'tanh'))
 param_dict_AD_OrnsteinUhlenbeckWithSeason_1_var_pos = {
         'epochs': [50],
-        'batch_size': [200],
+        'batch_size': [batch_size],
         'save_every': [1],
-        'learning_rate': [0.001],
-        'test_size': [0.2],
-        'seed': [398],
-        'hidden_size': [150],
+        'learning_rate': [learning_rate],
+        'test_size': [test_size],
+        'seed': [seed],
+        'hidden_size': [hidden_size],
         'bias': [True],
-        'dropout_rate': [0.1],
+        'dropout_rate': [dropout_rate],
         'ode_nn': [ode_nn_1],
         'readout_nn': [readout_nn],
         'enc_nn': [enc_nn],
-        'use_rnn': [True],
-        'input_sig': [True],
-        'func_appl_X': [["power-2"]],              # [["power-2", "power-3", "power-4"]]
-        'add_pred': [['var']],
-        'solver': ["euler"],
-        'solver_delta_t_factor': [1],
-        'weight': [0],
-        'weight_evolve': [{'type':'linear', 'target': 1, 'reach': None}],
+        'use_rnn': [use_rnn],
+        'input_sig': [input_sig],
+        'func_appl_X': [func_appl_X],
+        'add_pred': [add_pred],
+        'solver': [solver],
+        'solver_delta_t_factor': [solver_delta_t_factor],
+        'weight': [weight],
+        'weight_evolve': [weight_evolve],
         'data_dict': ['AD_OrnsteinUhlenbeckWithSeason_3_dict'],
         'plot': [True],
-        'which_loss': ['ad_var_pos'],
+        'which_loss': ['variance_bis'],
+        'which_eval_loss': ['eval_variance'],
         'evaluate': [True],
-        'evaluate_vars': [['exp','std']],
-        'paths_to_plot': [(0,1,2,3,4,)],
-        'plot_variance': [True],
-        'std_factor': [1.96],
-        'plot_moments': [True],
-        'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_models_path_var_pos],
+        'eval_metrics': [eval_metrics],
+        'paths_to_plot': [paths_to_plot],
+        'plot_variance': [plot_variance],
+        'std_factor': [std_factor],
+        'plot_moments': [plot_moments],
+        # 'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_models_path_var_pos],
+        'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_models_path_experiments],
         'use_cond_exp': [True],
-        'input_current_t': [True],
+        'input_current_t': [input_current_t],
         'periodic_current_t': [True],
-        'validation_size': [200],
-        'train_data_perc': [0.1],
-        'scale_dt': ['automatic'],
-        'enc_input_t': [False],
+        'validation_size': [validation_size],
+        'train_data_perc': [train_data_perc],
+        'scale_dt': [scale_dt],
+        'enc_input_t': [enc_input_t],
     }
 param_list_AD_OrnsteinUhlenbeckWithSeason_var_pos += get_parameter_array(param_dict=param_dict_AD_OrnsteinUhlenbeckWithSeason_1_var_pos)
+param_list_AD_OrnsteinUhlenbeckWithSeason_experiments += get_parameter_array(param_dict=param_dict_AD_OrnsteinUhlenbeckWithSeason_1_var_pos)
 
-
-# warning, it was lauched with add_pred = ['var']
+# without the prediction of the variance (it is computed from the difference between the cond exp squared and the squared cond exp)
 AD_OrnsteinUhlenbeckWithSeason_models_path_wo_var = "{}saved_models_AD_OrnsteinUhlenbeckWithSeason_wo_var/".format(data_path)
 param_list_AD_OrnsteinUhlenbeckWithSeason_wo_var = []
-ode_nn_1 = ((300, 'tanh'), (300, 'relu'))
-enc_nn = ((200, 'tanh'), (200, 'tanh'))
-readout_nn = ((200, 'tanh'), (200, 'tanh'))
 param_dict_AD_OrnsteinUhlenbeckWithSeason_1_wo_var = {
         'epochs': [50],
-        'batch_size': [200],
+        'batch_size': [batch_size],
         'save_every': [1],
-        'learning_rate': [0.001],
-        'test_size': [0.2],
-        'seed': [398],
-        'hidden_size': [150],
+        'learning_rate': [learning_rate],
+        'test_size': [test_size],
+        'seed': [seed],
+        'hidden_size': [hidden_size],
         'bias': [True],
-        'dropout_rate': [0.1],
+        'dropout_rate': [dropout_rate],
         'ode_nn': [ode_nn_1],
         'readout_nn': [readout_nn],
         'enc_nn': [enc_nn],
-        'use_rnn': [True],
-        'input_sig': [True],
-        'func_appl_X': [["power-2"]],              # [["power-2", "power-3", "power-4"]]
+        'use_rnn': [use_rnn],
+        'input_sig': [input_sig],
+        'func_appl_X': [func_appl_X],
         'add_pred': [[]],
-        'solver': ["euler"],
-        'solver_delta_t_factor': [1],
-        'weight': [0],
-        'weight_evolve': [{'type':'linear', 'target': 1, 'reach': None}],
+        'solver': [solver],
+        'solver_delta_t_factor': [solver_delta_t_factor],
+        'weight': [weight],
+        'weight_evolve': [weight_evolve],
         'data_dict': ['AD_OrnsteinUhlenbeckWithSeason_3_dict'],
         'plot': [True],
-        'which_loss': ['ad'],
+        'which_loss': ['moment_2'],
+        'which_eval_loss': ['eval_variance'],
         'evaluate': [True],
-        'evaluate_vars': [['exp','std']],
-        'paths_to_plot': [(0,1,2,3,4,)],
-        'plot_variance': [True],
-        'std_factor': [1.96],
-        'plot_moments': [True],
-        'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_models_path_wo_var],
+        'eval_metrics': [['exp','std']],
+        'paths_to_plot': [paths_to_plot],
+        'plot_variance': [plot_variance],
+        'std_factor': [std_factor],
+        'plot_moments': [plot_moments],
+        # 'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_models_path_wo_var],
+        'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_models_path_experiments],
         'use_cond_exp': [True],
-        'input_current_t': [True],
+        'input_current_t': [input_current_t],
         'periodic_current_t': [True],
-        'validation_size': [200],
-        'train_data_perc': [0.1],
-        'scale_dt': ['automatic'],
-        'enc_input_t': [False],
+        'validation_size': [validation_size],
+        'train_data_perc': [train_data_perc],
+        'scale_dt': [scale_dt],
+        'enc_input_t': [enc_input_t],
     }
 param_list_AD_OrnsteinUhlenbeckWithSeason_wo_var += get_parameter_array(param_dict=param_dict_AD_OrnsteinUhlenbeckWithSeason_1_wo_var)
+param_list_AD_OrnsteinUhlenbeckWithSeason_experiments += get_parameter_array(param_dict=param_dict_AD_OrnsteinUhlenbeckWithSeason_1_wo_var)
 
-AD_OrnsteinUhlenbeckWithSeason_models_path_modif_loss = "{}saved_models_AD_OrnsteinUhlenbeckWithSeason_modif_loss/".format(data_path)
-param_list_AD_OrnsteinUhlenbeckWithSeason_modif_loss = []
-ode_nn_1 = ((300, 'tanh'), (300, 'relu'))
-enc_nn = ((200, 'tanh'), (200, 'tanh'))
-readout_nn = ((200, 'tanh'), (200, 'tanh'))
-param_dict_AD_OrnsteinUhlenbeckWithSeason_1_modif_loss = {
-        'epochs': [50],
-        'batch_size': [200],
-        'save_every': [1],
-        'learning_rate': [0.001],
-        'test_size': [0.2],
-        'seed': [398],
-        'hidden_size': [150],
-        'bias': [True],
-        'dropout_rate': [0.1],
-        'ode_nn': [ode_nn_1],
-        'readout_nn': [readout_nn],
-        'enc_nn': [enc_nn],
-        'use_rnn': [True],
-        'input_sig': [True],
-        'func_appl_X': [[]],              # [["power-2", "power-3", "power-4"]]
-        'add_pred': [[]],
-        'solver': ["euler"],
-        'solver_delta_t_factor': [1],
-        'weight': [0],
-        'weight_evolve': [{'type':'linear', 'target': 1, 'reach': None}],
-        'data_dict': ['AD_OrnsteinUhlenbeckWithSeason_3_dict'],
-        'plot': [True],
-        'which_loss': ['easy', 'easy_bis'],
-        'evaluate': [True],
-        'evaluate_vars': [['exp']],
-        'paths_to_plot': [(0,1,2,3,4,)],
-        'plot_variance': [True],
-        'std_factor': [1.96],
-        'plot_moments': [True],
-        'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_models_path_modif_loss],
-        'use_cond_exp': [True],
-        'input_current_t': [True],
-        'periodic_current_t': [True],
-        'validation_size': [200],
-        'train_data_perc': [0.1],
-        'scale_dt': ['automatic'],
-        'enc_input_t': [False],
-    }
-param_list_AD_OrnsteinUhlenbeckWithSeason_modif_loss += get_parameter_array(param_dict=param_dict_AD_OrnsteinUhlenbeckWithSeason_1_modif_loss)
-
+# with per path fixed observations (over epochs) for training on small dataset (200 paths)
 AD_OrnsteinUhlenbeckWithSeason_models_path_fixed_obs_perc = "{}saved_models_AD_OrnsteinUhlenbeckWithSeason_fixed_obs_perc/".format(data_path)
 param_list_AD_OrnsteinUhlenbeckWithSeason_fixed_obs_perc = []
-ode_nn_1 = ((300, 'tanh'), (300, 'relu'))
-enc_nn = ((200, 'tanh'), (200, 'tanh'))
-readout_nn = ((200, 'tanh'), (200, 'tanh'))
 param_dict_AD_OrnsteinUhlenbeckWithSeason_1_fixed_obs_perc = {
-        'epochs': [50000],
-        'batch_size': [200],
+        'epochs': [20000],
+        'batch_size': [batch_size],
         'save_every': [500],
-        'learning_rate': [0.001],
-        'test_size': [0.2],
-        'seed': [398],
-        'hidden_size': [150],
+        'learning_rate': [learning_rate],
+        'test_size': [test_size],
+        'seed': [seed],
+        'hidden_size': [hidden_size],
         'bias': [True],
-        'dropout_rate': [0.1],
+        'dropout_rate': [dropout_rate],
         'ode_nn': [ode_nn_1],
         'readout_nn': [readout_nn],
         'enc_nn': [enc_nn],
-        'use_rnn': [True],
-        'input_sig': [True],
-        'func_appl_X': [["power-2"]],              # [["power-2", "power-3", "power-4"]]
-        'add_pred': [['var']],
-        'solver': ["euler"],
-        'solver_delta_t_factor': [1],
-        'weight': [0],
-        'weight_evolve': [{'type':'linear', 'target': 1, 'reach': None}],
+        'use_rnn': [use_rnn],
+        'input_sig': [input_sig],
+        'func_appl_X': [func_appl_X],
+        'add_pred': [add_pred],
+        'solver': [solver],
+        'solver_delta_t_factor': [solver_delta_t_factor],
+        'weight': [weight],
+        'weight_evolve': [weight_evolve],
         'data_dict': ['AD_OrnsteinUhlenbeckWithSeason_3_dict'],
         'plot': [True],
-        'which_loss': ['ad_var'],
+        'which_loss': ['variance'],
+        'which_eval_loss': ['eval_variance'],
         'evaluate': [True],
-        'evaluate_vars': [['exp','std']],
+        'eval_metrics': [eval_metrics],
         'paths_to_plot': [(0,1,2,3,4,)],
-        'plot_variance': [True],
-        'std_factor': [1.96],
-        'plot_moments': [True],
-        'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_models_path_fixed_obs_perc],
+        'plot_variance': [plot_variance],
+        'std_factor': [std_factor],
+        'plot_moments': [plot_moments],
+        # 'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_models_path_fixed_obs_perc],
+        'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_models_path_experiments],
         'use_cond_exp': [True],
-        'input_current_t': [True],
+        'input_current_t': [input_current_t],
         'periodic_current_t': [True],
         'training_size': [200],
-        'validation_size': [200],
+        'validation_size': [validation_size],
         'fixed_data_perc': [0.1],
-        'scale_dt': ['automatic'],
-        'enc_input_t': [False],
+        'scale_dt': [scale_dt],
+        'enc_input_t': [enc_input_t],
     }
 param_list_AD_OrnsteinUhlenbeckWithSeason_fixed_obs_perc += get_parameter_array(param_dict=param_dict_AD_OrnsteinUhlenbeckWithSeason_1_fixed_obs_perc)
+param_list_AD_OrnsteinUhlenbeckWithSeason_experiments += get_parameter_array(param_dict=param_dict_AD_OrnsteinUhlenbeckWithSeason_1_fixed_obs_perc)
 
-AD_OrnsteinUhlenbeckWithSeason_models_path_dim2 = "{}saved_models_AD_OrnsteinUhlenbeckWithSeason_dim2/".format(data_path)
-param_list_AD_OrnsteinUhlenbeckWithSeason_dim2 = []
-ode_nn_1 = ((400, 'tanh'), (400, 'relu'))
-enc_nn = ((200, 'tanh'), (200, 'tanh'))
-readout_nn = ((200, 'tanh'), (200, 'tanh'))
-param_dict_AD_OrnsteinUhlenbeckWithSeason_1_dim2 = {
+# without the adaptive weights
+AD_OrnsteinUhlenbeckWithSeason_models_path_adaptive_loss_weights = "{}saved_models_AD_OrnsteinUhlenbeckWithSeason_adaptive_loss_weights/".format(data_path)
+param_list_AD_OrnsteinUhlenbeckWithSeason_adaptive_loss_weights = []
+param_dict_AD_OrnsteinUhlenbeckWithSeason_1_adaptive_loss_weights = {
         'epochs': [50],
-        'batch_size': [200],
+        'batch_size': [batch_size],
         'save_every': [1],
-        'learning_rate': [0.001],
-        'test_size': [0.2],
-        'seed': [398],
-        'hidden_size': [150],
-        'bias': [True],
-        'dropout_rate': [0.1],
+        'learning_rate': [learning_rate],
+        'test_size': [test_size],
+        'seed': [seed],
+        'hidden_size': [hidden_size],
+        'bias': [bias],
+        'dropout_rate': [dropout_rate],
         'ode_nn': [ode_nn_1],
         'readout_nn': [readout_nn],
         'enc_nn': [enc_nn],
-        'use_rnn': [True],
-        'input_sig': [True],
-        'func_appl_X': [["power-2"]],              # [["power-2", "power-3", "power-4"]]
-        'add_pred': [['var']],
-        'solver': ["euler"],
-        'solver_delta_t_factor': [1],
-        'weight': [0],
-        'weight_evolve': [{'type':'linear', 'target': 1, 'reach': None}],
-        'data_dict': ['AD_OrnsteinUhlenbeckWithSeason_dim2_dict'],
+        'use_rnn': [use_rnn],
+        'input_sig': [input_sig],
+        'func_appl_X': [func_appl_X],
+        'add_pred': [add_pred],
+        'solver': [solver],
+        'solver_delta_t_factor': [solver_delta_t_factor],
+        'weight': [1],
+        'weight_evolve': [None],
+        'data_dict': ['AD_OrnsteinUhlenbeckWithSeason_3_dict'],
         'plot': [True],
-        'which_loss': ['ad_var'],
+        'which_loss': ['variance'],
+        'which_eval_loss': ['eval_variance'],
         'evaluate': [True],
-        'evaluate_vars': [['exp','std']],
-        'paths_to_plot': [(0,1,2,3,4,)],
-        'plot_variance': [True],
-        'std_factor': [1.96],
-        'plot_moments': [True],
-        'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_models_path_dim2],
+        'eval_metrics': [eval_metrics],
+        'paths_to_plot': [paths_to_plot],
+        'plot_variance': [plot_variance],
+        'std_factor': [std_factor],
+        'plot_moments': [plot_moments],
+        # 'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_models_path_adaptive_loss_weights],
+        'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_models_path_experiments],
         'use_cond_exp': [True],
-        'input_current_t': [True],
+        'input_current_t': [input_current_t],
         'periodic_current_t': [True],
-        'validation_size': [200],
-        'train_data_perc': [0.1],
-        'scale_dt': ['automatic'],
-        'enc_input_t': [False],
+        'validation_size': [validation_size],
+        'train_data_perc': [train_data_perc],
+        'scale_dt': [scale_dt],
+        'enc_input_t': [enc_input_t],
     }
-param_list_AD_OrnsteinUhlenbeckWithSeason_dim2 += get_parameter_array(param_dict=param_dict_AD_OrnsteinUhlenbeckWithSeason_1_dim2)
+param_list_AD_OrnsteinUhlenbeckWithSeason_adaptive_loss_weights += get_parameter_array(param_dict=param_dict_AD_OrnsteinUhlenbeckWithSeason_1_adaptive_loss_weights)
+param_list_AD_OrnsteinUhlenbeckWithSeason_experiments += get_parameter_array(param_dict=param_dict_AD_OrnsteinUhlenbeckWithSeason_1_adaptive_loss_weights)
 
-AD_OrnsteinUhlenbeckWithSeason_models_path_5seas = "{}saved_models_AD_OrnsteinUhlenbeckWithSeason_5seas/".format(data_path)
-param_list_AD_OrnsteinUhlenbeckWithSeason_5seas = []
-ode_nn_1 = ((300, 'tanh'), (300, 'relu'))
-enc_nn = ((200, 'tanh'), (200, 'tanh'))
-readout_nn = ((200, 'tanh'), (200, 'tanh'))
-param_dict_AD_OrnsteinUhlenbeckWithSeason_1_5seas = {
+# with and without diff_t rescaling
+AD_OrnsteinUhlenbeckWithSeason_models_path_time_rescaling = "{}saved_models_AD_OrnsteinUhlenbeckWithSeason_time_rescaling/".format(data_path)
+param_list_AD_OrnsteinUhlenbeckWithSeason_time_rescaling = []
+param_dict_AD_OrnsteinUhlenbeckWithSeason_1_time_rescaling = {
         'epochs': [50],
-        'batch_size': [200],
+        'batch_size': [batch_size],
         'save_every': [1],
-        'learning_rate': [0.001],
-        'test_size': [0.2],
-        'seed': [398],
-        'hidden_size': [150],
-        'bias': [True],
-        'dropout_rate': [0.1],
+        'learning_rate': [learning_rate],
+        'test_size': [test_size],
+        'seed': [seed],
+        'hidden_size': [hidden_size],
+        'bias': [bias],
+        'dropout_rate': [dropout_rate],
         'ode_nn': [ode_nn_1],
         'readout_nn': [readout_nn],
         'enc_nn': [enc_nn],
-        'use_rnn': [True],
-        'input_sig': [True],
-        'func_appl_X': [["power-2"]],              # [["power-2", "power-3", "power-4"]]
-        'add_pred': [['var']],
-        'solver': ["euler"],
-        'solver_delta_t_factor': [1],
-        'weight': [0],
-        'weight_evolve': [{'type':'linear', 'target': 1, 'reach': None}],
-        'data_dict': ['AD_OrnsteinUhlenbeckWithSeason_5seas_dict'],
+        'use_rnn': [use_rnn],
+        'input_sig': [input_sig],
+        'func_appl_X': [func_appl_X],
+        'add_pred': [add_pred],
+        'solver': [solver],
+        'solver_delta_t_factor': [solver_delta_t_factor],
+        'weight': [1],
+        'weight_evolve': [weight_evolve],
+        'data_dict': ['AD_OrnsteinUhlenbeckWithSeason_3_dict'],
         'plot': [True],
-        'which_loss': ['ad_var'],
+        'which_loss': ['variance'],
+        'which_eval_loss': ['eval_variance'],
         'evaluate': [True],
-        'evaluate_vars': [['exp','std']],
-        'paths_to_plot': [(0,1,2,3,4,)],
-        'plot_variance': [True],
-        'std_factor': [1.96],
-        'plot_moments': [True],
-        'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_models_path_5seas],
+        'eval_metrics': [eval_metrics],
+        'paths_to_plot': [paths_to_plot],
+        'plot_variance': [plot_variance],
+        'std_factor': [std_factor],
+        'plot_moments': [plot_moments],
+        # 'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_models_path_time_rescaling],
+        'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_models_path_experiments],
         'use_cond_exp': [True],
-        'input_current_t': [True],
+        'input_current_t': [input_current_t],
         'periodic_current_t': [True],
-        'validation_size': [200],
-        'train_data_perc': [0.1],
-        'scale_dt': ['automatic'],
-        'enc_input_t': [False],
+        'validation_size': [validation_size],
+        'train_data_perc': [train_data_perc],
+        # 'scale_dt': [scale_dt],
+        'enc_input_t': [enc_input_t],
     }
-param_list_AD_OrnsteinUhlenbeckWithSeason_5seas += get_parameter_array(param_dict=param_dict_AD_OrnsteinUhlenbeckWithSeason_1_5seas)
+param_list_AD_OrnsteinUhlenbeckWithSeason_time_rescaling += get_parameter_array(param_dict=param_dict_AD_OrnsteinUhlenbeckWithSeason_1_time_rescaling)
+param_list_AD_OrnsteinUhlenbeckWithSeason_experiments += get_parameter_array(param_dict=param_dict_AD_OrnsteinUhlenbeckWithSeason_1_time_rescaling)
 
-
+# with artificial training technique for the encoder / decoder (for small, i.e 200 path dataset)
 AD_OrnsteinUhlenbeckWithSeason_models_path_pre_train = "{}saved_models_AD_OrnsteinUhlenbeckWithSeason_pre_train/".format(data_path)
 param_list_AD_OrnsteinUhlenbeckWithSeason_pre_train = []
-ode_nn_1 = ((300, 'tanh'), (300, 'relu'))
-enc_nn = ((200, 'tanh'), (200, 'tanh'))
-readout_nn = ((200, 'tanh'), (200, 'tanh'))
 param_dict_AD_OrnsteinUhlenbeckWithSeason_1_pre_train = {
-        'epochs': [1000],
-        'batch_size': [200],
+        'epochs': [20000],
+        'batch_size': [batch_size],
         'save_every': [5],
-        'learning_rate': [0.001],
-        'test_size': [0.2],
-        'seed': [398],
-        'hidden_size': [150],
+        'learning_rate': [learning_rate],
+        'test_size': [test_size],
+        'seed': [seed],
+        'hidden_size': [hidden_size],
         'bias': [True],
-        'dropout_rate': [0.1],
+        'dropout_rate': [dropout_rate],
         'ode_nn': [ode_nn_1],
         'readout_nn': [readout_nn],
         'enc_nn': [enc_nn],
-        'use_rnn': [True],
-        'input_sig': [True],
-        'func_appl_X': [["power-2"]],              # [["power-2", "power-3", "power-4"]]
-        'add_pred': [['var']],
-        'solver': ["euler"],
-        'solver_delta_t_factor': [1],
-        'weight': [0],
-        'weight_evolve': [{'type':'linear', 'target': 1, 'reach': None}],
+        'use_rnn': [use_rnn],
+        'input_sig': [input_sig],
+        'func_appl_X': [func_appl_X],
+        'add_pred': [add_pred],
+        'solver': [solver],
+        'solver_delta_t_factor': [solver_delta_t_factor],
+        'weight': [weight],
+        'weight_evolve': [weight_evolve],
         'data_dict': ['AD_OrnsteinUhlenbeckWithSeason_3_dict'],
         'plot': [True],
-        'which_loss': ['ad_var'],
+        'which_loss': ['variance'],
+        'which_eval_loss': ['eval_variance'],
         'evaluate': [True],
-        'evaluate_vars': [['exp','std']],
+        'eval_metrics': [['exp','std']],
         'paths_to_plot': [(0,1,2,3,4,)],
         'plot_variance': [True],
         'std_factor': [1.96],
         'plot_moments': [True],
-        'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_models_path_pre_train],
-        'use_cond_exp': [True],
-        'input_current_t': [True],
-        'periodic_current_t': [True],
-        'training_size': [200],
-        'validation_size': [200],
-        'train_data_perc': [0.1],
-        'scale_dt': ['automatic'],
-        'enc_input_t': [False],
-    }
-# param_list_AD_OrnsteinUhlenbeckWithSeason_pre_train += get_parameter_array(param_dict=param_dict_AD_OrnsteinUhlenbeckWithSeason_1_pre_train)
-param_dict_AD_OrnsteinUhlenbeckWithSeason_2_pre_train = {
-        'epochs': [1000],
-        'batch_size': [200],
-        'save_every': [5],
-        'learning_rate': [0.001],
-        'test_size': [0.2],
-        'seed': [398],
-        'hidden_size': [150],
-        'bias': [True],
-        'dropout_rate': [0.1],
-        'ode_nn': [ode_nn_1],
-        'readout_nn': [readout_nn],
-        'enc_nn': [enc_nn],
-        'use_rnn': [True],
-        'input_sig': [True],
-        'func_appl_X': [["power-2"]],              # [["power-2", "power-3", "power-4"]]
-        'add_pred': [['var']],
-        'solver': ["euler"],
-        'solver_delta_t_factor': [1],
-        'weight': [0],
-        'weight_evolve': [{'type':'linear', 'target': 1, 'reach': None}],
-        'data_dict': ['AD_OrnsteinUhlenbeckWithSeason_3_dict'],
-        'plot': [True],
-        'which_loss': ['ad_var'],
-        'evaluate': [True],
-        'evaluate_vars': [['exp','std']],
-        'paths_to_plot': [(0,1,2,3,4,)],
-        'plot_variance': [True],
-        'std_factor': [1.96],
-        'plot_moments': [True],
-        'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_models_path_pre_train],
+        # 'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_models_path_pre_train],
+        'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_models_path_experiments],
         'use_cond_exp': [True],
         'input_current_t': [True],
         'periodic_current_t': [True],
@@ -501,4 +460,235 @@ param_dict_AD_OrnsteinUhlenbeckWithSeason_2_pre_train = {
         'enc_input_t': [False],
         'pre-train': [True]
     }
-param_list_AD_OrnsteinUhlenbeckWithSeason_pre_train += get_parameter_array(param_dict=param_dict_AD_OrnsteinUhlenbeckWithSeason_2_pre_train)
+param_list_AD_OrnsteinUhlenbeckWithSeason_pre_train += get_parameter_array(param_dict=param_dict_AD_OrnsteinUhlenbeckWithSeason_1_pre_train)
+param_list_AD_OrnsteinUhlenbeckWithSeason_experiments += get_parameter_array(param_dict=param_dict_AD_OrnsteinUhlenbeckWithSeason_1_pre_train)
+
+
+# comparision the the loss with square inside and outside -> here the model only predicts the conditional expectation
+AD_OrnsteinUhlenbeckWithSeason_models_path_modif_loss = "{}saved_models_AD_OrnsteinUhlenbeckWithSeason_modif_loss/".format(data_path)
+param_list_AD_OrnsteinUhlenbeckWithSeason_modif_loss = []
+param_dict_AD_OrnsteinUhlenbeckWithSeason_1_modif_loss = {
+        'epochs': [50],
+        'batch_size': [batch_size],
+        'save_every': [1],
+        'learning_rate': [learning_rate],
+        'test_size': [test_size],
+        'seed': [seed],
+        'hidden_size': [hidden_size],
+        'bias': [True],
+        'dropout_rate': [dropout_rate],
+        'ode_nn': [ode_nn_1],
+        'readout_nn': [readout_nn],
+        'enc_nn': [enc_nn],
+        'use_rnn': [use_rnn],
+        'input_sig': [input_sig],
+        'func_appl_X': [[]],
+        'add_pred': [[]],
+        'solver': [solver],
+        'solver_delta_t_factor': [solver_delta_t_factor],
+        'weight': [weight],
+        'weight_evolve': [weight_evolve],
+        'data_dict': ['AD_OrnsteinUhlenbeckWithSeason_3_dict'],
+        'plot': [True],
+        'which_loss': ['easy', 'easy_bis'],
+        'evaluate': [True],
+        'eval_metrics': [['exp']],
+        'paths_to_plot': [paths_to_plot],
+        'plot_variance': [plot_variance],
+        'std_factor': [std_factor],
+        'plot_moments': [plot_moments],
+        'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_models_path_modif_loss],
+        'use_cond_exp': [True],
+        'input_current_t': [input_current_t],
+        'periodic_current_t': [True],
+        'validation_size': [validation_size],
+        'train_data_perc': [train_data_perc],
+        'scale_dt': [scale_dt],
+        'enc_input_t': [enc_input_t],
+    }
+param_list_AD_OrnsteinUhlenbeckWithSeason_modif_loss += get_parameter_array(param_dict=param_dict_AD_OrnsteinUhlenbeckWithSeason_1_modif_loss)
+
+
+###### OTHER SYNTHETIC DATA
+
+# two dimensions (with cross dependence)
+AD_OrnsteinUhlenbeckWithSeason_models_path_dim2 = "{}saved_models_AD_OrnsteinUhlenbeckWithSeason_dim2/".format(data_path)
+param_list_AD_OrnsteinUhlenbeckWithSeason_dim2 = []
+param_dict_AD_OrnsteinUhlenbeckWithSeason_1_dim2 = {
+        'epochs': [50],
+        'batch_size': [batch_size],
+        'save_every': [1],
+        'learning_rate': [learning_rate],
+        'test_size': [test_size],
+        'seed': [seed],
+        'hidden_size': [hidden_size],
+        'bias': [True],
+        'dropout_rate': [dropout_rate],
+        'ode_nn': [ode_nn_2],
+        'readout_nn': [readout_nn],
+        'enc_nn': [enc_nn],
+        'use_rnn': [use_rnn],
+        'input_sig': [input_sig],
+        'func_appl_X': [func_appl_X],
+        'add_pred': [add_pred],
+        'solver': [solver],
+        'solver_delta_t_factor': [solver_delta_t_factor],
+        'weight': [weight],
+        'weight_evolve': [weight_evolve],
+        'data_dict': ['AD_OrnsteinUhlenbeckWithSeason_dim2_dict'],
+        'plot': [True],
+        'plot_only': [True],
+        'which_loss': ['variance'],
+        'which_eval_loss': ['eval_variance'],
+        'evaluate': [True],
+        'eval_metrics': [eval_metrics],
+        'paths_to_plot': [(0,)],
+        'plot_variance': [plot_variance],
+        'std_factor': [std_factor],
+        'plot_moments': [plot_moments],
+        'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_models_path_dim2],
+        'use_cond_exp': [True],
+        'input_current_t': [input_current_t],
+        'periodic_current_t': [True],
+        'validation_size': [validation_size],
+        'train_data_perc': [train_data_perc],
+        'scale_dt': [scale_dt],
+        'enc_input_t': [enc_input_t],
+    }
+param_list_AD_OrnsteinUhlenbeckWithSeason_dim2 += get_parameter_array(param_dict=param_dict_AD_OrnsteinUhlenbeckWithSeason_1_dim2)
+
+# 5 seasons instead of 2 -> test for longer TS + test relevance of adding current t with features (cos, sin)
+AD_OrnsteinUhlenbeckWithSeason_models_path_5seas = "{}saved_models_AD_OrnsteinUhlenbeckWithSeason_5seas/".format(data_path)
+param_list_AD_OrnsteinUhlenbeckWithSeason_5seas = []
+param_dict_AD_OrnsteinUhlenbeckWithSeason_1_5seas = {
+        'epochs': [50],
+        'batch_size': [batch_size],
+        'save_every': [1],
+        'learning_rate': [learning_rate],
+        'test_size': [test_size],
+        'seed': [seed],
+        'hidden_size': [hidden_size],
+        'bias': [bias],
+        'dropout_rate': [dropout_rate],
+        'ode_nn': [ode_nn_1],
+        'readout_nn': [readout_nn],
+        'enc_nn': [enc_nn],
+        'use_rnn': [use_rnn],
+        'input_sig': [input_sig],
+        'func_appl_X': [func_appl_X],
+        'add_pred': [add_pred],
+        'solver': [solver],
+        'solver_delta_t_factor': [solver_delta_t_factor],
+        'weight': [weight],
+        'weight_evolve': [weight_evolve],
+        'data_dict': ['AD_OrnsteinUhlenbeckWithSeason_5seas_dict'],
+        'plot': [True],
+        'which_loss': ['variance'],
+        'which_eval_loss': ['eval_variance'],
+        'evaluate': [True],
+        'eval_metrics': [eval_metrics],
+        'paths_to_plot': [(0,1,2,3,4,)],
+        'plot_variance': [plot_variance],
+        'std_factor': [std_factor],
+        'plot_moments': [plot_moments],
+        'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_models_path_5seas],
+        'use_cond_exp': [True],
+        'input_current_t': [input_current_t],
+        'periodic_current_t': [False],
+        'validation_size': [validation_size],
+        'train_data_perc': [train_data_perc],
+        'scale_dt': [scale_dt],
+        'enc_input_t': [enc_input_t],
+    }
+param_list_AD_OrnsteinUhlenbeckWithSeason_5seas += get_parameter_array(param_dict=param_dict_AD_OrnsteinUhlenbeckWithSeason_1_5seas)
+param_dict_AD_OrnsteinUhlenbeckWithSeason_2_5seas = {
+        'epochs': [50],
+        'batch_size': [batch_size],
+        'save_every': [1],
+        'learning_rate': [learning_rate],
+        'test_size': [test_size],
+        'seed': [seed],
+        'hidden_size': [hidden_size],
+        'bias': [bias],
+        'dropout_rate': [dropout_rate],
+        'ode_nn': [ode_nn_1],
+        'readout_nn': [readout_nn],
+        'enc_nn': [enc_nn],
+        'use_rnn': [use_rnn],
+        'input_sig': [input_sig],
+        'func_appl_X': [func_appl_X],
+        'add_pred': [add_pred],
+        'solver': [solver],
+        'solver_delta_t_factor': [solver_delta_t_factor],
+        'weight': [weight],
+        'weight_evolve': [weight_evolve],
+        'data_dict': ['AD_OrnsteinUhlenbeckWithSeason_5seas_dict'],
+        'plot': [True],
+        'which_loss': ['variance'],
+        'which_eval_loss': ['eval_variance'],
+        'evaluate': [True],
+        'eval_metrics': [eval_metrics],
+        'paths_to_plot': [(0,1,2,3,4,)],
+        'plot_variance': [plot_variance],
+        'std_factor': [std_factor],
+        'plot_moments': [plot_moments],
+        'saved_models_path': [AD_OrnsteinUhlenbeckWithSeason_models_path_5seas],
+        'use_cond_exp': [True],
+        'input_current_t': [input_current_t],
+        'periodic_current_t': [True],
+        'validation_size': [validation_size],
+        'train_data_perc': [train_data_perc],
+        'scale_dt': [scale_dt],
+        'enc_input_t': [enc_input_t],
+    }
+param_list_AD_OrnsteinUhlenbeckWithSeason_5seas += get_parameter_array(param_dict=param_dict_AD_OrnsteinUhlenbeckWithSeason_2_5seas)
+
+###### REAL DATA
+
+### for cloud KPI
+Cloud_KPI_daily_models_path = "{}saved_models_Cloud_KPI_daily/".format(data_path)
+param_list_Cloud_KPI_daily = []
+param_dict_Cloud_KPI_daily_1 = {
+        'epochs': [10000],
+        'batch_size': [160],
+        'save_every': [25],
+        'learning_rate': [learning_rate],
+        'test_size': [test_size],
+        'seed': [seed],
+        'hidden_size': [hidden_size],
+        'bias': [bias],
+        'dropout_rate': [dropout_rate],
+        'ode_nn': [ode_nn_1],
+        'readout_nn': [readout_nn],
+        'enc_nn': [enc_nn],
+        'use_rnn': [use_rnn],
+        'input_sig': [input_sig],
+        'func_appl_X': [func_appl_X],
+        'add_pred': [add_pred],
+        'solver': [solver],
+        'solver_delta_t_factor': [1],
+        'weight': [0],
+        'weight_evolve': [{'type':'linear', 'target': 1, 'reach': None}],
+        'data_dict': ['Cloud_KPI_daily_transformed_dict'],   # Cloud_KPI_daily_dict
+        'plot': [True],
+        'which_loss': ['variance'],
+        'which_eval_loss': ['eval_variance'],
+        'evaluate': [False],
+        'eval_metrics': [eval_metrics],
+        'paths_to_plot': [paths_to_plot],
+        'plot_variance': [plot_variance],
+        'std_factor': [std_factor],
+        'plot_moments': [plot_moments],
+        'saved_models_path': [Cloud_KPI_daily_models_path],
+        'use_cond_exp': [False],
+        'input_current_t': [input_current_t],
+        'periodic_current_t': [True],
+        'validation_size': [validation_size],
+        'train_data_perc': [train_data_perc],
+        'scale_dt': [scale_dt],
+        'enc_input_t': [enc_input_t],
+        'pre-train': [True]
+    }
+param_list_Cloud_KPI_daily += get_parameter_array(param_dict=param_dict_Cloud_KPI_daily_1)
+
+

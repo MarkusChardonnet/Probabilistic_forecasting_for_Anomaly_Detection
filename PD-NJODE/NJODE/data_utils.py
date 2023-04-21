@@ -62,7 +62,7 @@ def create_dataset(
     create a synthetic dataset using one of the stock-models
     :param stock_model_name: str, name of the stockmodel, see _STOCK_MODELS
     :param hyperparam_dict: dict, contains all needed parameters for the model
-            it can also contain additional options for dataset generation:
+            it can/home/mch/code/probabilistic_forecasting/PD-NJODE/data/saved_models_AD_OrnsteinUhlenbeckWithSeason_5seas also contain additional options for dataset generation:
                 - masked    None, float or array of floats. if None: no mask is
                             used; if float: lambda of the poisson distribution;
                             if array of floats: gives the bernoulli probability
@@ -736,6 +736,7 @@ class IrregularDataset(Dataset):
             samples = np.random.random(size=self.observed_dates.shape)
             self.observed_dates = (samples < obs_perc)*1
             self.observed_dates[:, 0] = 1
+            self.nb_obs = np.sum(self.observed_dates[:, 1:], axis=1)
 
     def __len__(self):
         return len(self.nb_obs)

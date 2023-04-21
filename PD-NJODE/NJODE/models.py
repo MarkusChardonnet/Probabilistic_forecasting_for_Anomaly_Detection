@@ -224,7 +224,7 @@ def compute_loss_ad(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
     outer += torch.sum(inner / n_obs_ot)
     return outer / batch_size
 
-def compute_loss_ad_var(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
+def compute_loss_ad_variance(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
                    weight=0.5, M_obs=None, output_vars=None):
     assert('id' in output_vars and 'power-2' in output_vars and 'var' in output_vars)
     dim = int(Y_obs.shape[1] / len(output_vars))
@@ -286,7 +286,7 @@ def compute_loss_ad_var(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
     outer += torch.sum(inner / n_obs_ot)
     return outer / batch_size
 
-def compute_loss_ad_var_pos(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
+def compute_loss_ad_variance_bis(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
                    weight=0.5, M_obs=None, output_vars=None):
     assert('id' in output_vars and 'power-2' in output_vars and 'var' in output_vars)
     dim = int(Y_obs.shape[1] / len(output_vars))
@@ -339,6 +339,48 @@ def compute_loss_ad_var_pos(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e
     outer += torch.sum(inner / n_obs_ot)
     return outer / batch_size
 
+def compute_loss_eval_variance(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
+                   weight=0.5, M_obs=None, output_vars=None):
+    assert('id' in output_vars and 'power-2' in output_vars)
+    dim = int(Y_obs.shape[1] / len(output_vars))
+    idx_id = np.argmax(np.array(output_vars) == 'id')
+    idx_id = np.arange(idx_id*dim,(idx_id+1)*dim)
+    idx_power2 = np.argmax(np.array(output_vars) == 'power-2')
+    idx_power2 = np.arange(idx_power2*dim,(idx_power2+1)*dim)
+    if 'var' in output_vars:
+        idx_var = np.argmax(np.array(output_vars) == 'var')
+        idx_var = np.arange(idx_var*dim,(idx_var+1)*dim)
+    
+    device = X_obs.device
+    outer = torch.zeros(4).to(device)
+    inner = torch.zeros(4,X_obs.size(0)).to(device)
+
+    if M_obs is None:
+
+        # fitting conditional expectation
+        # at observations
+        inner[0] += torch.sum((X_obs[:,idx_id] - Y_obs[:,idx_id]) ** 2, dim=1)
+        # before observations
+        inner[1] += torch.sum((Y_obs_bj[:,idx_id] - X_obs[:,idx_id]) ** 2, dim=1)
+
+        # fitting conditional variance
+        if 'var' in output_vars:
+            # at observations
+            inner[2] += torch.sum(Y_obs[:,idx_var] ** 2, dim=1)
+            # before observations
+            inner[3] += torch.sum((Y_obs_bj[:,idx_var] - (Y_obs_bj[:,idx_id] - X_obs[:,idx_id]) ** 2) ** 2, dim=1)
+        else:
+            # at observations
+            inner[2] += torch.sum((Y_obs[:,idx_power2] - Y_obs[:,idx_id] ** 2) ** 2, dim=1)
+            # before observations
+            inner[3] += torch.sum(((Y_obs_bj[:,idx_power2] - Y_obs_bj[:,idx_id] ** 2) - (Y_obs_bj[:,idx_id] - X_obs[:,idx_id]) ** 2) ** 2, dim=1)
+
+    else:
+        NotImplementedError
+
+    outer += torch.sum(inner / n_obs_ot, dim=1)
+    return outer / batch_size
+
 LOSS_FUN_DICT = {
     # dictionary of used loss functions. Reminder inputs: (X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
     # weight=0.5, M_obs=None, output_vars=None)
@@ -347,9 +389,10 @@ LOSS_FUN_DICT = {
     'easy_bis': compute_loss_2_bis,
     'abs': compute_loss_3,
     
-    'ad': compute_loss_ad,
-    'ad_var': compute_loss_ad_var,
-    'ad_var_pos': compute_loss_ad_var_pos,
+    'moment_2': compute_loss_ad,
+    'variance': compute_loss_ad_variance,
+    'variance_bis': compute_loss_ad_variance_bis,
+    'eval_variance': compute_loss_eval_variance,
 }
 
 nonlinears = {  # dictionary of used non-linear activation functions. Reminder inputs
@@ -436,12 +479,15 @@ class ODEFunc(torch.nn.Module):
             add = 2
             self.weight_corres.append(("tau", 1))
             self.weight_corres.append(("t-tau", 1))
+        current_t_dim = 1
+        if t_period is not None:
+            current_t_dim = 2
         if input_current_t:
             if coord_wise_tau:
-                add += 2*input_size
+                add += current_t_dim*input_size
                 self.weight_corres.append(("cos(t),sin(t)", 2*input_size))
             else:
-                add += 2
+                add += current_t_dim
                 self.weight_corres.append(("cos(t),sin(t)", 2))
         if input_sig:
             add += sig_depth
@@ -1252,6 +1298,8 @@ class NJODE(torch.nn.Module):
             tau = torch.tensor([[0.0]]).repeat(batch_size, 1).to(self.device)
         current_time = 0.0
         loss = 0
+        if which_loss == 'eval_variance':
+            loss = torch.zeros(4).to(self.device)
         c_sig = None
 
         if self.input_sig:
@@ -1449,7 +1497,7 @@ class NJODE(torch.nn.Module):
         return device
 
     def evaluate(self, times, time_ptr, X, obs_idx, delta_t, T, start_X,
-                 n_obs_ot, stockmodel, cond_exp_fun_kwargs=None,
+                 n_obs_ot, stockmodel=None, cond_exp_fun_kwargs=None,
                  diff_fun=lambda x, y: np.nanmean((x - y) ** 2),
                  diff_fun_std=lambda x, y: np.nanstd((x - y) ** 2),
                  return_paths=False, M=None, true_paths=None, start_M=None,
@@ -1480,6 +1528,8 @@ class NJODE(torch.nn.Module):
         """
         self.eval()
 
+        assert((true_paths is not None) or (stockmodel is not None))
+
         dim = round(start_X.shape[1]/len(self.input_vars))
 
         _, _, path_t, path_h, path_y = self.forward(
@@ -1505,7 +1555,8 @@ class NJODE(torch.nn.Module):
             true_path_y = np.transpose(true_path_y, axes=(2, 0, 1))
             true_path_t = true_t[which_t_ind]
 
-        eval_loss = {}
+        eval_loss = np.zeros(2*len(eval_vars))
+        # eval_loss = {}
         if 'exp' in eval_vars:
             assert('id' in self.input_vars and 'id' in self.output_vars)
             which_true = np.argmax(np.array(self.input_vars) == 'id')
@@ -1513,20 +1564,20 @@ class NJODE(torch.nn.Module):
             true_path_y_id = true_path_y[:,:,dim*which_true:dim*(which_true+1)]
             path_y_id = path_y[:,:,dim*which_true:dim*(which_true+1)].detach().cpu().numpy()
             if path_y_id.shape == true_path_y_id.shape:
-                eval_loss['exp_mean'] = diff_fun(path_y_id, true_path_y_id)
-                eval_loss['exp_std'] = diff_fun_std(path_y_id, true_path_y_id)
+                which = np.argmax(np.array(eval_vars) == 'exp')
+                #eval_loss['exp_mean'] = diff_fun(path_y_id, true_path_y_id)
+                #eval_loss['exp_std'] = diff_fun_std(path_y_id, true_path_y_id)
+                eval_loss[2*which] = diff_fun(path_y_id, true_path_y_id)
+                eval_loss[2*which+1] = diff_fun_std(path_y_id, true_path_y_id)
             else:
                 print(path_y_id.shape)
                 print(true_path_y_id.shape)
                 raise ValueError("Shapes do not match!")
         if 'std' in eval_vars:
-            assert('var' in self.input_vars or ('power-2' in self.input_vars and 'id' in self.input_vars))
+            assert('power-2' in self.input_vars and 'id' in self.input_vars)
             assert('var' in self.output_vars or ('power-2' in self.output_vars and 'id' in self.output_vars))
 
-            if 'var' in self.input_vars:
-                which_true = np.argmax(np.array(self.input_vars) == 'var')
-                true_path_y_var = true_path_y[:,:,dim*which_true:dim*(which_true+1)]
-            elif 'power-2' in self.input_vars:
+            if 'power-2' in self.input_vars:
                 which_true = np.argmax(np.array(self.input_vars) == 'power-2')
                 true_path_y_p2 = true_path_y[:,:,dim*which_true:dim*(which_true+1)]
                 true_path_y_var = true_path_y_p2 - np.power(true_path_y_id,2)
@@ -1547,8 +1598,9 @@ class NJODE(torch.nn.Module):
             path_y_std = np.sqrt(path_y_var)
 
             if path_y_var.shape == true_path_y_var.shape:
-                eval_loss['std_mean'] = diff_fun(path_y_std, true_path_y_std)
-                eval_loss['std_std'] = diff_fun_std(path_y_std, true_path_y_std)
+                which = np.argmax(np.array(eval_vars) == 'std')
+                eval_loss[2*which] = diff_fun(path_y_std, true_path_y_std)
+                eval_loss[2*which+1] = diff_fun_std(path_y_std, true_path_y_std)
             else:
                 print(path_y_var.shape)
                 print(true_path_y_var.shape)

@@ -2,6 +2,7 @@ import torch
 import scipy
 import numpy as np
 import os
+import torch.nn as nn
 
 
 def gaussian_scoring_2_moments(obs, 
@@ -166,6 +167,17 @@ class AD_module(torch.nn.Module): # AD_module_1D, AD_module_ND
         # weights = self.act_weights(weights.reshape(-1)).reshape(self.nb_steps_ahead,2*self.smoothing+1)
         weights = self.act_weights(weights)
         return weights
+    
+    def loss(self, ad_scores, ad_labels):
+        criterion = nn.CrossEntropyLoss()
+
+        loss = criterion(ad_scores, ad_labels)
+
+        loss_regularizer = True
+        if loss_regularizer:
+            loss += torch.sum(self.get_weights() ** 2)
+
+        return loss
 
     def forward(self, obs, cond_moments,
                     washout_border = 'automatic'):
@@ -175,7 +187,6 @@ class AD_module(torch.nn.Module): # AD_module_1D, AD_module_ND
         nb_samples = obs.size()[1]
         dimension = obs.size()[2]
 
-        # eventually put this into another method called get_washout_mask
         mask = self.get_washout_mask(cond_moments, washout_border)
         obs_valid = obs[mask]
         cond_moments_valid = cond_moments[mask]

@@ -327,10 +327,11 @@ def train(
     weight_evolve = None
     if 'weight_evolve' in options:
         weight_evolve = options['weight_evolve']
-        weight_evolve_type = options['weight_evolve']['type']
-        if weight_evolve_type == 'linear':
-            if options['weight_evolve']['reach'] == None:
-                options['weight_evolve']['reach'] = epochs
+        if weight_evolve is not None:
+            weight_evolve_type = options['weight_evolve']['type']
+            if weight_evolve_type == 'linear':
+                if options['weight_evolve']['reach'] == None:
+                    options['weight_evolve']['reach'] = epochs
 
     # load raw data
     train_idx, val_idx = train_test_split(
@@ -393,7 +394,7 @@ def train(
     if 'which_eval_loss' in options:
         which_eval_loss = options['which_eval_loss']
     else:
-        which_eval_loss = 'standart'
+        which_eval_loss = 'standard'
 
     # get data-loader for training
     dl = DataLoader(  # class to iterate over training data
@@ -670,23 +671,15 @@ def train(
         pre_train = options['pre-train']
     if pre_train:
         model.train()
-        #tot_loss = 0
-        #print_every = 1000
         for ep in range(10000):
             optimizer.zero_grad()
             loss = model.forward_random_encoder_decoder(batch_size=batch_size, dimension=dimension)
             loss.backward()
             optimizer.step()
-            #tot_loss += loss.detach().clone()
-            #if ep % print_every == 0 and ep > 0:
-                # print("training of encoder - decoder pair : epoch {}".format(ep))
-                # print("Average loss : {}".format(tot_loss / print_every))
-                #tot_loss = 0
 
-
+    t = time.time()  # return the time in seconds since the epoch
     metric_app = []
     while model.epoch <= epochs:
-        t = time.time()  # return the time in seconds since the epoch
         model.train()  # set model in train mode (e.g. BatchNorm)
         for i, b in tqdm.tqdm(enumerate(dl)):  # iterate over the dataloader
             optimizer.zero_grad()  # reset the gradient
@@ -725,7 +718,6 @@ def train(
             #scheduler.step()
             if ANOMALY_DETECTION:
                 print(r"current loss: {}".format(loss.detach().cpu().numpy()))
-        train_time = time.time() - t  # difference between current time and start time
 
         if pre_train:
             optimizer.zero_grad()
@@ -734,109 +726,105 @@ def train(
             optimizer.step()
 
         # -------- evaluation --------
-        t = time.time()
-        batch = None
-        with torch.no_grad():  # no gradient needed for evaluation
-            loss_val = np.zeros(len(eval_loss_names))
-            loss_val_corrected = 0
-            num_obs = 0
-            eval_msd = np.zeros(len(eval_metric_names))
-            '''if 'evaluate' in options and options['evaluate']:
-                eval_msd = {}
-                for v in eval_vars:
-                    eval_msd[v+'_mean']=0
-                    eval_msd[v+'_std']=0'''
-            model.eval()  # set model in evaluation mode
-            for i, b in enumerate(dl_val):  # iterate over dataloader for validation set
-                #if plot:
-                #    batch = b
-                times = b["times"]
-                time_ptr = b["time_ptr"]
-                X = b["X"].to(device)
-                M = b["M"]
-                if M is not None:
-                    M = M.to(device)
-                start_M = b["start_M"]
-                if start_M is not None:
-                    start_M = start_M.to(device)
+        if model.epoch % save_every == 0:
+            train_time = time.time() - t  # difference between current time and start time
+            t = time.time()
+            batch = None
+            with torch.no_grad():  # no gradient needed for evaluation
+                loss_val = np.zeros(len(eval_loss_names))
+                loss_val_corrected = 0
+                num_obs = 0
+                eval_msd = np.zeros(len(eval_metric_names))
+                model.eval()  # set model in evaluation mode
+                for i, b in enumerate(dl_val):  # iterate over dataloader for validation set
+                    #if plot:
+                    #    batch = b
+                    times = b["times"]
+                    time_ptr = b["time_ptr"]
+                    X = b["X"].to(device)
+                    M = b["M"]
+                    if M is not None:
+                        M = M.to(device)
+                    start_M = b["start_M"]
+                    if start_M is not None:
+                        start_M = start_M.to(device)
 
-                start_X = b["start_X"].to(device)
-                obs_idx = b["obs_idx"]
-                n_obs_ot = b["n_obs_ot"].to(device)
-                true_paths = b["true_paths"]
-                true_mask = b["true_mask"]
+                    start_X = b["start_X"].to(device)
+                    obs_idx = b["obs_idx"]
+                    n_obs_ot = b["n_obs_ot"].to(device)
+                    true_paths = b["true_paths"]
+                    true_mask = b["true_mask"]
 
-                if 'other_model' not in options:
-                    hT, c_loss = model(
-                        times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx, delta_t=None, T=T, start_X=start_X,
-                        n_obs_ot=n_obs_ot, return_path=False, get_loss=True, M=M,
-                        start_M=start_M, which_loss=which_eval_loss) # which_loss='standard'
-                elif options['other_model'] == "GRU_ODE_Bayes":
-                    if M is None:
-                        M = torch.ones_like(X)
-                    hT, c_loss, _, _ = model(
-                        times, time_ptr, X, M, obs_idx, delta_t, T, start_X,
-                        return_path=False, smoother=False,)
-                else:
-                    raise ValueError
-                loss_val += c_loss.detach().cpu().numpy()
-                num_obs += 1  # count number of observations
-
-                # if functions are applied, also compute the loss when only
-                #   using the coordinates where function was not applied
-                #   -> this can be compared to the optimal-eval-loss
-                if mult is not None and mult > 1:
                     if 'other_model' not in options:
-                        hT_corrected, c_loss_corrected = model(
+                        hT, c_loss = model(
                             times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx, delta_t=None, T=T, start_X=start_X,
                             n_obs_ot=n_obs_ot, return_path=False, get_loss=True, M=M,
-                            start_M=start_M, which_loss='standard',
-                            dim_to=dimension)
-                    loss_val_corrected += c_loss_corrected.detach().cpu().numpy()
+                            start_M=start_M, which_loss=which_eval_loss) # which_loss='standard'
+                    elif options['other_model'] == "GRU_ODE_Bayes":
+                        if M is None:
+                            M = torch.ones_like(X)
+                        hT, c_loss, _, _ = model(
+                            times, time_ptr, X, M, obs_idx, delta_t, T, start_X,
+                            return_path=False, smoother=False,)
+                    else:
+                        raise ValueError
+                    loss_val += c_loss.detach().cpu().numpy()
+                    num_obs += 1  # count number of observations
 
-                # mean squared difference evaluation
-                if 'evaluate' in options and options['evaluate']:
-                    if use_cond_exp:
-                        true_paths = None
-                        true_mask = None
-                    _eval_msd = model.evaluate(
-                        times=times, time_ptr=time_ptr, X=X,
-                        obs_idx=obs_idx, delta_t=delta_t, T=T,
-                        start_X=start_X, n_obs_ot=n_obs_ot,
-                        stockmodel=stockmodel, return_paths=False, M=M,
-                        start_M=start_M, true_paths=true_paths,
-                        true_mask=true_mask, eval_vars=eval_metrics,) # mult=mult)
-                    eval_msd += _eval_msd
+                    # if functions are applied, also compute the loss when only
+                    #   using the coordinates where function was not applied
+                    #   -> this can be compared to the optimal-eval-loss
+                    if mult is not None and mult > 1:
+                        if 'other_model' not in options:
+                            hT_corrected, c_loss_corrected = model(
+                                times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx, delta_t=None, T=T, start_X=start_X,
+                                n_obs_ot=n_obs_ot, return_path=False, get_loss=True, M=M,
+                                start_M=start_M, which_loss='standard',
+                                dim_to=dimension)
+                        loss_val_corrected += c_loss_corrected.detach().cpu().numpy()
 
-            eval_time = time.time() - t
-            loss_val = loss_val / num_obs
-            loss_val_corrected /= num_obs
-            eval_msd = eval_msd / num_obs
-            train_loss = loss.detach().cpu().numpy()
-            print_str = "epoch {}, weight={:.5f}, train-loss={:.5f}, " \
-                        "optimal-eval-loss={:.5f}, ".format(
-                model.epoch, model.weight, train_loss, opt_eval_loss)
-            for v,value in enumerate(loss_val):
-                print_str += "eval-loss-{}={:.5f}, ".format(v,value)
-            if mult is not None and mult > 1:
-                print_str += "\ncorrected(i.e. without additional dims of " \
-                             "funct_appl_X)-eval-loss={:.5f}, ".format(
-                    loss_val_corrected)
-            print(print_str)
-        if 'evaluate' in options and options['evaluate']:
-            metric_app.append([model.epoch, train_time, eval_time, train_loss,
-                               opt_eval_loss] + list(loss_val) + list(eval_msd))
-            # print("evaluation mean square difference={:.5f}".format(eval_msd))
-            string = "evaluation : \n"
-            for v,value in enumerate(eval_msd):
-                string += eval_metric_names[v] + " : {:.5f}\n".format(value)
-            print(string)
-        else:
-            metric_app.append([model.epoch, train_time, eval_time, train_loss,
-                               opt_eval_loss] + list(loss_val))
+                    # mean squared difference evaluation
+                    if 'evaluate' in options and options['evaluate']:
+                        if use_cond_exp:
+                            true_paths = None
+                            true_mask = None
+                        _eval_msd = model.evaluate(
+                            times=times, time_ptr=time_ptr, X=X,
+                            obs_idx=obs_idx, delta_t=delta_t, T=T,
+                            start_X=start_X, n_obs_ot=n_obs_ot,
+                            stockmodel=stockmodel, return_paths=False, M=M,
+                            start_M=start_M, true_paths=true_paths,
+                            true_mask=true_mask, eval_vars=eval_metrics,) # mult=mult)
+                        eval_msd += _eval_msd
 
-        # save model
-        if model.epoch % save_every == 0:
+                eval_time = time.time() - t
+                loss_val = loss_val / num_obs
+                loss_val_corrected /= num_obs
+                eval_msd = eval_msd / num_obs
+                train_loss = loss.detach().cpu().numpy()
+                print_str = "epoch {}, weight={:.5f}, train-loss={:.5f}, " \
+                            "optimal-eval-loss={:.5f}, ".format(
+                    model.epoch, model.weight, train_loss, opt_eval_loss)
+                for v,value in enumerate(loss_val):
+                    print_str += "eval-loss-{}={:.5f}, ".format(v,value)
+                if mult is not None and mult > 1:
+                    print_str += "\ncorrected(i.e. without additional dims of " \
+                                "funct_appl_X)-eval-loss={:.5f}, ".format(
+                        loss_val_corrected)
+                print(print_str)
+            if 'evaluate' in options and options['evaluate']:
+                metric_app.append([model.epoch, train_time, eval_time, train_loss,
+                                opt_eval_loss] + list(loss_val) + list(eval_msd))
+                # print("evaluation mean square difference={:.5f}".format(eval_msd))
+                string = "evaluation : \n"
+                for v,value in enumerate(eval_msd):
+                    string += eval_metric_names[v] + " : {:.5f}\n".format(value)
+                print(string)
+            else:
+                metric_app.append([model.epoch, train_time, eval_time, train_loss,
+                                opt_eval_loss] + list(loss_val))
+
+            # save model
             if plot:
                 batch = next(iter(dl_val))
                 print('plotting ...')
@@ -868,40 +856,25 @@ def train(
                                    model.epoch)
             metric_app = []
             print('saved!')
-        if np.sum(loss_val) < best_eval_loss:
-            print('save new best model: last-best-loss: {:.5f}, '
-                  'new-best-loss: {:.5f}, epoch: {}'.format(
-                best_eval_loss, np.sum(loss_val), model.epoch))
-            df_m_app = pd.DataFrame(data=metric_app, columns=metr_columns)
-            df_metric = pd.concat([df_metric, df_m_app], ignore_index=True)
-            df_metric.to_csv(model_metric_file)
-            models.save_checkpoint(model, optimizer, model_path_save_last,
-                                   model.epoch)
-            models.save_checkpoint(model, optimizer, model_path_save_best,
-                                   model.epoch)
-            metric_app = []
-            best_eval_loss = np.sum(loss_val)
-            print('saved!')
-        print("-"*100)
+            if np.sum(loss_val) < best_eval_loss:
+                print('save new best model: last-best-loss: {:.5f}, '
+                    'new-best-loss: {:.5f}, epoch: {}'.format(
+                    best_eval_loss, np.sum(loss_val), model.epoch))
+                df_m_app = pd.DataFrame(data=metric_app, columns=metr_columns)
+                df_metric = pd.concat([df_metric, df_m_app], ignore_index=True)
+                df_metric.to_csv(model_metric_file)
+                models.save_checkpoint(model, optimizer, model_path_save_last,
+                                    model.epoch)
+                models.save_checkpoint(model, optimizer, model_path_save_best,
+                                    model.epoch)
+                metric_app = []
+                best_eval_loss = np.sum(loss_val)
+                print('saved!')
+            print("-"*100)
+            t = time.time()
 
         model.epoch += 1
-
         model.weight_step()
-
-    # send notification
-    if SEND and not skip_training:
-        files_to_send = [model_metric_file]
-        caption = "{} - id={}".format(model_name, model_id)
-        if plot:
-            for i in paths_to_plot:
-                files_to_send.append(
-                    os.path.join(plot_save_path, plot_filename.format(i)))
-        SBM.send_notification(
-            text='finished training: {}, id={}\n\n{}'.format(
-                model_name, model_id, desc),
-            chat_id=config.CHAT_ID,
-            files=files_to_send,
-            text_for_files=caption)
 
     # delete model & free memory
     del model, dl, dl_val, data_train, data_val
@@ -1101,7 +1074,7 @@ def plot_one_path_with_pred(
                     path_t_pred,
                     path_y_pred[:, i, j] - std_factor * path_std_pred[:, i, j],
                     path_y_pred[:, i, j] + std_factor * path_std_pred[:, i, j],
-                    label=model_name + " predicted \n conditional standart \n deviation (*{})".format(std_factor), color=std_color)
+                    label=model_name + " predicted \n conditional standard \n deviation (*{})".format(std_factor), color=std_color)
             if use_cond_exp:
                 axs[j].plot(path_t_true, path_y_true[:, i, j],
                             label='true conditional \n expectation',
@@ -1111,7 +1084,7 @@ def plot_one_path_with_pred(
                     path_t_true,
                     path_y_true[:, i, j] - std_factor * path_y_std_true[:, i, j],
                     path_y_true[:, i, j] + std_factor * path_y_std_true[:, i, j],
-                    label='true conditional \n standart deviation \n (*{})'.format(std_factor), color=true_std_color)
+                    label='true conditional \n standard deviation \n (*{})'.format(std_factor), color=true_std_color)
 
             if plot_obs_prob and dataset_metadata is not None:
                 ax2 = axs[j].twinx()
@@ -1176,7 +1149,7 @@ def plot_one_path_with_pred(
                         path_t_pred,
                         path_y_pred[:, i, j] - std_factor * path_std_2_pred[:, i, j],
                         path_y_pred[:, i, j] + std_factor * path_std_2_pred[:, i, j],
-                        label=model_name + " directly predicted standart deviation", color=std_color)
+                        label=model_name + " directly predicted standard deviation", color=std_color)
                 if use_cond_exp:
                     axs[j].plot(path_t_true, path_y_true[:, i, j],
                                 label='true conditional expectation',
@@ -1187,7 +1160,7 @@ def plot_one_path_with_pred(
                         path_t_true,
                         path_y_true[:, i, j] - std_factor * path_y_std_true[:, i, j],
                         path_y_true[:, i, j] + std_factor * path_y_std_true[:, i, j],
-                        label='true conditional standart deviation', color=true_std_color)
+                        label='true conditional standard deviation', color=true_std_color)
 
                 if plot_obs_prob and dataset_metadata is not None:
                     ax2 = axs[j].twinx()

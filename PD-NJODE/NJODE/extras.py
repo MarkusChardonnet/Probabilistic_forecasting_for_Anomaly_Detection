@@ -247,6 +247,7 @@ def get_training_overview(
         early_stop_after_epoch=0,
         sortby=None,
         save_file=None,
+        select_every=None,
         send=SEND,
 ):
     """
@@ -272,6 +273,7 @@ def get_training_overview(
     :param early_stop_after_epoch: int, epoch after which early stopping is
             allowed (i.e. all epochs until there are not considered)
     :param save_file:
+    :param select_every:
     :return:
     """
     filename = "{}model_overview.csv".format(path)
@@ -315,6 +317,9 @@ def get_training_overview(
         df_metric = pd.read_csv(file_n, index_col=0)
         if early_stop_after_epoch:
             df_metric = df_metric.loc[df_metric['epoch']>early_stop_after_epoch]
+        if select_every is not None:
+            nr = np.arange(select_every-1, len(df_metric.index), select_every)
+            df_metric = df_metric.loc[nr]
 
         if val_test_params_extract:
             for l in val_test_params_extract:
@@ -407,14 +412,15 @@ def plot_paths_from_checkpoint(
                 params_dict['load_best'] = False
                 train_switcher(send=send, **params_dict)
 
-
+'''
 def plot_loss_and_metric(
         model_ids=(1,),
         save_extras={'bbox_inches': 'tight', 'pad_inches': 0.01},
-        file_name="loss_and_metric-id{}.pdf",
+        file_name="loss_and_metric-id{}.png",
         time_col='epoch',
         cols=('train_loss', 'eval_loss', 'evaluation_mean_diff'),
-        names=('train_loss', 'eval_loss', 'eval_metric')
+        names=('train_loss', 'eval_loss', 'eval_metric'),
+        saved_models_path=config.saved_models_path,
 ):
     """
     function to plot the losses and metric in one plot with subplots to see
@@ -434,7 +440,7 @@ def plot_loss_and_metric(
 
     for model_id in model_ids:
         path = os.path.join(
-            config.saved_models_path, "id-{}".format(model_id),
+            saved_models_path, "id-{}".format(model_id),
             "metric_id-{}.csv".format(model_id)
         )
         df = pd.read_csv(path)
@@ -447,7 +453,7 @@ def plot_loss_and_metric(
         axes[-1].set(xlabel=time_col)
 
         save_path = os.path.join(
-            config.saved_models_path, "id-{}".format(model_id),
+            saved_models_path, "id-{}".format(model_id),
             file_name.format(model_id)
         )
         plt.savefig(save_path, **save_extras)
@@ -458,7 +464,63 @@ def plot_loss_and_metric(
                 text=None, #files=[save_path],
                 #text_for_files="loss and metric plot - id={}".format(model_id)
             )
+'''
+def plot_loss_and_metric(
+        model_ids=(1,),
+        model_names=(''),
+        save_extras={'bbox_inches': 'tight', 'pad_inches': 0.01},
+        file_name="loss_and_metric_evol_{}.png",
+        time_col='epoch',
+        cols=('train_loss', 'eval_loss', 'evaluation_mean_diff'),
+        names=('train_loss', 'eval_loss', 'eval_metric'),
+        saved_models_path=config.saved_models_path,
+        to_epoch=None,
+        from_epoch=None,
+):
+    """
+    function to plot the losses and metric in one plot with subplots to see
+    their joint evolution
+    :param model_ids: list of int
+    :param save_extras: dict
+    :param file_name: str including "{}", name of saved file
+    :param time_col: str, usually 'epoch'
+    :param cols: list of str, the column names to plot
+    :param names: None or list of str, names of the y-labels, None: use cols
+    """
+    prop_cycle = plt.rcParams['axes.prop_cycle']
+    colors = prop_cycle.by_key()['color']
 
+    assert(len(model_ids) == len(model_names))
+
+    if names is None:
+        names = cols
+
+    for i, col in enumerate(cols):
+        fig, axes = plt.subplots(1)
+        axes.set(ylabel=names[i])
+        axes.set(xlabel=time_col)
+        for m,model_id in enumerate(model_ids):
+            path = os.path.join(
+                saved_models_path, "id-{}".format(model_id),
+                "metric_id-{}.csv".format(model_id)
+            )
+            df = pd.read_csv(path)
+            if to_epoch is not None:
+                nr = np.arange(to_epoch)
+                df = df.loc[nr]
+            if from_epoch is not None:
+                nr = np.arange(from_epoch, len(df.index))
+                df = df.loc[nr]
+            t = df[time_col]
+            print(model_names[m])
+            axes.plot(t, df[col].values, color=colors[m], label=model_names[m])
+
+        save_path = os.path.join(
+            saved_models_path, file_name.format(cols[i])
+        )
+        plt.legend(loc="upper right")
+        plt.savefig(save_path, **save_extras)
+        plt.close(fig)
 
 def get_cross_validation(
         send=SEND,

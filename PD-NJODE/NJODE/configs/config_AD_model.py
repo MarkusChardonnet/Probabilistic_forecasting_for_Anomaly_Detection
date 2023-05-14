@@ -260,28 +260,27 @@ param_dict_AD_OrnsteinUhlenbeckWithSeason_5 = {
 
 
 plot_paths_AD_OrnsteinUhlenbeckWithSeason_dict = {
-    'model_ids': [9],
+    'model_ids': [1],
     'saved_models_path': "{}saved_models_AD_OrnsteinUhlenbeckWithSeason_dim2/".format(data_path),
     'which': 'last', 
-    'paths_to_plot': [0],
+    'paths_to_plot': [0,1,2,3,4],
     'save_extras': {'bbox_inches': 'tight', 'pad_inches': 0.01},
 }
 
 
-AD_module_path_cutoff = "{}saved_AD_module_cutoff/".format(data_path)
 AD_module_path_noise = "{}saved_AD_module_noise/".format(data_path)
-param_dict_AD_modules = []
-param_dict_AD_modules_1 = {
-    'steps_ahead': [[5,10,15,20]],
+param_dict_AD_modules_noise = []
+param_dict_AD_modules_noise_1 = {
+    'steps_ahead': [[1,3,5,7,10,12,15,18,20]],
     'test_size': [0.2],
     'batch_size': [100],
     'seed': [398],
     'learning_rate': [0.01],
     'optim_method': ['adam'],
     'anomaly_data_dict': ['AD_OrnsteinUhlenbeckWithSeason_noise_dict'],
-    'epochs': [100],
-    'class_thres': [0.4], # 'automatic'
-    'autom_thres': ['FPR_limit-0.05'],
+    'epochs': [50],
+    'class_thres': [0.5], # 'automatic'
+    'autom_thres': [None], #['FPR_limit-0.05'],
     'saved_models_path': [AD_module_path_noise],
     'paths_to_plot': [(0,1,2,3,4,)],
     'plot_forecast_predictions': [False],
@@ -289,7 +288,74 @@ param_dict_AD_modules_1 = {
     'plot_variance': [True],
     'std_factor': [1.96],
 }
-param_dict_AD_modules += get_parameter_array(param_dict=param_dict_AD_modules_1)
+param_dict_AD_modules_noise += get_parameter_array(param_dict=param_dict_AD_modules_noise_1)
+
+
+AD_module_path_cutoff = "{}saved_AD_module_cutoff/".format(data_path)
+param_dict_AD_modules_cutoff = []
+param_dict_AD_modules_cutoff_1 = {
+    'steps_ahead': [[1,3,5,7,10,12,15,18,20]],
+    'test_size': [0.2],
+    'batch_size': [100],
+    'seed': [398],
+    'learning_rate': [0.01],
+    'optim_method': ['adam'],
+    'anomaly_data_dict': ['AD_OrnsteinUhlenbeckWithSeason_cutoff_dict'],
+    'epochs': [50],
+    'class_thres': [0.5], # 'automatic'
+    'autom_thres': [None], #['FPR_limit-0.05'],
+    'saved_models_path': [AD_module_path_cutoff],
+    'paths_to_plot': [(0,1,2,3,4,)],
+    'plot_forecast_predictions': [False],
+    'forecast_horizons_to_plot': [(10,)],
+    'plot_variance': [True],
+    'std_factor': [1.96],
+}
+param_dict_AD_modules_cutoff += get_parameter_array(param_dict=param_dict_AD_modules_cutoff_1)
+
+AD_module_path_diffusion = "{}saved_AD_module_cutoff/".format(data_path)
+param_dict_AD_modules_diffusion = []
+param_dict_AD_modules_diffusion_1 = {
+    'steps_ahead': [[1,3,5,7,10,12,15,18,20]],
+    'test_size': [0.2],
+    'batch_size': [100],
+    'seed': [398],
+    'learning_rate': [0.01],
+    'optim_method': ['adam'],
+    'anomaly_data_dict': ['AD_OrnsteinUhlenbeckWithSeason_diffusion_dict'],
+    'epochs': [50],
+    'class_thres': [0.5], # 'automatic'
+    'autom_thres': [None], #['FPR_limit-0.05'],
+    'saved_models_path': [AD_module_path_diffusion],
+    'paths_to_plot': [(0,1,2,3,4,)],
+    'plot_forecast_predictions': [False],
+    'forecast_horizons_to_plot': [(10,)],
+    'plot_variance': [True],
+    'std_factor': [1.96],
+}
+param_dict_AD_modules_diffusion += get_parameter_array(param_dict=param_dict_AD_modules_diffusion_1)
+
+AD_module_path_spike = "{}saved_AD_module_spike/".format(data_path)
+param_dict_AD_modules_spike = []
+param_dict_AD_modules_spike_1 = {
+    'steps_ahead': [[1,3,5,7,10,12,15,18,20]],
+    'test_size': [0.2],
+    'batch_size': [100],
+    'seed': [398],
+    'learning_rate': [0.01],
+    'optim_method': ['adam'],
+    'anomaly_data_dict': ['AD_OrnsteinUhlenbeckWithSeason_spike_dict'],
+    'epochs': [50],
+    'class_thres': [0.5], # 'automatic'
+    'autom_thres': [None], #['FPR_limit-0.05'],
+    'saved_models_path': [AD_module_path_spike],
+    'paths_to_plot': [(0,1,2,3,4,)],
+    'plot_forecast_predictions': [False],
+    'forecast_horizons_to_plot': [(10,)],
+    'plot_variance': [True],
+    'std_factor': [1.96],
+}
+param_dict_AD_modules_spike += get_parameter_array(param_dict=param_dict_AD_modules_spike_1)
 
 
 overview_dict_AD_OrnsteinUhlenbeckWithSeason = dict(

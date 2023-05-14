@@ -195,7 +195,8 @@ def compute_loss_ad(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
                             0.1,
                             0.1])
 
-    weights[2:] *= weight
+    # weights[2:] *= weight
+    weights[4:] *= weight
 
     outer = 0
 
@@ -1018,6 +1019,10 @@ class NJODE(torch.nn.Module):
         :return: torch.tensor (hidden state at final time), torch.tensor (loss),
                     if wanted the paths of t (np.array) and h, y (torch.tensors)
         """
+
+        for p in self.parameters():
+            p.require_grads = False
+
         if which_loss is None:
             which_loss = self.which_loss
 
@@ -1195,9 +1200,11 @@ class NJODE(torch.nn.Module):
             last_X = temp_X
             tau = temp_tau
         
+        del h, proj_h, c_sig, c_sig_iobs, h_at_last_obs
+        
         # return h, loss, np.array(path_t), torch.stack(path_h), \
         #            torch.stack(path_y)[:, :, :dim_to]
-        return h, loss, [np.array(path_t[c]) for c in range(len(path_t))], \
+        return [np.array(path_t[c]) for c in range(len(path_t))], \
                    [torch.stack(path_y[c])[:, :, :dim_to] for c in range(len(path_y))]
     
     def apply_readout_map(self, input):
@@ -1604,6 +1611,27 @@ class NJODE(torch.nn.Module):
             else:
                 print(path_y_var.shape)
                 print(true_path_y_var.shape)
+                raise ValueError("Shapes do not match!")
+
+        if 'exp2' in eval_vars:
+            assert('power-2' in self.input_vars and 'id' in self.input_vars)
+            assert('power-2' in self.output_vars and 'id' in self.output_vars)
+
+            if 'power-2' in self.input_vars:
+                which_true = np.argmax(np.array(self.input_vars) == 'power-2')
+                true_path_y_p2 = true_path_y[:,:,dim*which_true:dim*(which_true+1)]
+
+            if 'power-2' in self.output_vars:
+                which_pred = np.argmax(np.array(self.output_vars) == 'power-2')
+                path_y_p2 = path_y[:,:,dim*which_pred:dim*(which_pred+1)].detach().cpu().numpy()
+
+            if path_y_p2.shape == true_path_y_p2.shape:
+                which = np.argmax(np.array(eval_vars) == 'exp2')
+                eval_loss[2*which] = diff_fun(path_y_p2, true_path_y_p2)
+                eval_loss[2*which+1] = diff_fun_std(path_y_p2, true_path_y_p2)
+            else:
+                print(path_y_p2.shape)
+                print(true_path_y_p2.shape)
                 raise ValueError("Shapes do not match!")
 
         if return_paths:

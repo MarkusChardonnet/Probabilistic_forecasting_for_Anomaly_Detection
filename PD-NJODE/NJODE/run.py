@@ -53,7 +53,9 @@ flags.DEFINE_string("crossval", None,
 flags.DEFINE_string("plot_conv_study", None,
                     "name of the dict (in config.py) defining input for "
                     "extras.plot_convergence_study")
-
+flags.DEFINE_string("plot_loss_and_metric", None,
+                    "name of the dict (in config.py) defining input for "
+                    "extras.plot_loss_and_metric")
 
 
 flags.DEFINE_bool("USE_GPU", False, "whether to use GPU for training")
@@ -276,6 +278,9 @@ def main(arg):
     plot_conv_study = None
     if FLAGS.plot_conv_study:
         plot_conv_study = eval("config."+FLAGS.plot_conv_study)
+    plot_loss_and_metric = None
+    if FLAGS.plot_loss_and_metric:
+        plot_loss_and_metric = eval("config."+FLAGS.plot_loss_and_metric)
     print('nb_jobs: {}'.format(nb_jobs))
     if params_list is not None or model_ids is not None:
         parallel_training(
@@ -294,6 +299,8 @@ def main(arg):
         extras.get_cross_validation(send=FLAGS.SEND, **crossval)
     if plot_conv_study is not None:
         extras.plot_convergence_study(send=FLAGS.SEND, **plot_conv_study)
+    if plot_loss_and_metric is not None:
+        extras.plot_loss_and_metric(**plot_loss_and_metric)
 
 
 if __name__ == '__main__':

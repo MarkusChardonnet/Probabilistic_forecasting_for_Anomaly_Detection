@@ -35,10 +35,10 @@ AD_OrnsteinUhlenbeckWithSeason_3_dict = {
 
 AD_OrnsteinUhlenbeckWithSeason_dim2_dict = {
     'model_name': "AD_OrnsteinUhlenbeckWithSeason",
-    'nb_paths': 500, 'nb_steps': 400,
+    'nb_paths': 10000, 'nb_steps': 400,
     'dimension': 2, 'obs_perc': 1., 'S0': None,
     'maturity': 1., 'return_vol': False,
-    'speed': [[15.,2.],[0.,15.]],
+    'speed': [[10.,5.],[0.,15.]],
     'noise': {'type': "gaussian", 'cov': 0.0},   # 0.02
     'volatility': {
         'vol_value': [[0.3,0.15],[0.15,0.3]],
@@ -132,4 +132,11 @@ Cloud_KPI_daily_transformed_dict = {
     'nb_paths': 401, 'nb_steps': 287,
     'dimension': 3, 'obs_perc': 1., 'S0': None,
     'maturity': 1., "input_transformation": "log,0.5"
+}
+
+Cloud_KPI_daily_transformed2_dict = {
+    'model_name': "Cloud_KPI",
+    'nb_paths': 401, 'nb_steps': 287,
+    'dimension': 3, 'obs_perc': 1., 'S0': None,
+    'maturity': 1., "input_transformation": "log_transformed"
 }

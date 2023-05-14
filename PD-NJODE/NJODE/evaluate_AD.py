@@ -182,7 +182,7 @@ def evaluate(
         N_DATASET_WORKERS = n_dataset_workers
 
     if USE_GPU and torch.cuda.is_available():
-        gpu_num = 1
+        gpu_num = 0
         device = torch.device("cuda:{}".format(gpu_num))
         torch.cuda.set_device(gpu_num)
     else:
@@ -264,6 +264,7 @@ def evaluate(
     forecast_optimizer = torch.optim.Adam(forecast_model.parameters(), lr=0.001, weight_decay=0.0005)
     models.get_ckpt_model(forecast_model_path_save_last, forecast_model, forecast_optimizer, device)
     forecast_model.eval()
+    del forecast_optimizer
 
     dl = DataLoader(  # class to iterate over training data
         dataset=data_train, collate_fn=collate_fn, shuffle=True, 
@@ -292,6 +293,7 @@ def evaluate(
 
     replace_values = get_replace_forecast_values(model=forecast_model, data_dict=forecast_param['data_dict'], 
                                               collate_fn=collate_fn, steps_ahead=steps_ahead, device=device)
+    torch.cuda.empty_cache()
 
     prop_cycle = plt.rcParams['axes.prop_cycle']  # change style of plot?
     colors = prop_cycle.by_key()['color']
@@ -316,7 +318,7 @@ def evaluate(
 
     if optim_method == 'adam':
         optimizer = torch.optim.Adam(ad_module.parameters(), lr=learning_rate, weight_decay=0.0005)
-        criterion = nn.CrossEntropyLoss()
+        
     if optim_method == 'linear':
         epochs = 1
 
@@ -334,6 +336,7 @@ def evaluate(
         print("Epoch {}".format(epoch))
         ad_module.train()
         for i, b in enumerate(dl):  # iterate over dataloader for validation set
+            optimizer.zero_grad()  # reset the gradient
             print("iteration {}".format(i+1))
 
             times = b["times"]
@@ -355,11 +358,13 @@ def evaluate(
             true_X = b["true_paths"]
             ad_labels = b["ad_labels"]
 
-            hT, c_loss, path_t, path_y = forecast_model.custom_forward(
-            # hT, c_loss, path_t, path_h, path_y = model( 
-                times, time_ptr, X, obs_idx, delta_t, T, start_X,
-                n_obs_ot, steps=steps_ahead, get_loss=False, M=M,
-                start_M=start_M)
+            with torch.no_grad():
+                path_t, path_y = forecast_model.custom_forward(
+                # hT, c_loss, path_t, path_h, path_y = model( 
+                    times, time_ptr, X, obs_idx, delta_t, T, start_X,
+                    n_obs_ot, steps=steps_ahead, get_loss=False, M=M,
+                    start_M=start_M)
+                torch.cuda.empty_cache()
                 
             nb_steps = path_t_true_X.shape[0]
             
@@ -389,7 +394,7 @@ def evaluate(
                 ad_scores = ad_scores[mask]
                 ad_labels = ad_labels[mask]
 
-                loss = criterion(ad_scores, ad_labels)
+                loss = ad_module.loss(ad_scores, ad_labels)
                 loss.backward()
                 optimizer.step()
             
@@ -423,12 +428,13 @@ def evaluate(
                 true_X = b["true_paths"]
                 ad_labels = b["ad_labels"]
 
-
-                hT, c_loss, path_t, path_y = forecast_model.custom_forward(
-                # hT, c_loss, path_t, path_h, path_y = model( 
-                    times, time_ptr, X, obs_idx, delta_t, T, start_X,
-                    n_obs_ot, steps=steps_ahead, get_loss=False, M=M,
-                    start_M=start_M)
+                with torch.no_grad():
+                    path_t, path_y = forecast_model.custom_forward(
+                    # hT, c_loss, path_t, path_h, path_y = model( 
+                        times, time_ptr, X, obs_idx, delta_t, T, start_X,
+                        n_obs_ot, steps=steps_ahead, get_loss=False, M=M,
+                        start_M=start_M)
+                    torch.cuda.empty_cache()
                     
                 nb_steps = path_t_true_X.shape[0]
                 
@@ -450,6 +456,10 @@ def evaluate(
                 cond_moments = torch.tensor(cond_moments, dtype=torch.float32)
                 ad_scores, mask = ad_module(obs, cond_moments)
                 ad_scores = ad_scores.detach().cpu().numpy()
+                fig, ax = plt.subplots()
+                ax.boxplot(ad_scores.reshape(-1))
+                ax.set_title("scores")
+                plt.savefig("lala.png")
                 ad_labels = ad_labels.transpose((2,0,1))
                 predicted_ad_labels, _ = ad_module.get_predicted_label(obs, cond_moments)
                 predicted_ad_labels = predicted_ad_labels.detach().cpu().numpy()
@@ -459,10 +469,12 @@ def evaluate(
                 plot_AD_module_params(ad_module, steps_ahead=steps_ahead, 
                                   path=eval_weights_path, filename=weights_filename)
                 metrics_filename = "epoch-{}".format(epoch)
-                score_val, threshold = compute_metrics(ad_labels, ad_scores, mask, autom_thres = autom_thres,
+                score_val, threshold = compute_metrics(ad_labels, ad_scores, mask, autom_thres = autom_thres, 
+                                                       threshold=ad_module.threshold,
                                              path=eval_metrics_path, filename = metrics_filename)
                 tot_score_val += score_val
-                ad_module.threshold = threshold
+                if threshold is not None:
+                    ad_module.threshold = threshold
 
                 del path_t, path_y, cond_moments
 
@@ -484,6 +496,7 @@ def evaluate(
                 plot_variance=plot_variance, std_factor=std_factor,
                 output_vars=output_vars, steps_ahead=steps_ahead, plot_forecast_predictions=plot_forecast_predictions,
                 forecast_horizons_to_plot=forecast_horizons_to_plot, anomaly_type=anom_type)
+            torch.cuda.empty_cache()
 
             '''print("Plotting")
 
@@ -591,8 +604,8 @@ def compute_metrics(ad_labels, ad_scores, mask, autom_thres = None, filename = '
     elif metric == 'roc_auc':
         score = metrics.roc_auc_score(ad_labels, predicted_ad_labels)
 
-    print(idx)
-    print("Threshold found : {} for FPR of {} and TPR of : {}".format(threshold, fpr[idx], tpr[idx]))
+    if autom_thres is not None:
+        print("Threshold found : {} for FPR of {} and TPR of : {}".format(threshold, fpr[idx], tpr[idx]))
 
 
     # print(score)
@@ -643,11 +656,13 @@ def get_replace_forecast_values(model, data_dict, collate_fn, steps_ahead, repla
 
     model.eval()
 
-    hT, c_loss, path_t, path_y = model.custom_forward(
-    # hT, c_loss, path_t, path_h, path_y = model( 
-        times, time_ptr, X, obs_idx, delta_t, T, start_X,
-        n_obs_ot, steps=steps_ahead, get_loss=False, M=M,
-        start_M=start_M)
+    with torch.no_grad():
+        path_t, path_y = model.custom_forward(
+        # hT, c_loss, path_t, path_h, path_y = model( 
+            times, time_ptr, X, obs_idx, delta_t, T, start_X,
+            n_obs_ot, steps=steps_ahead, get_loss=False, M=M,
+            start_M=start_M)
+        torch.cuda.empty_cache()
         
     nb_steps = path_t_true_X.shape[0]
     
@@ -683,9 +698,9 @@ def get_replace_forecast_values(model, data_dict, collate_fn, steps_ahead, repla
                 if replace_with == 'mean':
                     rv[j,s] = np.mean(vals[cond])
 
-        replace_values[variable] = rv
+        replace_values[variable] = rv.copy()
 
-    del dl, data_train
+    del dl, data_train, model, b
     
     return replace_values
 
@@ -854,12 +869,13 @@ def plot_one_path_with_pred(
     true_X = batch["true_paths"]
     ad_labels = batch["ad_labels"]
 
-
-    hT, c_loss, path_t, path_y = forecast_model.custom_forward(
-    # hT, c_loss, path_t, path_h, path_y = model( 
-        times, time_ptr, X, obs_idx, delta_t, T, start_X,
-        n_obs_ot, steps=steps_ahead, get_loss=False, M=M,
-        start_M=start_M)
+    with torch.no_grad():
+        path_t, path_y = forecast_model.custom_forward(
+        # hT, c_loss, path_t, path_h, path_y = model( 
+            times, time_ptr, X, obs_idx, delta_t, T, start_X,
+            n_obs_ot, steps=steps_ahead, get_loss=False, M=M,
+            start_M=start_M)
+        torch.cuda.empty_cache()
         
     nb_steps = path_t_true_X.shape[0]
     nb_steps_ahead = len(steps_ahead)
@@ -891,10 +907,18 @@ def plot_one_path_with_pred(
     scores = scores.detach().cpu().numpy().transpose((1, 2, 0))
     ad_labels = ad_labels.transpose((1, 2, 0))
     predicted_ad_labels = predicted_ad_labels.detach().cpu().numpy().transpose((1, 2, 0))
-    mask_pred_path = np.ma.masked_where((predicted_ad_labels == 1), true_X)
-    mask_pred_path_w_anomaly = np.ma.masked_where((predicted_ad_labels == 0), true_X)
-    mask_data_path = np.ma.masked_where((ad_labels == 1), true_X)
-    mask_data_path_w_anomaly = np.ma.masked_where((ad_labels == 0), true_X)
+
+    ad_labels_plot = ad_labels.copy()
+    ad_labels_plot[:,:,1:][np.logical_and(ad_labels[:,:,1:]==0,ad_labels[:,:,:-1]==1)] = 1
+    ad_labels_plot[:,:,:-1][np.logical_and(ad_labels[:,:,1:]==1,ad_labels[:,:,:-1]==0)] = 1
+    predicted_ad_labels_plot = predicted_ad_labels.copy()
+    predicted_ad_labels_plot[:,:,1:][np.logical_and(predicted_ad_labels[:,:,1:]==0,predicted_ad_labels[:,:,:-1]==1)] = 1
+    predicted_ad_labels_plot[:,:,:-1][np.logical_and(predicted_ad_labels[:,:,1:]==1,predicted_ad_labels[:,:,:-1]==0)] = 1
+
+    mask_pred_path = np.ma.masked_where((predicted_ad_labels_plot == 1), true_X)
+    mask_pred_path_w_anomaly = np.ma.masked_where((predicted_ad_labels_plot == 0), true_X)
+    mask_data_path = np.ma.masked_where((ad_labels_plot == 1), true_X)
+    mask_data_path_w_anomaly = np.ma.masked_where((ad_labels_plot == 0), true_X)
     mask_pred_scores = np.ma.masked_where((np.isnan(scores)), scores)
 
 
@@ -955,8 +979,10 @@ def plot_one_path_with_pred(
             
             axs[j][0].legend()
             axs[j][1].legend()
+            axs[j][0].set_ylim(0., 1.)
+            axs[j][1].set_ylim(0., 1.)
+            axs[j][1].axhline(y=ad_module.threshold, color='r', linestyle='-')
 
-        plt.ylim([0., 1.])
         plt.xlabel('$t$')
         plt.suptitle("Anomaly detection on {} anomalies".format(anomaly_type))
         save = os.path.join(save_path, filename.format(a))

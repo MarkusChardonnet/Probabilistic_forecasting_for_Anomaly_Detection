@@ -2,7 +2,6 @@ plots/
 .vscode/
 models/
 __pycache__/
-test.py
 
 TSAGen/__pycache__/
 TSAGen/dist/

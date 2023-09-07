@@ -3,18 +3,7 @@ plots/
 models/
 __pycache__/
 
-TSAGen/__pycache__/
-TSAGen/dist/
-TSAGen/EVT.egg-info/
-TSAGen/generator.egg-info/
-TSAGen/shape.egg-info/
-TSAGen/test_path/
-TSAGen/visual.egg-info/
-TSAGen/computational_weight_alalysis.py
-TSAGen/gen_data_for_correlation_analysis.py
-TSAGen/gen.py
-TSAGen/meta_features.yaml
-TSAGen/setup.py
-TSAGen/TSAGen.py
-
-PD-NJODE/data/
+data/
+src/configs/models/
+environment.yml
+test.py

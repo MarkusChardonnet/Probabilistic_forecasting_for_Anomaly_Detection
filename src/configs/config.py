@@ -3,7 +3,6 @@ author: Florian Krach
 """
 
 from configs.config_NJODE1 import *
-from configs.config_LOB import *
 from configs.config_AD import *
 from configs.config_AD_dataset import *
 from configs.config_AD_dataset_anomalies import *

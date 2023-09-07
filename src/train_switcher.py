@@ -4,10 +4,6 @@ author: Florian Krach
 
 import train
 import KPI_train
-import climate_train
-import physionet_train
-import LOB_train
-import retrain_LOB_classifier
 import synthetic_datasets
 
 
@@ -33,14 +29,6 @@ def train_switcher(**params):
         return train.train(**params)
     elif params['dataset'] in ['Cloud_KPI']:
         return KPI_train.train(**params)
-    elif params['dataset'] in ['climate', 'Climate']:
-        return climate_train.train(**params)
-    elif params['dataset'] in ['physionet', 'Physionet']:
-        return physionet_train.train(**params)
-    elif params['dataset'] in ['LOB',]:
-        return LOB_train.train(**params)
-    elif params['dataset'] in ['retrain_LOB',]:
-        return retrain_LOB_classifier.train(**params)
     else:
         raise ValueError('the specified "dataset" is not supported')
 

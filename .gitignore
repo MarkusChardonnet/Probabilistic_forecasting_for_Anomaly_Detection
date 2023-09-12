@@ -1,9 +1,8 @@
-plots/
-.vscode/
-models/
 __pycache__/
-
+.vscode/
 data/
+models/
+plots/
+src/__pycache__/
 src/configs/models/
-environment.yml
 test.py

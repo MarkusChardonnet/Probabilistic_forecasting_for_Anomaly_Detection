@@ -297,6 +297,7 @@ def train(
     dataset_metadata = data_train.get_metadata()
     input_size = dataset_metadata['dimension']
     dimension = dataset_metadata['dimension']
+    dynamic_cov_dim = dataset_metadata['dynamic_cov_dim']
     output_size = input_size
     T = dataset_metadata['maturity']
     delta_t = dataset_metadata['dt']  # copy metadata
@@ -324,16 +325,16 @@ def train(
     output_vars = ['id']
     if 'func_appl_X' in options:  # list of functions to apply to the paths in X
         functions = options['func_appl_X']
-        collate_fn, mult = data_utils.CustomCollateFnGen(functions) #, scaling_factor=data_scaling_factor)
-        collate_fn_val, _ = data_utils.CustomCollateFnGen(functions, obs_perc=None)
+        collate_fn, mult = data_utils.MicrobialCollateFnGen(functions) #, scaling_factor=data_scaling_factor)
+        collate_fn_val, _ = data_utils.MicrobialCollateFnGen(functions)
         input_size = input_size * mult
         output_size = output_size * mult
         output_vars += functions
         input_vars += functions
     else:
         functions = None
-        collate_fn, mult = data_utils.CustomCollateFnGen(None) #, scaling_factor=data_scaling_factor)
-        collate_fn_val, _ = data_utils.CustomCollateFnGen(None, obs_perc=None)
+        collate_fn, mult = data_utils.MicrobialCollateFnGen(None) #, scaling_factor=data_scaling_factor)
+        collate_fn_val, _ = data_utils.MicrobialCollateFnGen(None)
         mult = 1
     # if we predict additional variables (the output size gets bigger than input size)
     if 'add_pred' in options:
@@ -342,6 +343,8 @@ def train(
         #mult += nb_pred_add
         output_size += nb_pred_add * dimension
         output_vars += add_pred
+
+    input_size += dynamic_cov_dim
     
     # in case we want to evaluate the predictions, specifies the output variables
     eval_metrics = None
@@ -570,7 +573,7 @@ def train(
         pre_train = options['pre-train']
     if pre_train:
         model.train()
-        for ep in range(10000):
+        for ep in range(1000):
             optimizer.zero_grad()
             loss = model.forward_random_encoder_decoder(batch_size=batch_size, dimension=dimension)
             loss.backward()
@@ -585,6 +588,7 @@ def train(
             times = b["times"]  # Produce instance of byte type instead of str type
             time_ptr = b["time_ptr"]  # pointer
             X = b["X"].to(device)
+            Z = b["Z"].to(device)
             M = b["M"]
             if M is not None:
                 M = M.to(device)
@@ -593,20 +597,21 @@ def train(
                 start_M = start_M.to(device)
 
             start_X = b["start_X"].to(device)
+            start_Z = b["start_Z"].to(device)
             obs_idx = b["obs_idx"]
             n_obs_ot = b["n_obs_ot"].to(device)
 
             if 'other_model' not in options:
-                hT, loss = model(
-                    times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx,
-                    delta_t=None, T=T, start_X=start_X, n_obs_ot=n_obs_ot,
-                    return_path=False, get_loss=True, M=M, start_M=start_M)
-            elif options['other_model'] == "GRU_ODE_Bayes":
-                if M is None:
-                    M = torch.ones_like(X)
-                hT, loss, _, _ = model(
-                    times, time_ptr, X, M, obs_idx, delta_t, T, start_X,
-                    return_path=False, smoother=False)
+                if 'add_dynamic_cov' in options and options['add_dynamic_cov']:
+                    hT, loss = model(
+                        times=times, time_ptr=time_ptr, X=torch.cat((X,Z),dim=1), obs_idx=obs_idx,
+                        delta_t=None, T=T, start_X=torch.cat((start_X,start_Z),dim=1), n_obs_ot=n_obs_ot,
+                        return_path=False, get_loss=True, M=M, start_M=start_M)
+                else:
+                    hT, loss = model(
+                        times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx,
+                        delta_t=None, T=T, start_X=start_X, n_obs_ot=n_obs_ot,
+                        return_path=False, get_loss=True, M=M, start_M=start_M)
             else:
                 raise ValueError
             loss.backward()  # compute gradient of each weight regarding loss function
@@ -614,15 +619,14 @@ def train(
                 nn.utils.clip_grad_value_(
                     model.parameters(), clip_value=gradient_clip)
             optimizer.step()  # update weights by ADAM optimizer
-            #scheduler.step()
             if ANOMALY_DETECTION:
                 print(r"current loss: {}".format(loss.detach().cpu().numpy()))
 
-        if pre_train:
+        """if pre_train:
             optimizer.zero_grad()
             loss = model.forward_random_encoder_decoder(batch_size=batch_size, dimension=dimension)
             loss.backward()
-            optimizer.step()
+            optimizer.step()"""
 
         # -------- evaluation --------
         if model.epoch % save_every == 0:
@@ -642,6 +646,7 @@ def train(
                     times = b["times"]
                     time_ptr = b["time_ptr"]
                     X = b["X"].to(device)
+                    Z = b["Z"].to(device)
                     M = b["M"]
                     if M is not None:
                         M = M.to(device)
@@ -650,22 +655,23 @@ def train(
                         start_M = start_M.to(device)
 
                     start_X = b["start_X"].to(device)
+                    start_Z = b["start_Z"].to(device)
                     obs_idx = b["obs_idx"]
                     n_obs_ot = b["n_obs_ot"].to(device)
                     true_paths = b["true_paths"]
                     true_mask = b["true_mask"]
 
                     if 'other_model' not in options:
-                        hT, c_loss = model(
-                            times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx, delta_t=None, T=T, start_X=start_X,
-                            n_obs_ot=n_obs_ot, return_path=False, get_loss=True, M=M,
-                            start_M=start_M, which_loss=which_eval_loss) # which_loss='standard'
-                    elif options['other_model'] == "GRU_ODE_Bayes":
-                        if M is None:
-                            M = torch.ones_like(X)
-                        hT, c_loss, _, _ = model(
-                            times, time_ptr, X, M, obs_idx, delta_t, T, start_X,
-                            return_path=False, smoother=False,)
+                        if 'add_dynamic_cov' in options and options['add_dynamic_cov']:
+                            hT, c_loss = model(
+                                times=times, time_ptr=time_ptr, X=torch.cat((X,Z),dim=1), obs_idx=obs_idx, delta_t=None, T=T, 
+                                start_X=torch.cat((start_X,start_Z),dim=1), n_obs_ot=n_obs_ot, return_path=False, get_loss=True, M=M,
+                                start_M=start_M, which_loss=which_eval_loss) # which_loss='standard'
+                        else:
+                            hT, c_loss = model(
+                                times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx, delta_t=None, T=T, start_X=start_X,
+                                n_obs_ot=n_obs_ot, return_path=False, get_loss=True, M=M,
+                                start_M=start_M, which_loss=which_eval_loss) # which_loss='standard'
                     else:
                         raise ValueError
                     loss_val += c_loss.detach().cpu().numpy()
@@ -676,22 +682,38 @@ def train(
                     #   -> this can be compared to the optimal-eval-loss
                     if mult is not None and mult > 1:
                         if 'other_model' not in options:
-                            hT_corrected, c_loss_corrected = model(
-                                times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx, delta_t=None, T=T, start_X=start_X,
-                                n_obs_ot=n_obs_ot, return_path=False, get_loss=True, M=M,
-                                start_M=start_M, which_loss='standard',
-                                dim_to=dimension)
+                            if 'add_dynamic_cov' in options and options['add_dynamic_cov']:
+                                hT_corrected, c_loss_corrected = model(
+                                    times=times, time_ptr=time_ptr, X=torch.cat((X,Z),dim=1), obs_idx=obs_idx, delta_t=None, T=T, 
+                                    start_X=torch.cat((start_X,start_Z),dim=1), n_obs_ot=n_obs_ot, return_path=False, get_loss=True, M=M,
+                                    start_M=start_M, which_loss='standard',
+                                    dim_to=dimension)
+                            else:
+                                hT_corrected, c_loss_corrected = model(
+                                    times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx, delta_t=None, T=T, start_X=start_X,
+                                    n_obs_ot=n_obs_ot, return_path=False, get_loss=True, M=M,
+                                    start_M=start_M, which_loss='standard',
+                                    dim_to=dimension)
                         loss_val_corrected += c_loss_corrected.detach().cpu().numpy()
 
                     # mean squared difference evaluation
                     if 'evaluate' in options and options['evaluate']:
-                        _eval_msd = model.evaluate(
-                            times=times, time_ptr=time_ptr, X=X,
-                            obs_idx=obs_idx, delta_t=delta_t, T=T,
-                            start_X=start_X, n_obs_ot=n_obs_ot,
-                            return_paths=False, M=M,
-                            start_M=start_M, true_paths=true_paths,
-                            true_mask=true_mask, eval_vars=eval_metrics,) # mult=mult)
+                        if 'add_dynamic_cov' in options and options['add_dynamic_cov']:
+                            _eval_msd = model.evaluate(
+                                times=times, time_ptr=time_ptr, X=torch.cat((X,Z),dim=1),
+                                obs_idx=obs_idx, delta_t=delta_t, T=T,
+                                start_X=torch.cat((start_X,start_Z),dim=1), n_obs_ot=n_obs_ot,
+                                return_paths=False, M=M,
+                                start_M=start_M, true_paths=true_paths,
+                                true_mask=true_mask, eval_vars=eval_metrics,) # mult=mult)
+                        else:
+                            _eval_msd = model.evaluate(
+                                times=times, time_ptr=time_ptr, X=X,
+                                obs_idx=obs_idx, delta_t=delta_t, T=T,
+                                start_X=start_X, n_obs_ot=n_obs_ot,
+                                return_paths=False, M=M,
+                                start_M=start_M, true_paths=true_paths,
+                                true_mask=true_mask, eval_vars=eval_metrics,) # mult=mult)
                         eval_msd += _eval_msd
 
                 eval_time = time.time() - t
@@ -712,7 +734,6 @@ def train(
                 print(print_str)
             if 'evaluate' in options and options['evaluate']:
                 metric_app.append([model.epoch, train_time, eval_time, train_loss] + list(loss_val) + list(eval_msd))
-                # print("evaluation mean square difference={:.5f}".format(eval_msd))
                 string = "evaluation : \n"
                 for v,value in enumerate(eval_msd):
                     string += eval_metric_names[v] + " : {:.5f}\n".format(value)
@@ -794,35 +815,6 @@ def train(
     return 0
 
 
-def compute_optimal_eval_loss(dl_val, stockmodel, delta_t, T, mult = None):
-    """
-    compute optimal evaluation loss (with the true cond. exp.) on the
-    test-dataset
-    :param dl_val: torch.DataLoader, used for the validation dataset
-    :param stockmodel: stock_model.StockModel instance
-    :param delta_t: float, the time_delta
-    :param T: float, the terminal time
-    :return: float (optimal loss)
-    """
-    opt_loss = 0
-    num_obs = 0
-    for i, b in enumerate(dl_val):
-        times = b["times"]
-        time_ptr = b["time_ptr"]
-        X = b["X"].detach().cpu().numpy()
-        start_X = b["start_X"].detach().cpu().numpy()
-        obs_idx = b["obs_idx"].detach().cpu().numpy()
-        n_obs_ot = b["n_obs_ot"].detach().cpu().numpy()
-        M = b["M"]
-        if M is not None:
-            M = M.detach().cpu().numpy()
-        num_obs += 1
-        opt_loss += stockmodel.get_optimal_loss(
-            times, time_ptr, X, obs_idx, delta_t, T, start_X, n_obs_ot, M=M,
-            mult=mult)
-    return opt_loss / num_obs
-
-
 def plot_one_path_with_pred(
         device, model, batch, delta_t, T,
         path_to_plot=(0,), save_path='', filename='plot_{}.png',
@@ -831,7 +823,7 @@ def plot_one_path_with_pred(
         save_extras={'bbox_inches': 'tight', 'pad_inches': 0.01},
         same_yaxis=False,
         plot_obs_prob=False, dataset_metadata=None,
-        output_vars=None
+        output_vars=None, max_dim_per_plot=5,
 ):
     """
     plot one path of the stockmodel together with optimal cond. exp. and its
@@ -879,10 +871,12 @@ def plot_one_path_with_pred(
     times = batch["times"]
     time_ptr = batch["time_ptr"]
     X = batch["X"].to(device)
+    Z = batch["Z"].to(device)
     M = batch["M"]
     if M is not None:
         M = M.to(device)
     start_X = batch["start_X"].to(device)
+    start_Z = batch["start_Z"].to(device)
     start_M = batch["start_M"]
     if start_M is not None:
         start_M = start_M.to(device)
@@ -895,9 +889,12 @@ def plot_one_path_with_pred(
     path_t_true_X = np.linspace(0., T, int(np.round(T / delta_t)) + 1)
 
     model.eval()  # put model in evaluation mode
-    res = model.get_pred(
+    """res = model.get_pred(
         times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx, delta_t=None,
-        T=T, start_X=start_X, M=M, start_M=start_M)
+        T=T, start_X=start_X, M=M, start_M=start_M)"""
+    res = model.get_pred(
+        times=times, time_ptr=time_ptr, X=torch.cat((X,Z),dim=1), obs_idx=obs_idx, delta_t=None,
+        T=T, start_X=torch.cat((start_X,start_Z),dim=1), M=M, start_M=start_M)
     path_y_pred = res['pred'].detach().cpu().numpy()
     path_t_pred = res['pred_t']
 
@@ -910,8 +907,6 @@ def plot_one_path_with_pred(
             print(np.sum(path_var_pred < 0), " out of ", path_var_pred.reshape(-1).shape[0], " values")
             path_var_pred = np.maximum(0, path_var_pred)
         path_std_pred = np.sqrt(path_var_pred)
-    #else:
-    #    path_std_2_pred = None
     elif plot_variance and (functions is not None) and ('power-2' in functions):
         which = np.argmax(np.array(functions) == 'power-2')
         y2 = path_y_pred[:, :, (dim * which):(dim * (which + 1))]
@@ -921,8 +916,6 @@ def plot_one_path_with_pred(
             print(np.sum(path_var_pred < 0), " out of ", path_var_pred.reshape(-1).shape[0], " values")
             path_var_pred = np.maximum(0, path_var_pred)
         path_std_pred = np.sqrt(path_var_pred)
-    #else:
-    #    path_std_pred = None
     else:
         path_std_pred = None
     if ((output_vars is None) or ('var' not in output_vars)) and ((functions is None) or ('power-2' not in functions)):
@@ -931,12 +924,16 @@ def plot_one_path_with_pred(
     opt_loss = 0
 
     for i in path_to_plot:
-        #value_dict = {'true X': true_X[i, :, :].reshape(-1), "predicted X": path_y_pred[:, i].reshape(-1),
-        #              'true times': path_t_true_X.reshape(-1), 'pred times': path_t_pred}
-        fig, axs = plt.subplots(dim)
+        if dim < max_dim_per_plot:
+            fig, axs = plt.subplots(dim)
         if dim == 1:
             axs = [axs]
         for j in range(dim):
+            if dim > max_dim_per_plot and j % max_dim_per_plot == 0:
+                fig, axs = plt.subplots(min(max_dim_per_plot, dim-j))
+                counter = 1
+            else:
+                counter += 1
             # get the true_X at observed dates
             path_t_obs = []
             path_X_obs = []
@@ -949,18 +946,18 @@ def plot_one_path_with_pred(
             path_t_obs = np.array(path_t_obs)
             path_X_obs = np.array(path_X_obs)
 
-            axs[j].plot(path_t_true_X, true_X[i, j, :], label='true path',
-                        color=colors[0])
-            axs[j].scatter(path_t_obs, path_X_obs, label='observed',
+            # axs[j % max_dim_per_plot].plot(path_t_true_X, true_X[i, j, :], label='true path',
+            #            color=colors[0])
+            axs[j % max_dim_per_plot].scatter(path_t_obs, path_X_obs, label='observed',
                            color=colors[0])
-            axs[j].plot(path_t_pred, path_y_pred[:, i, j],
-                        label=model_name, color=colors[1])
+            axs[j % max_dim_per_plot].plot(path_t_pred, path_y_pred[:, i, j],
+                        label=model_name + " predicted \n conditional expectation", color=colors[1])
             if plot_variance and path_std_pred is not None:
-                axs[j].fill_between(
+                axs[j % max_dim_per_plot].fill_between(
                     path_t_pred,
                     path_y_pred[:, i, j] - std_factor * path_std_pred[:, i, j],
                     path_y_pred[:, i, j] + std_factor * path_std_pred[:, i, j],
-                    label=model_name + " derived (from X and X^2) standard deviation", color=std_color)
+                    label=model_name + " predicted \n conditional standard \n deviation (*{})".format(std_factor), color=std_color)
         
             if plot_obs_prob and dataset_metadata is not None:
                 ax2 = axs[j].twinx()
@@ -975,23 +972,27 @@ def plot_one_path_with_pred(
                          label="observation probability")
                 ax2.set_ylim(-0.1, 1.1)
                 ax2.set_ylabel("observation probability")
-                axs[j].set_ylabel("X")
+                axs[j % max_dim_per_plot].set_ylabel("X")
                 ax2.legend()
             if ylabels:
-                axs[j].set_ylabel(ylabels[j])
+                axs[j % max_dim_per_plot].set_ylabel(ylabels[j])
             if same_yaxis:
                 low = np.min(true_X[i, :, :])
                 high = np.max(true_X[i, :, :])
                 eps = (high - low)*0.05
-                axs[j].set_ylim([low-eps, high+eps])
+                axs[j % max_dim_per_plot].set_ylim([low-eps, high+eps])
 
-        for j in range(dim):
-            axs[j].set_ylim(-0.05, 1.4)
-        axs[-1].legend(loc='upper right', fontsize='small')
-        plt.xlabel('$t$')
-        save = os.path.join(save_path, filename.format(i))
-        plt.savefig(save, **save_extras)
-        plt.close()
+            if j == dim-1 or counter == max_dim_per_plot:
+                plt.subplots_adjust(right=0.7)
+                plt.xlabel('$t$')
+                if dim < max_dim_per_plot:
+                    plt.legend(bbox_to_anchor=(1.02, dim/2.+0.1), loc="center left")
+                    save = os.path.join(save_path, filename.format(i))
+                else:
+                    plt.legend(bbox_to_anchor=(1.02, counter/2.+0.1), loc="center left")
+                    save = os.path.join(save_path, filename.format("{}_dim-{}-{}".format(i,j-counter+1,j)))
+                plt.savefig(save, **save_extras)
+                plt.close()
     
         if plot_moments:
             for m in range(2,10):
@@ -1001,8 +1002,11 @@ def plot_one_path_with_pred(
                     if dim == 1:
                         axs = [axs]
                     for j in range(dim):
-                        #value_dict['true X^2'] =  np.power(true_X, m)[i, :, :].reshape(-1)
-                        #value_dict['predicted X^2'] =  path_y_pred[:, i, dim * which + j].reshape(-1)
+                        if dim > max_dim_per_plot and j % max_dim_per_plot == 0:
+                            fig, axs = plt.subplots(min(max_dim_per_plot, dim-j))
+                            counter = 1
+                        else:
+                            counter += 1
                         path_t_obs = []
                         path_X_m_obs = []
                         for k, od in enumerate(observed_dates[i]):
@@ -1014,15 +1018,15 @@ def plot_one_path_with_pred(
                         path_t_obs = np.array(path_t_obs)
                         path_X_m_obs = np.array(path_X_m_obs)
 
-                        axs[j].plot(path_t_true_X, np.power(true_X, m)[i, j, :], label='true path power {}'.format(m),
+                        # axs[j % max_dim_per_plot].plot(path_t_true_X, np.power(true_X, m)[i, j, :], label='true path power {}'.format(m),
+                        #            color=colors[0])
+                        axs[j % max_dim_per_plot].scatter(path_t_obs, path_X_m_obs, label='observed power {}'.format(m),
                                     color=colors[0])
-                        axs[j].scatter(path_t_obs, path_X_m_obs, label='observed power {}'.format(m),
-                                    color=colors[0])
-                        axs[j].plot(path_t_pred, path_y_pred[:, i, dim * which + j],
-                                    label=model_name, color=colors[1])
+                        axs[j % max_dim_per_plot].plot(path_t_pred, path_y_pred[:, i, dim * which + j],
+                                    label=model_name + " predicted \n conditional moment {}".format(m), color=colors[1])
 
                         if plot_obs_prob and dataset_metadata is not None:
-                            ax2 = axs[j].twinx()
+                            ax2 = axs[j % max_dim_per_plot].twinx()
                             if "X_dependent_observation_prob" in dataset_metadata:
                                 prob_f = eval(
                                     dataset_metadata["X_dependent_observation_prob"])
@@ -1034,26 +1038,26 @@ def plot_one_path_with_pred(
                                     label="observation probability")
                             ax2.set_ylim(-0.1, 1.1)
                             ax2.set_ylabel("observation probability")
-                            axs[j].set_ylabel("X")
+                            axs[j % max_dim_per_plot].set_ylabel("X")
                             ax2.legend()
                         if ylabels:
-                            axs[j].set_ylabel(ylabels[j])
+                            axs[j % max_dim_per_plot].set_ylabel(ylabels[j])
                         if same_yaxis:
                             low = np.min(true_X[i, :, :])
                             high = np.max(true_X[i, :, :])
                             eps = (high - low)*0.05
-                            axs[j].set_ylim([low-eps, high+eps])
+                            axs[j % max_dim_per_plot].set_ylim([low-eps, high+eps])
 
-                    for j in range(dim):
-                        axs[j].set_ylim(-0.05, 1.4)
-                    axs[-1].legend(loc='upper right', fontsize='small')
-                    plt.xlabel('$t$')
-                    save = os.path.join(save_path, filename.format('{}_moment_{}'.format(i,m)))
-                    plt.savefig(save, **save_extras)
-                    plt.close()
-
-        #with open(os.path.join(save_path, 'values-path-{}'.format(i)), 'w') as f:
-        #    for key in value_dict.keys():
-        #        f.write("%s,%s\n"%(key,value_dict[key]))
+                        if j == dim-1 or counter == max_dim_per_plot:
+                            plt.subplots_adjust(right=0.7)
+                            plt.xlabel('$t$')
+                            if dim < max_dim_per_plot:
+                                plt.legend(bbox_to_anchor=(1.02, dim/2.+0.1), loc="center left")
+                                save = os.path.join(save_path, filename.format('{}_moment-{}'.format(i,m)))
+                            else:
+                                plt.legend(bbox_to_anchor=(1.02, counter/2.+0.1), loc="center left")
+                                save = os.path.join(save_path, filename.format("{}_moment-{}_dim-{}-{}".format(i,m,j-counter+1,j)))
+                            plt.savefig(save, **save_extras)
+                            plt.close()
 
     return opt_loss

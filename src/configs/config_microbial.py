@@ -25,7 +25,7 @@ eval_metrics = ['exp','std']
 std_factor = 1.96
 plot_variance = True
 plot_moments = True
-paths_to_plot = (0,1,2,3,4,)
+paths_to_plot = (0,1,2,)
 input_current_t = True
 enc_input_t = False
 scale_dt = 1.
@@ -37,7 +37,7 @@ param_list_microbial_genus_base = []
 param_dict_microbial_genus_1_base = {
         'dataset': ["microbial_genus"],
         'dataset_id': ["no_abx"],
-        'epochs': [50],
+        'epochs': [1],
         'batch_size': [batch_size],
         'save_every': [1],
         'learning_rate': [learning_rate],
@@ -57,7 +57,7 @@ param_dict_microbial_genus_1_base = {
         'solver_delta_t_factor': [solver_delta_t_factor],
         'weight': [weight],
         'weight_evolve': [weight_evolve],
-        'plot': [False],
+        'plot': [True],
         'which_loss': ['variance'],
         'which_eval_loss': ['eval_variance'],
         'evaluate': [False],
@@ -72,5 +72,8 @@ param_dict_microbial_genus_1_base = {
         'periodic_current_t': [True],
         'scale_dt': [scale_dt],
         'enc_input_t': [enc_input_t],
+        'add_readout_activation': [('sum2one',['id'])], # ('softmax',['id']) ('sum2one',['id'])
+        'add_dynamic_cov': [True],
+        'pre-train': [True],
     }
 param_list_microbial_genus_base += get_parameter_array(param_dict=param_dict_microbial_genus_1_base)

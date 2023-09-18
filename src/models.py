@@ -856,6 +856,12 @@ class NJODE(torch.nn.Module):
                 self.readout_act = torch.nn.ELU()
             if options1['add_readout_activation'][0] == 'identity':
                 self.readout_act = torch.nn.Identity()
+            if options1['add_readout_activation'][0] == 'softmax':
+                self.readout_act = torch.nn.Softmax(dim=1)
+            if options1['add_readout_activation'][0] == 'sum2one':
+                def sum2one(x):
+                    return x / torch.sum(x, dim=1).reshape(-1,1).repeat(1,x.size(1))
+                self.readout_act = sum2one
             dim = int(output_size / len(output_vars))
             readout_act_idx = []
             if list(set(output_vars) & set(options1['add_readout_activation'][1])) == 0:
@@ -1210,7 +1216,7 @@ class NJODE(torch.nn.Module):
     def apply_readout_map(self, input):
         x = self.readout_map(input)
         if self.add_readout_act:
-            x[:,self.readout_act_idx] = self.readout_act(x[:,self.readout_act_idx]) + 1
+            x[:,self.readout_act_idx] = self.readout_act(x[:,self.readout_act_idx])
         return x
 
     def forward_random_encoder_decoder(self, batch_size, dimension):
@@ -1232,6 +1238,10 @@ class NJODE(torch.nn.Module):
                 X_out = torch.cat((X_out,zeros),dim=1)
         sig = torch.tensor(np.random.uniform(size=(batch_size,self.sig_depth))).to(self.device)
         h = torch.tensor(np.random.uniform(low=-1., size=(batch_size,self.hidden_size))).to(self.device)
+
+        if X_in.size(1) != self.input_size:
+            X_add = torch.tensor(np.random.uniform(size=(batch_size,self.input_size - X_in.size(1)))).to(self.device)
+            X_in = torch.cat((X_in, X_add),dim=1)
 
         h = self.encoder_map(
                 X_in, sig=sig, h=h,

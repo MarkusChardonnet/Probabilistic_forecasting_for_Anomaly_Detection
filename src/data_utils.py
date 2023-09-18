@@ -6,6 +6,7 @@ data utilities for creating and loading synthetic test datasets
 
 
 # =====================================================================================================================
+from typing import Any
 import numpy as np
 import json, os, time
 from torch.utils.data import Dataset
@@ -718,6 +719,44 @@ def load_dataset(stock_model_name="BlackScholes", time_id=None):
 
     return stock_paths, observed_dates, nb_obs, hyperparam_dict
 
+class MicrobialDataset(Dataset):
+    """
+    class for iterating over a dataset
+    """
+    def __init__(self, dataset_name, idx=None):
+
+        path = os.path.join(training_data_path, dataset_name)
+        with open('{}/data.npy'.format(path), 'rb') as f:
+            stock_paths = np.load(f)
+            observed_dates = np.load(f)
+            nb_obs = np.load(f)
+            static = np.load(f)
+        with open('{}/metadata.txt'.format(path), 'r') as f:
+            hyperparam_dict = json.load(f)
+
+        if idx is None:
+            idx = np.arange(hyperparam_dict['nb_paths'])
+
+        self.metadata = hyperparam_dict
+        self.static = static[idx]
+        self.stock_paths = stock_paths[idx]
+        self.observed_dates = observed_dates[idx]
+        self.nb_obs = nb_obs[idx]
+
+    def get_metadata(self):
+        return self.metadata
+
+    def __len__(self):
+        return len(self.nb_obs)
+
+    def __getitem__(self, idx):
+        if type(idx) == int:
+            idx = [idx]
+        # stock_path dimension: [BATCH_SIZE, DIMENSION, TIME_STEPS]
+        return {"idx": idx, "stock_path": self.stock_paths[idx], 
+                "observed_dates": self.observed_dates[idx], 
+                "nb_obs": self.nb_obs[idx], "dt": self.metadata['dt'],
+                "static": self.static[idx]}
 
 class IrregularDataset(Dataset):
     """

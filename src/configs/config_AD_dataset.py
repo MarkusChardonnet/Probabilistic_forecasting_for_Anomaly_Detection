@@ -140,3 +140,15 @@ Cloud_KPI_daily_transformed2_dict = {
     'dimension': 3, 'obs_perc': 1., 'S0': None,
     'maturity': 1., "input_transformation": "log_transformed"
 }
+
+Microbial_genus_all_dict = {
+    'model_name': "microbial_genus",
+    "S0": None,
+    "dimension": 92,
+    "dt": 1.,
+    "maturity": 1.,
+    "model_name": "microbial_genus",
+    "nb_paths": 1,
+    "nb_steps": 1,
+    "period": 1.
+}

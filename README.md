@@ -9,7 +9,8 @@ The probabilistic forecasting is based on the PD-NJODE framework. This framework
 - Python 3.7 and Conda
 - Create the environment and install dependencies:
   ```bash
-    conda env create -f environment.yml
+    conda create -n pbforecast python=3.7
+    pip install -r requirements.txt
     ```
 - Activate environment:
     ```bash
@@ -17,22 +18,29 @@ The probabilistic forecasting is based on the PD-NJODE framework. This framework
     ```
 
 ### Configurations 
-- The configurations for both the synthetic data and the training can be accessed through the following folder :
+- The configurations can be accessed through the following folder :
     ```bash
-    cd PD-NJODE/NJODE/configs
+    cd src/configs
     ```
+- Those are the configurations for generating the synthetic data, training the forecasting and anomaly detection models, plotting and monitoring.
 
 ### Generating the data
-- Here is an example for the generation of the modified Orstein-Uhlenbeck process : 
+
+- Here is an example for the generation of synthetic data from the modified Orstein-Uhlenbeck process : 
     ```bash
-    cd PD-NJODE/NJODE
+    cd src
     python data_utils.py --dataset_name=AD_OrnsteinUhlenbeckWithSeason --dataset_params=AD_OrnsteinUhlenbeckWithSeason_3_dict
     ```
 
 - Generating sythetic data with anomalies can be done equivalently by defining other configuration dictionaries :
     ```bash
-    cd PD-NJODE/NJODE
+    cd src
     python data_utils.py --dataset_name=AD_OrnsteinUhlenbeckWithSeason --dataset_params=AD_OrnsteinUhlenbeckWithSeason_3_deformation_dict
+    ```
+
+- Setting up the dataset from infant microbiome data :
+    ```bash
+    python make_microbial_dataset.py
     ```
 
 ### Training the probabilistic forecasting module
@@ -47,8 +55,14 @@ Important flags:
 
 - Training with PD-NJODE on the sythetic data :
     ```bash
-    cd PD-NJODE/NJODE
+    cd src
     python run.py --params=param_list_AD_OrnsteinUhlenbeckWithSeason_3 --NB_JOBS=1 --USE_GPU=True --get_overview=overview_dict_AD_OrnsteinUhlenbeckWithSeason_3
+    ```
+
+- Training with PD-NJODE on infant microbiome data :
+    ```bash
+    cd src
+    python run.py --params=param_list_microbial_genus_base --NB_JOBS=1 --USE_GPU=True
     ```
 
 ### Training / Evaluating the Anomaly detection modules on data with ingested anomalies
@@ -61,6 +75,12 @@ Important flags:
 
 - Training and Evaluating the Anomaly Detection Module on synthetic data :
     ```bash
-    cd PD-NJODE/NJODE
+    cd src
     python run.py --forecast_model_ids=[0] --forecast_saved_models_path=../data/saved_models_AD_OrnsteinUhlenbeckWithSeason/ --ad_params=param_dict_AD_modules
+    ```
+
+- Evaluating the Anomaly Detection Module on infant microbiome data :
+    ```bash
+    cd src
+    python run.py --forecast_model_ids=[0] --forecast_saved_models_path=../data/saved_models_microbial_genus_base/ --ad_params=param_dict_AD_microbial_genus
     ```

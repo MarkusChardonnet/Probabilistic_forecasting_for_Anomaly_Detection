@@ -62,7 +62,7 @@ saved_models_path = config.saved_models_path
 flagfile = config.flagfile
 
 METR_COLUMNS: List[str] = [
-    'epoch', 'train_time', 'eval_time', 'train_loss']
+    'epoch', 'train_time', 'eval_time', 'train_loss', 'eval_loss', 'val_loss']
 default_ode_nn = ((50, 'tanh'), (50, 'tanh'))
 default_readout_nn = ((50, 'tanh'), (50, 'tanh'))
 default_enc_nn = ((50, 'tanh'), (50, 'tanh'))
@@ -309,15 +309,19 @@ def train(
         model_delta_t = delta_t / options['solver_delta_t_factor']
     else:
         model_delta_t = delta_t
-
-    """weight_evolve = None
+    if 'scale_dt' in options:
+        if options['scale_dt'] == 'automatic':
+            options['scale_dt'] = 1./delta_t
+            if 'solver_delta_t_factor' in options:
+                options['scale_dt'] *= options['solver_delta_t_factor']
+    weight_evolve = None
     if 'weight_evolve' in options:
         weight_evolve = options['weight_evolve']
         if weight_evolve is not None:
             weight_evolve_type = options['weight_evolve']['type']
             if weight_evolve_type == 'linear':
                 if options['weight_evolve']['reach'] == None:
-                    options['weight_evolve']['reach'] = epochs"""
+                    options['weight_evolve']['reach'] = epochs
 
 
     # specify the input and output variables of the model, as function of X
@@ -351,10 +355,10 @@ def train(
     if 'evaluate' in options and options['evaluate']:
         if 'eval_metrics' in options:
             eval_metrics = options['eval_metrics']
-    if 'which_eval_loss' in options:
-        which_eval_loss = options['which_eval_loss']
+    if 'which_val_loss' in options:
+        which_val_loss = options['which_val_loss']
     else:
-        which_eval_loss = 'standard'
+        which_val_loss = 'standard'
 
     # get data-loader for training
     dl = DataLoader(  # class to iterate over training data
@@ -385,6 +389,9 @@ def train(
     plot_obs_prob = False
     if 'plot_obs_prob' in options:
         plot_obs_prob = options["plot_obs_prob"]
+    plot_train = False
+    if 'plot_train' in options:
+        plot_train = True
 
     # get params_dict
     params_dict = {  # create a dictionary of the wanted parameters
@@ -395,7 +402,7 @@ def train(
         'dropout_rate': dropout_rate, 'batch_size': batch_size,
         'solver': solver, 'dataset': dataset, 'dataset_id': dataset_id,
         'learning_rate': learning_rate, 'test_size': test_size, 'seed': seed,
-        'weight': weight,
+        'weight': weight, 'weight_evolve': weight_evolve,
         't_period': t_period, 'delta_t': model_delta_t,
         'output_vars': output_vars, 'input_vars': input_vars,
         'options': options}
@@ -464,13 +471,18 @@ def train(
         gradient_clip = options["gradient_clip"]
 
     # load saved model if wanted/possible
-    best_eval_loss = np.infty
+    best_val_loss = np.infty
     metr_columns = METR_COLUMNS
-    if which_eval_loss == 'eval_variance':
-        eval_loss_names = ['eval_loss_{}'.format(i+1) for i in range(4)]
+    val_loss_weights = 1.
+    if which_val_loss == 'val_variance':
+        val_loss_names = ['val_loss_{}'.format(i+1) for i in range(4)]
+        metr_columns += val_loss_names
+        if 'val_loss_weights' in options:
+            val_loss_weights = np.array(options['val_loss_weights'])
+        else:
+            val_loss_weights = np.ones(len(val_loss_names))
     else:
-        eval_loss_names = ['eval_loss']
-    metr_columns += eval_loss_names
+        val_loss_names = ['val_loss']
     if 'evaluate' in options and options['evaluate']:
         eval_metric_names = []
         for v in eval_metrics:
@@ -486,7 +498,7 @@ def train(
                 models.get_ckpt_model(model_path_save_last, model, optimizer,
                                       device)
             df_metric = pd.read_csv(model_metric_file, index_col=0)
-            best_eval_loss = np.min(df_metric['eval_loss'].values)
+            best_val_loss = np.min(df_metric['val_loss'].values)
             model.epoch += 1
             model.weight_step()
             initial_print += '\nepoch: {}, weight: {}'.format(
@@ -508,7 +520,7 @@ def train(
         initial_print += '\nplotting ...'
         plot_filename = 'demo-plot_epoch-{}'.format(model.epoch)
         plot_filename = plot_filename + '_path-{}.png'
-        curr_opt_loss = plot_one_path_with_pred(
+        plot_one_path_with_pred(
             device, model, batch, delta_t, T,
             path_to_plot=paths_to_plot, save_path=plot_save_path,
             filename=plot_filename, plot_variance=plot_variance,
@@ -569,11 +581,12 @@ def train(
         print('start training ...')
 
     pre_train = False
-    if 'pre-train' in options:
-        pre_train = options['pre-train']
+    if 'pre-train' in options and isinstance(options['pre-train'], int):
+        pre_train = True
+        pre_train_eps = options['pre-train']
     if pre_train:
         model.train()
-        for ep in range(1000):
+        for ep in range(pre_train_eps):
             optimizer.zero_grad()
             loss = model.forward_random_encoder_decoder(batch_size=batch_size, dimension=dimension)
             loss.backward()
@@ -589,12 +602,6 @@ def train(
             time_ptr = b["time_ptr"]  # pointer
             X = b["X"].to(device)
             Z = b["Z"].to(device)
-            M = b["M"]
-            if M is not None:
-                M = M.to(device)
-            start_M = b["start_M"]
-            if start_M is not None:
-                start_M = start_M.to(device)
 
             start_X = b["start_X"].to(device)
             start_Z = b["start_Z"].to(device)
@@ -606,12 +613,12 @@ def train(
                     hT, loss = model(
                         times=times, time_ptr=time_ptr, X=torch.cat((X,Z),dim=1), obs_idx=obs_idx,
                         delta_t=None, T=T, start_X=torch.cat((start_X,start_Z),dim=1), n_obs_ot=n_obs_ot,
-                        return_path=False, get_loss=True, M=M, start_M=start_M)
+                        return_path=False, get_loss=True)
                 else:
                     hT, loss = model(
                         times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx,
                         delta_t=None, T=T, start_X=start_X, n_obs_ot=n_obs_ot,
-                        return_path=False, get_loss=True, M=M, start_M=start_M)
+                        return_path=False, get_loss=True)
             else:
                 raise ValueError
             loss.backward()  # compute gradient of each weight regarding loss function
@@ -619,8 +626,11 @@ def train(
                 nn.utils.clip_grad_value_(
                     model.parameters(), clip_value=gradient_clip)
             optimizer.step()  # update weights by ADAM optimizer
+            for param in model.parameters():
+                param.grad = None
             if ANOMALY_DETECTION:
                 print(r"current loss: {}".format(loss.detach().cpu().numpy()))
+            del loss, hT, times, time_ptr, X, Z, start_X, start_Z, obs_idx, n_obs_ot
 
         """if pre_train:
             optimizer.zero_grad()
@@ -634,8 +644,8 @@ def train(
             t = time.time()
             batch = None
             with torch.no_grad():  # no gradient needed for evaluation
-                loss_val = np.zeros(len(eval_loss_names))
-                loss_val_corrected = 0
+                loss_vals = np.zeros(len(val_loss_names))
+                eval_loss = 0
                 num_obs = 0
                 if 'evaluate' in options and options['evaluate']:
                     eval_msd = np.zeros(len(eval_metric_names))
@@ -647,12 +657,6 @@ def train(
                     time_ptr = b["time_ptr"]
                     X = b["X"].to(device)
                     Z = b["Z"].to(device)
-                    M = b["M"]
-                    if M is not None:
-                        M = M.to(device)
-                    start_M = b["start_M"]
-                    if start_M is not None:
-                        start_M = start_M.to(device)
 
                     start_X = b["start_X"].to(device)
                     start_Z = b["start_Z"].to(device)
@@ -665,36 +669,30 @@ def train(
                         if 'add_dynamic_cov' in options and options['add_dynamic_cov']:
                             hT, c_loss = model(
                                 times=times, time_ptr=time_ptr, X=torch.cat((X,Z),dim=1), obs_idx=obs_idx, delta_t=None, T=T, 
-                                start_X=torch.cat((start_X,start_Z),dim=1), n_obs_ot=n_obs_ot, return_path=False, get_loss=True, M=M,
-                                start_M=start_M, which_loss=which_eval_loss) # which_loss='standard'
+                                start_X=torch.cat((start_X,start_Z),dim=1), n_obs_ot=n_obs_ot, return_path=False, get_loss=True,
+                                which_loss=which_val_loss) # which_loss='standard'
                         else:
                             hT, c_loss = model(
                                 times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx, delta_t=None, T=T, start_X=start_X,
-                                n_obs_ot=n_obs_ot, return_path=False, get_loss=True, M=M,
-                                start_M=start_M, which_loss=which_eval_loss) # which_loss='standard'
+                                n_obs_ot=n_obs_ot, return_path=False, get_loss=True,
+                                which_loss=which_val_loss) # which_loss='standard'
                     else:
                         raise ValueError
-                    loss_val += c_loss.detach().cpu().numpy()
+                    loss_vals += c_loss.detach().cpu().numpy()
                     num_obs += 1  # count number of observations
 
-                    # if functions are applied, also compute the loss when only
-                    #   using the coordinates where function was not applied
-                    #   -> this can be compared to the optimal-eval-loss
-                    if mult is not None and mult > 1:
-                        if 'other_model' not in options:
-                            if 'add_dynamic_cov' in options and options['add_dynamic_cov']:
-                                hT_corrected, c_loss_corrected = model(
-                                    times=times, time_ptr=time_ptr, X=torch.cat((X,Z),dim=1), obs_idx=obs_idx, delta_t=None, T=T, 
-                                    start_X=torch.cat((start_X,start_Z),dim=1), n_obs_ot=n_obs_ot, return_path=False, get_loss=True, M=M,
-                                    start_M=start_M, which_loss='standard',
-                                    dim_to=dimension)
-                            else:
-                                hT_corrected, c_loss_corrected = model(
-                                    times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx, delta_t=None, T=T, start_X=start_X,
-                                    n_obs_ot=n_obs_ot, return_path=False, get_loss=True, M=M,
-                                    start_M=start_M, which_loss='standard',
-                                    dim_to=dimension)
-                        loss_val_corrected += c_loss_corrected.detach().cpu().numpy()
+                    if 'other_model' not in options:
+                        if 'add_dynamic_cov' in options and options['add_dynamic_cov']:
+                            hT, c2_loss = model(
+                                times=times, time_ptr=time_ptr, X=torch.cat((X,Z),dim=1), obs_idx=obs_idx, delta_t=None, T=T, 
+                                start_X=torch.cat((start_X,start_Z),dim=1), n_obs_ot=n_obs_ot, return_path=False, get_loss=True)
+                        else:
+                            hT, c2_loss = model(
+                                times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx, delta_t=None, T=T, start_X=start_X,
+                                n_obs_ot=n_obs_ot, return_path=False, get_loss=True)
+                    else:
+                        raise ValueError
+                    eval_loss += c2_loss.detach().cpu().numpy()
 
                     # mean squared difference evaluation
                     if 'evaluate' in options and options['evaluate']:
@@ -703,43 +701,44 @@ def train(
                                 times=times, time_ptr=time_ptr, X=torch.cat((X,Z),dim=1),
                                 obs_idx=obs_idx, delta_t=delta_t, T=T,
                                 start_X=torch.cat((start_X,start_Z),dim=1), n_obs_ot=n_obs_ot,
-                                return_paths=False, M=M,
-                                start_M=start_M, true_paths=true_paths,
+                                return_paths=False, true_paths=true_paths,
                                 true_mask=true_mask, eval_vars=eval_metrics,) # mult=mult)
                         else:
                             _eval_msd = model.evaluate(
                                 times=times, time_ptr=time_ptr, X=X,
                                 obs_idx=obs_idx, delta_t=delta_t, T=T,
                                 start_X=start_X, n_obs_ot=n_obs_ot,
-                                return_paths=False, M=M,
-                                start_M=start_M, true_paths=true_paths,
+                                return_paths=False, true_paths=true_paths,
                                 true_mask=true_mask, eval_vars=eval_metrics,) # mult=mult)
                         eval_msd += _eval_msd
 
                 eval_time = time.time() - t
-                loss_val = loss_val / num_obs
-                loss_val_corrected /= num_obs
+                loss_vals = loss_vals / num_obs
+                eval_loss = eval_loss / num_obs
                 if 'evaluate' in options and options['evaluate']:
                     eval_msd = eval_msd / num_obs
                 train_loss = loss.detach().cpu().numpy()
                 print_str = "epoch {}, weight={:.5f}, train-loss={:.5f}, " \
                             "".format(
                     model.epoch, model.weight, train_loss)
-                for v,value in enumerate(loss_val):
-                    print_str += "eval-loss-{}={:.5f}, ".format(v,value)
-                if mult is not None and mult > 1:
-                    print_str += "\ncorrected(i.e. without additional dims of " \
-                                "funct_appl_X)-eval-loss={:.5f}, ".format(
-                        loss_val_corrected)
+                print_str += "eval-loss={:.5f}, ".format(eval_loss)
+                if len(loss_vals) > 1:
+                    for v,value in enumerate(loss_vals):
+                        print_str += "val-loss-{}={:.5f}, ".format(v,value)
+                    loss_val = np.sum(loss_vals * val_loss_weights)
+                    loss_vals = np.concatenate([np.array([loss_val]), loss_vals],axis=0)
+                else:
+                    loss_val = loss_vals
+                print_str += "val-loss={:.5f}, ".format(loss_val)
                 print(print_str)
             if 'evaluate' in options and options['evaluate']:
-                metric_app.append([model.epoch, train_time, eval_time, train_loss] + list(loss_val) + list(eval_msd))
+                metric_app.append([model.epoch, train_time, eval_time, train_loss, eval_loss] + list(loss_vals) + list(eval_msd))
                 string = "evaluation : \n"
                 for v,value in enumerate(eval_msd):
                     string += eval_metric_names[v] + " : {:.5f}\n".format(value)
                 print(string)
             else:
-                metric_app.append([model.epoch, train_time, eval_time, train_loss] + list(loss_val))
+                metric_app.append([model.epoch, train_time, eval_time, train_loss, eval_loss] + list(loss_vals))
 
         # save model
             if plot:
@@ -747,7 +746,7 @@ def train(
                 print('plotting ...')
                 plot_filename = 'epoch-{}'.format(model.epoch)
                 plot_filename = plot_filename + '_path-{}.png'
-                curr_opt_loss = plot_one_path_with_pred(
+                plot_one_path_with_pred(
                     device=device, model=model, batch=batch,
                     delta_t=delta_t, T=T,
                     path_to_plot=paths_to_plot, save_path=plot_save_path,
@@ -763,8 +762,23 @@ def train(
                 model.ode_f.plot_input_weights(os.path.join(plot_save_path, plot_weights_filename)) # plot weights
                 plot_features_filename = 'epoch-{}'.format(model.epoch) + '_input_ode_nn_features'
                 model.ode_f.input_features_save_and_reset(os.path.join(plot_save_path, plot_features_filename))
-                print('optimal eval-loss (with current weight={:.5f}): '
-                      '{:.5f}'.format(model.weight, curr_opt_loss))
+                if plot_train:
+                    batch = next(iter(dl))
+                    plot_filename = 'epoch-{}_train'.format(model.epoch)
+                    plot_filename = plot_filename + '_path-{}.png'
+                    plot_one_path_with_pred(
+                        device=device, model=model, batch=batch,
+                        delta_t=delta_t, T=T,
+                        path_to_plot=paths_to_plot, save_path=plot_save_path,
+                        filename=plot_filename, plot_variance=plot_variance,
+                        plot_moments=plot_moments, output_vars=output_vars,
+                        functions=input_vars, std_factor=std_factor,
+                        model_name=model_name, save_extras=save_extras,
+                        ylabels=ylabels,
+                        same_yaxis=plot_same_yaxis, plot_obs_prob=plot_obs_prob,
+                        dataset_metadata=dataset_metadata,
+                        )
+                del batch
             print('save model ...')
             df_m_app = pd.DataFrame(data=metric_app, columns=metr_columns)
             df_metric = pd.concat([df_metric, df_m_app], ignore_index=True)
@@ -773,10 +787,10 @@ def train(
                                    model.epoch)
             metric_app = []
             print('saved!')
-            if np.sum(loss_val) < best_eval_loss:
+            if loss_val < best_val_loss:
                 print('save new best model: last-best-loss: {:.5f}, '
                     'new-best-loss: {:.5f}, epoch: {}'.format(
-                    best_eval_loss, np.sum(loss_val), model.epoch))
+                    best_val_loss, loss_val, model.epoch))
                 df_m_app = pd.DataFrame(data=metric_app, columns=metr_columns)
                 df_metric = pd.concat([df_metric, df_m_app], ignore_index=True)
                 df_metric.to_csv(model_metric_file)
@@ -785,7 +799,7 @@ def train(
                 models.save_checkpoint(model, optimizer, model_path_save_best,
                                     model.epoch)
                 metric_app = []
-                best_eval_loss = np.sum(loss_val)
+                best_val_loss = loss_val
                 print('saved!')
             print("-"*100)
             t = time.time()
@@ -894,7 +908,7 @@ def plot_one_path_with_pred(
         T=T, start_X=start_X, M=M, start_M=start_M)"""
     res = model.get_pred(
         times=times, time_ptr=time_ptr, X=torch.cat((X,Z),dim=1), obs_idx=obs_idx, delta_t=None,
-        T=T, start_X=torch.cat((start_X,start_Z),dim=1), M=M, start_M=start_M)
+        T=T, start_X=torch.cat((start_X,start_Z),dim=1))
     path_y_pred = res['pred'].detach().cpu().numpy()
     path_t_pred = res['pred_t']
 
@@ -920,8 +934,6 @@ def plot_one_path_with_pred(
         path_std_pred = None
     if ((output_vars is None) or ('var' not in output_vars)) and ((functions is None) or ('power-2' not in functions)):
         plot_variance = False
-
-    opt_loss = 0
 
     for i in path_to_plot:
         if dim < max_dim_per_plot:
@@ -1059,5 +1071,3 @@ def plot_one_path_with_pred(
                                 save = os.path.join(save_path, filename.format("{}_moment-{}_dim-{}-{}".format(i,m,j-counter+1,j)))
                             plt.savefig(save, **save_extras)
                             plt.close()
-
-    return opt_loss

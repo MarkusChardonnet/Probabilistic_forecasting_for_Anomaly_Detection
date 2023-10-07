@@ -482,3 +482,66 @@ class AD_module(torch.nn.Module): # AD_module_1D, AD_module_ND
         self.weights.weight = torch.nn.Parameter(ls_weights)
 
 '''
+
+class Simple_AD_module(torch.nn.Module): # AD_module_1D, AD_module_ND
+    def __init__(self, 
+                 output_vars,
+                 scoring_metric = 'p-value',
+                 distribution_class = 'gaussian',
+                 score_factor=1.,
+                 activation_fct = 'sigmoid',
+                 replace_values = None,
+                 class_thres = 0.5,
+                 ):
+        super(Simple_AD_module, self).__init__()
+        self.output_vars = output_vars
+        self.scoring_metric = scoring_metric
+        self.distribution_class = distribution_class
+        self.replace_values = replace_values
+        self.threshold = class_thres
+
+        self.weight = score_factor
+
+        if activation_fct == 'sigmoid':
+            self.act = torch.nn.Sigmoid()
+        elif activation_fct == 'id':
+            self.act = torch.nn.Identity()
+
+    def get_individual_scores(self, cond_moments, obs):
+        if self.distribution_class == 'gaussian':
+            assert(('id' in self.output_vars) and (('var' in self.output_vars) or ('power-2' in self.output_vars)))
+            which = np.argmax(np.array(self.output_vars) == 'id')
+            cond_exp = np.expand_dims(cond_moments[:,:,:,which].cpu().numpy(),3)
+            if 'var' in self.output_vars:
+                which = np.argmax(np.array(self.output_vars) == 'var')
+                cond_var = np.expand_dims(cond_moments[:,:,:,which].cpu().numpy(),3)
+            elif 'power-2' in self.output_vars:
+                which = np.argmax(np.array(self.output_vars) == 'power-2')
+                cond_exp_2 = np.expand_dims(cond_moments[:,:,:,which].cpu().numpy(),3)
+                cond_var = cond_exp_2 - cond_exp ** 2
+            scores_valid = gaussian_scoring_2_moments(obs=obs.numpy(), cond_exp=cond_exp, cond_var=cond_var, 
+                                                      scoring_metric=self.scoring_metric, replace_var=None)
+            scores_valid = torch.tensor(scores_valid, dtype=torch.float32)
+
+        return scores_valid
+
+    def forward(self, obs, cond_moments):
+        # obs : [nb_steps, nb_samples, dimension]
+        # cond_moments : [nb_steps, nb_samples, dimension, nb_moments]
+
+        scores = self.get_individual_scores(cond_moments, obs)
+
+        # scores = scores.permute(1,2,0,3)
+
+        # scores : [nb_steps, nb_samples, dimension]
+        return scores
+
+    def get_predicted_label(self, obs, cond_moments):
+        
+        scores = self(obs, cond_moments)
+
+        # scores = scores.detach().cpu().numpy()
+        labels = torch.zeros_like(scores)
+        labels[scores > self.threshold] = 1
+
+        return labels, scores

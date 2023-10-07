@@ -340,7 +340,7 @@ def compute_loss_ad_variance_bis(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, e
     outer += torch.sum(inner / n_obs_ot)
     return outer / batch_size
 
-def compute_loss_eval_variance(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
+def compute_loss_val_variance(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
                    weight=0.5, M_obs=None, output_vars=None):
     assert('id' in output_vars and 'power-2' in output_vars)
     dim = int(Y_obs.shape[1] / len(output_vars))
@@ -393,7 +393,7 @@ LOSS_FUN_DICT = {
     'moment_2': compute_loss_ad,
     'variance': compute_loss_ad_variance,
     'variance_bis': compute_loss_ad_variance_bis,
-    'eval_variance': compute_loss_eval_variance,
+    'val_variance': compute_loss_val_variance,
 }
 
 nonlinears = {  # dictionary of used non-linear activation functions. Reminder inputs

@@ -78,7 +78,7 @@ makedirs = config.makedirs
 
 def train(
         anomaly_detection=None, n_dataset_workers=None, use_gpu=None,
-        nb_cpus=None, send=None,
+        nb_cpus=None, send=None, gpu_num=0,
         model_id=None, epochs=100, batch_size=100, save_every=1,
         learning_rate=0.001, test_size=0.2, seed=398,
         hidden_size=10, bias=True, dropout_rate=0.1,
@@ -270,7 +270,7 @@ def train(
 
     # get the device for torch
     if USE_GPU and torch.cuda.is_available():
-        gpu_num = 0
+        # gpu_num = 1
         device = torch.device("cuda:{}".format(gpu_num))
         torch.cuda.set_device(gpu_num)
         initial_print += '\nusing GPU'
@@ -542,8 +542,8 @@ def train(
                 files=files_to_send,
                 text_for_files=caption
             )
-        initial_print += '\noptimal eval-loss (with current weight={:.5f}): ' \
-                         '{:.5f}'.format(model.weight, curr_opt_loss)
+        # initial_print += '\noptimal eval-loss (with current weight={:.5f}): ' \
+        #                 '{:.5f}'.format(model.weight, curr_opt_loss)
         print(initial_print)
         return 0
 
@@ -630,7 +630,7 @@ def train(
                 param.grad = None
             if ANOMALY_DETECTION:
                 print(r"current loss: {}".format(loss.detach().cpu().numpy()))
-            del loss, hT, times, time_ptr, X, Z, start_X, start_Z, obs_idx, n_obs_ot
+            del hT, times, time_ptr, X, Z, start_X, start_Z, obs_idx, n_obs_ot
 
         """if pre_train:
             optimizer.zero_grad()
@@ -728,7 +728,7 @@ def train(
                     loss_val = np.sum(loss_vals * val_loss_weights)
                     loss_vals = np.concatenate([np.array([loss_val]), loss_vals],axis=0)
                 else:
-                    loss_val = loss_vals
+                    loss_val = loss_vals[0]
                 print_str += "val-loss={:.5f}, ".format(loss_val)
                 print(print_str)
             if 'evaluate' in options and options['evaluate']:
@@ -758,10 +758,10 @@ def train(
                     same_yaxis=plot_same_yaxis, plot_obs_prob=plot_obs_prob,
                     dataset_metadata=dataset_metadata,
                     )
-                plot_weights_filename = 'epoch-{}'.format(model.epoch) + '_input_ode_nn_weights'
-                model.ode_f.plot_input_weights(os.path.join(plot_save_path, plot_weights_filename)) # plot weights
-                plot_features_filename = 'epoch-{}'.format(model.epoch) + '_input_ode_nn_features'
-                model.ode_f.input_features_save_and_reset(os.path.join(plot_save_path, plot_features_filename))
+                # plot_weights_filename = 'epoch-{}'.format(model.epoch) + '_input_ode_nn_weights'
+                # model.ode_f.plot_input_weights(os.path.join(plot_save_path, plot_weights_filename)) # plot weights
+                # plot_features_filename = 'epoch-{}'.format(model.epoch) + '_input_ode_nn_features'
+                # model.ode_f.input_features_save_and_reset(os.path.join(plot_save_path, plot_features_filename))
                 if plot_train:
                     batch = next(iter(dl))
                     plot_filename = 'epoch-{}_train'.format(model.epoch)
@@ -794,8 +794,8 @@ def train(
                 df_m_app = pd.DataFrame(data=metric_app, columns=metr_columns)
                 df_metric = pd.concat([df_metric, df_m_app], ignore_index=True)
                 df_metric.to_csv(model_metric_file)
-                models.save_checkpoint(model, optimizer, model_path_save_last,
-                                    model.epoch)
+                # models.save_checkpoint(model, optimizer, model_path_save_last,
+                #                     model.epoch)
                 models.save_checkpoint(model, optimizer, model_path_save_best,
                                     model.epoch)
                 metric_app = []
@@ -824,7 +824,7 @@ def train(
 
     # delete model & free memory
     del model, dl, dl_val, data_train, data_val
-    gc.collect()
+    # gc.collect()
 
     return 0
 

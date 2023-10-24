@@ -14,7 +14,7 @@ import numpy as np
 import socket
 
 from configs.config_utils import get_parameter_array, makedirs, \
-    SendBotMessage, data_path, training_data_path
+    SendBotMessage, data_path, training_data_path, original_data_path
 
 if 'ada-' not in socket.gethostname():
     SERVER = False

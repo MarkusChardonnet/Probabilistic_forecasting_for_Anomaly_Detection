@@ -12,7 +12,7 @@ from sklearn.model_selection import ParameterGrid
 # Global variables
 data_path = '../data/'
 training_data_path = '{}training_data/'.format(data_path)
-
+original_data_path = '{}original_data/'.format(data_path)
 
 # ==============================================================================
 # GLOBAL CLASSES

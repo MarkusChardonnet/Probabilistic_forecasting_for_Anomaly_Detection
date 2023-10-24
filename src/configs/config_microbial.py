@@ -4,7 +4,7 @@ from configs.config_utils import get_parameter_array, get_dataset_overview, \
     makedirs, data_path, training_data_path
 
 
-batch_size = 20
+batch_size = 30
 learning_rate = 0.001
 seed = 398
 hidden_size = 100
@@ -30,40 +30,44 @@ input_current_t = True
 enc_input_t = False
 scale_dt = 1.
 test = False
+pre_train = 10000
+add_readout_activation = ('sum2one',['id'])
+dataset = "microbial_genus"
+dataset_id = "all" # "no_abx"
 
 # base setup
 microbial_genus_models_path_base = "{}saved_models_microbial_genus_base/".format(data_path)
 param_list_microbial_genus_base = []
 param_dict_microbial_genus_1_base = {
-        'dataset': ["microbial_genus"],
-        'dataset_id': ["no_abx"],
+        'dataset': [dataset],
+        'dataset_id': [dataset_id],
         'epochs': [10000],
         'batch_size': [batch_size],
         'save_every': [100],
         'learning_rate': [learning_rate],
         'seed': [seed],
-        'hidden_size': [300, 500],
+        'hidden_size': [400],
         'bias': [bias],
         'dropout_rate': [dropout_rate],
-        'ode_nn': [((200, 'tanh'), (200, 'relu'))],
-        'readout_nn': [((100, 'tanh'), (100, 'tanh'))],
-        'enc_nn': [((100, 'tanh'), (100, 'tanh'))],
-        'use_rnn': [use_rnn],
-        'input_sig': [input_sig],
-        'func_appl_X': [func_appl_X],              # [["power-2", "power-3", "power-4"]]
-        'add_pred': [add_pred],
+        'ode_nn': [((400, 'tanh'), (400, 'relu'))],
+        'readout_nn': [((150, 'tanh'), (150, 'tanh'))],
+        'enc_nn': [((150, 'tanh'), (150, 'tanh'))],
+        'use_rnn': [True],
+        'input_sig': [True],
+        'func_appl_X': [[]],              # [["power-2", "power-3", "power-4"]]
+        'add_pred': [[]],
         'test': [test],
         'solver': [solver],
         'solver_delta_t_factor': [solver_delta_t_factor],
-        'weight': [weight],
+        'weight': [0.5],
         # 'weight_evolve': [weight_evolve],
         'plot': [True],
-        'which_loss': ['variance'],
-        'which_val_loss': ['val_variance'],
+        'which_loss': ['easy'],
+        'which_val_loss': ['standard'],
         'evaluate': [False],
         'eval_metrics': [eval_metrics],
         'paths_to_plot': [paths_to_plot],
-        'plot_variance': [plot_variance],
+        'plot_variance': [False],
         'std_factor': [std_factor],
         'plot_moments': [plot_moments],
         'saved_models_path': [microbial_genus_models_path_base],
@@ -72,26 +76,113 @@ param_dict_microbial_genus_1_base = {
         'periodic_current_t': [True],
         'scale_dt': [scale_dt],
         'enc_input_t': [enc_input_t],
-        'add_readout_activation': [('sum2one',['id'])], # ('softmax',['id']) ('sum2one',['id'])
+        'add_readout_activation': [add_readout_activation], # ('softmax',['id']) ('sum2one',['id'])
         'add_dynamic_cov': [True],
         'pre-train': [10000],
     }
 # param_list_microbial_genus_base += get_parameter_array(param_dict=param_dict_microbial_genus_1_base)
-
 param_dict_microbial_genus_2_base = {
-        'dataset': ["microbial_genus"],
-        'dataset_id': ["no_abx"],
+        'dataset': [dataset],
+        'dataset_id': [dataset_id],
         'epochs': [10000],
+        'batch_size': [batch_size],
+        'save_every': [100],
+        'learning_rate': [learning_rate],
+        'seed': [seed],
+        'hidden_size': [400],
+        'bias': [bias],
+        'dropout_rate': [dropout_rate],
+        'ode_nn': [((400, 'tanh'), (400, 'relu'))],
+        'readout_nn': [((150, 'tanh'), (150, 'tanh'))],
+        'enc_nn': [((150, 'tanh'), (150, 'tanh'))],
+        'use_rnn': [True],
+        'input_sig': [False],
+        'func_appl_X': [[]],              # [["power-2", "power-3", "power-4"]]
+        'add_pred': [[]],
+        'test': [test],
+        'solver': [solver],
+        'solver_delta_t_factor': [solver_delta_t_factor],
+        'weight': [0.5],
+        # 'weight_evolve': [weight_evolve],
+        'plot': [True],
+        'which_loss': ['easy'],
+        'which_val_loss': ['standard'],
+        'evaluate': [False],
+        'eval_metrics': [eval_metrics],
+        'paths_to_plot': [paths_to_plot],
+        'plot_variance': [False],
+        'std_factor': [std_factor],
+        'plot_moments': [plot_moments],
+        'saved_models_path': [microbial_genus_models_path_base],
+        'use_cond_exp': [True],
+        'input_current_t': [input_current_t],
+        'periodic_current_t': [True],
+        'scale_dt': [scale_dt],
+        'enc_input_t': [enc_input_t],
+        'add_readout_activation': [add_readout_activation], # ('softmax',['id']) ('sum2one',['id'])
+        'add_dynamic_cov': [True],
+        'pre-train': [10000],
+    }
+# param_list_microbial_genus_base += get_parameter_array(param_dict=param_dict_microbial_genus_2_base)
+param_dict_microbial_genus_3_base = {
+        'dataset': [dataset],
+        'dataset_id': [dataset_id],
+        'epochs': [100],
         'batch_size': [batch_size],
         'save_every': [1],
         'learning_rate': [learning_rate],
         'seed': [seed],
-        'hidden_size': [500],
+        'hidden_size': [400],
         'bias': [bias],
         'dropout_rate': [dropout_rate],
         'ode_nn': [((400, 'tanh'), (400, 'relu'))],
-        'readout_nn': [((200, 'tanh'), (200, 'tanh'))],
-        'enc_nn': [((200, 'tanh'), (200, 'tanh'))],
+        'readout_nn': [((150, 'tanh'), (150, 'tanh'))],
+        'enc_nn': [((150, 'tanh'), (150, 'tanh'))],
+        'use_rnn': [False],
+        'input_sig': [True],
+        'residual_enc_dec': [True],
+        'func_appl_X': [[]],              # [["power-2", "power-3", "power-4"]]
+        'add_pred': [[]],
+        'test': [test],
+        'solver': [solver],
+        'solver_delta_t_factor': [solver_delta_t_factor],
+        'weight': [0.5],
+        # 'weight_evolve': [weight_evolve],
+        'plot': [True],
+        'which_loss': ['easy'],
+        'which_val_loss': ['standard'],
+        'evaluate': [False],
+        'eval_metrics': [eval_metrics],
+        'paths_to_plot': [paths_to_plot],
+        'plot_variance': [False],
+        'std_factor': [std_factor],
+        'plot_moments': [plot_moments],
+        'saved_models_path': [microbial_genus_models_path_base],
+        'use_cond_exp': [True],
+        'input_current_t': [input_current_t],
+        'periodic_current_t': [True],
+        'scale_dt': [scale_dt],
+        'enc_input_t': [enc_input_t],
+        'add_readout_activation': [add_readout_activation], # ('softmax',['id']) ('sum2one',['id'])
+        'add_dynamic_cov': [True],
+        # 'pre-train': [10000],
+    }
+param_list_microbial_genus_base += get_parameter_array(param_dict=param_dict_microbial_genus_3_base)
+
+param_dict_microbial_genus_4_base = {
+        'dataset': [dataset],
+        'dataset_id': [dataset_id],
+        'epochs': [10000],
+        'batch_size': [batch_size],
+        'save_every': [100],
+        'learning_rate': [learning_rate],
+        'seed': [seed],
+        'hidden_size': [400],
+        'bias': [bias],
+        'dropout_rate': [dropout_rate],
+        'ode_nn': [((400, 'tanh'), (400, 'relu'))],
+        'readout_nn': [((150, 'tanh'), (150, 'tanh'))],
+        'enc_nn': [((150, 'tanh'), (150, 'tanh'))],
         'use_rnn': [use_rnn],
         'input_sig': [input_sig],
         'func_appl_X': [func_appl_X],              # [["power-2", "power-3", "power-4"]]
@@ -107,7 +198,7 @@ param_dict_microbial_genus_2_base = {
         'evaluate': [False],
         'eval_metrics': [eval_metrics],
         'paths_to_plot': [paths_to_plot],
-        'plot_variance': [plot_variance],
+        'plot_variance': [False],
         'std_factor': [std_factor],
         'plot_moments': [plot_moments],
         'saved_models_path': [microbial_genus_models_path_base],
@@ -116,18 +207,26 @@ param_dict_microbial_genus_2_base = {
         'periodic_current_t': [True],
         'scale_dt': [scale_dt],
         'enc_input_t': [enc_input_t],
-        'add_readout_activation': [('sum2one',['id'])], # ('softmax',['id']) ('sum2one',['id'])
+        'add_readout_activation': [add_readout_activation], # ('softmax',['id']) ('sum2one',['id'])
         'add_dynamic_cov': [True],
         'pre-train': [1],
     }
-param_list_microbial_genus_base += get_parameter_array(param_dict=param_dict_microbial_genus_2_base)
+# param_list_microbial_genus_base += get_parameter_array(param_dict=param_dict_microbial_genus_4_base)
+
+plot_paths_microbial_genus_base_dict = {
+    'model_ids': [12],
+    'saved_models_path': "{}saved_models_microbial_genus_base/".format(data_path),
+    'which': 'last',
+    'paths_to_plot': [0,1,2,3,4],
+    'save_extras': {'bbox_inches': 'tight', 'pad_inches': 0.01},
+}
 
 # test config
 microbial_genus_models_path_test = "{}saved_models_microbial_genus_test/".format(data_path)
 param_list_microbial_genus_test = []
 param_dict_microbial_genus_1_test = {
-        'dataset': ["microbial_genus"],
-        'dataset_id': ["no_abx"],
+        'dataset': [dataset],
+        'dataset_id': [dataset_id],
         'epochs': [10],
         'batch_size': [batch_size],
         'save_every': [1],

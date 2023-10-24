@@ -59,6 +59,7 @@ flags.DEFINE_string("plot_loss_and_metric", None,
 
 
 flags.DEFINE_bool("USE_GPU", False, "whether to use GPU for training")
+flags.DEFINE_integer("GPU_NUM", 0, "which GPU to use for training")
 flags.DEFINE_bool("ANOMALY_DETECTION", False,
                   "whether to run in torch debug mode")
 flags.DEFINE_integer("N_DATASET_WORKERS", 0,
@@ -208,7 +209,7 @@ def parallel_training(params=None, model_ids=None, nb_jobs=1, first_id=None,
     if FLAGS.DEBUG:
         results = Parallel(n_jobs=nb_jobs)(delayed(train_switcher)(
             anomaly_detection=FLAGS.ANOMALY_DETECTION,
-            n_dataset_workers=FLAGS.N_DATASET_WORKERS, use_gpu=FLAGS.USE_GPU,
+            n_dataset_workers=FLAGS.N_DATASET_WORKERS, use_gpu=FLAGS.USE_GPU, gpu_num=FLAGS.GPU_NUM,
             nb_cpus=FLAGS.NB_CPUS, send=FLAGS.SEND, **param)
                                            for param in params)
         if FLAGS.SEND:
@@ -221,7 +222,7 @@ def parallel_training(params=None, model_ids=None, nb_jobs=1, first_id=None,
         try:
             results = Parallel(n_jobs=nb_jobs)(delayed(train_switcher)(
                 anomaly_detection=FLAGS.ANOMALY_DETECTION,
-                n_dataset_workers=FLAGS.N_DATASET_WORKERS, use_gpu=FLAGS.USE_GPU,
+                n_dataset_workers=FLAGS.N_DATASET_WORKERS, use_gpu=FLAGS.USE_GPU, gpu_num=FLAGS.GPU_NUM,
                 nb_cpus=FLAGS.NB_CPUS, send=FLAGS.SEND, **param)
                                                for param in params)
             if FLAGS.SEND:

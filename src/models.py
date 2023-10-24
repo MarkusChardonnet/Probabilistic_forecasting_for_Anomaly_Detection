@@ -20,9 +20,10 @@ import data_utils
 
 
 # =====================================================================================================================
-def init_weights(m, bias=0.0):  # initialize weights for model for linear NN
+def init_weights(m, bias=0.0, weight=0.0):  # initialize weights for model for linear NN
     if type(m) == torch.nn.Linear:
-        torch.nn.init.xavier_uniform_(m.weight)
+        # torch.nn.init.xavier_uniform_(m.weight)
+        m.weight.data.fill_(weight)
         if m.bias is not None:
             m.bias.data.fill_(bias)
 

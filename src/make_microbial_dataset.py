@@ -6,11 +6,26 @@ import pickle
 from scipy.stats import expon
 from sklearn.model_selection import train_test_split
 import argparse
+from scipy.stats import gmean
+from configs import config
 
-def make_dataset(dataset = 'ft_vat19_anomaly_v20230824_genus',
-                 val_size = 0.2,
-                seed = 398):
-    df = pandas.read_csv('data/original_data/' + dataset + '.tsv',sep='\t')
+data_path = config.data_path
+train_data_path = config.training_data_path
+original_data_path = config.original_data_path
+
+def make_dataset(dataset,  # name of dataset file in data/original_data
+                 dataset_name, # name of dataset that will be saved in data/training_data
+                 dataset_sub_name, # name of dataset subdivision (selected hosts for train/test/val)
+                 val_size = 0.2, # 
+                 seed = 398,
+                 starting_date = 0,  # starting date of the time series in days
+                 time_step_model = 1, # time step of the model in days
+                 init_val_method = ('group_feat_mean','delivery_mode'), # method to set per host initial value
+                    # choose among ('group_feat_mean','delivery_mode') or ('sample_weighted_sum','time_neg_exp',100.)
+                 which_train = 'all',
+                 which_eval = None,
+                ):
+    df = pandas.read_csv(os.path.join(original_data_path, dataset + '.tsv'),sep='\t')
 
 
     ### PRE-PROCESSING ###
@@ -21,7 +36,7 @@ def make_dataset(dataset = 'ft_vat19_anomaly_v20230824_genus',
     microbial_features = []
     abx_features = []
     static_features = ["delivery_mode", "sex", "geo_location_name"]
-    dynamic_features = ["delivery_mode", "sex", "geo_location_name", "diet_milk", "diet_weaning"]
+    dynamic_features = ["delivery_mode", "diet_milk", "diet_weaning"] # "sex", "geo_location_name",
 
     for col in cols:
         print(col)
@@ -135,21 +150,44 @@ def make_dataset(dataset = 'ft_vat19_anomaly_v20230824_genus',
     print("Number of host who where never observed with antibiotics : ", nb_host - abx_observed.sum())
 
 
-    ### ESTIMATION OF PATH INITIAL VALUES ###
+    ### SETTING OF PATH INITIAL VALUES ###
 
-    weight_method = "time_neg_exponential"
-    weight_param = 100.
-    times = np.arange(sample_age_days_max+1)
-    if weight_method == "time_neg_exponential":
-        weights = expon.pdf(times, loc=0., scale=weight_param)
+    if isinstance(init_val_method, tuple) and init_val_method[0] == 'group_feat_mean':
+        grouping_feature = [init_val_method[1]]
+        host_data_group = np.array(df[grouping_feature]).reshape(-1)
+        grouping_feature_values = list(set(host_data_group))
+        groups = [[] for i in range(len(grouping_feature_values))]
+        for i in range(df.shape[0]):
+            idx = list(hosts).index(sample_host[i])
+            for n, v in enumerate(grouping_feature_values):
+                if host_data_group[i] == v:
+                    groups[n].append(idx)
+        groups = [np.array(list(set(g))) for g in groups]
+        for n,g in enumerate(groups):
+            group_points = paths[g,:,:starting_date].transpose(0,2,1).reshape(-1,nb_microbial_features)
+            group_point_nan_idx = observed_dates[g,:starting_date].reshape(-1).astype(np.bool)
+            mean_group = np.mean(group_points[group_point_nan_idx],axis=0)
+            for idx in g:
+                if not observed_dates[idx,starting_date]:
+                    paths[idx,:,starting_date] = mean_group
+    
+    elif isinstance(init_val_method, tuple) and init_val_method[0] == 'sample_weighted_sum':
+        paths_0 = np.zeros((nb_host, nb_microbial_features))
+        weight_method = init_val_method[1]
+        weight_param = init_val_method[2]
+        times = np.arange(sample_age_days_max+1)
+        if weight_method == "time_neg_exp":
+            weights = expon.pdf(times, loc=0., scale=weight_param)
+        for i in range(nb_host):
+            paths_0[i] = np.sum(paths[i] * np.tile((weights * observed_dates[i]).reshape(1,-1),(nb_microbial_features,1)),axis=1) / np.sum(weights * observed_dates[i])
+        paths[:,:,starting_date] = paths_0
 
-    paths_0 = np.zeros((nb_host, nb_microbial_features))
-    for i in range(nb_host):
-        paths_0[i] = np.sum(paths[i] * np.tile((weights * observed_dates[i]).reshape(1,-1),(nb_microbial_features,1)),axis=1) / np.sum(weights * observed_dates[i])
-            
-    paths[:,:,0] = paths_0
+    paths = paths[:,:,starting_date:]
+    observed_dates = observed_dates[:,starting_date:]
+    dynamic = dynamic[:,:,starting_date:]
     observed_dates[:,0] = 1
     nb_obs = np.sum(observed_dates, axis=1)
+    nb_steps = int(sample_age_days_max - starting_date)
 
     ### CHECKS ###
 
@@ -167,7 +205,7 @@ def make_dataset(dataset = 'ft_vat19_anomaly_v20230824_genus',
         print("--> Yes")
 
     print("Check if the sum of features is 1 for each estimated S0 : ")
-    if np.max(np.abs(np.sum(paths_0, axis=1)-1)) > 1e-5:
+    if np.max(np.abs(np.sum(paths[:,:,0], axis=1)-1)) > 1e-5:
         print("--> No")
     else:
         print("--> Yes")
@@ -184,14 +222,13 @@ def make_dataset(dataset = 'ft_vat19_anomaly_v20230824_genus',
 
     ### PATHS ###
 
-    dataset_name = "microbial_genus/"
-    dataset_path = os.path.join('data/training_data/', dataset_name)
+    dataset_path = os.path.join(train_data_path, dataset_name)
     if not os.path.isdir(dataset_path):
         os.mkdir(dataset_path)
 
     ### SAVING FILES ###
 
-    with open(dataset_path + 'data.npy', 'wb') as f:
+    with open(os.path.join(dataset_path, 'data.npy'), 'wb') as f:
         np.save(f, paths)
         np.save(f, observed_dates)
         np.save(f, nb_obs)
@@ -201,32 +238,35 @@ def make_dataset(dataset = 'ft_vat19_anomaly_v20230824_genus',
     metadata_dict = {"S0": None,
             "dimension": nb_microbial_features,
             "dynamic_cov_dim": dynamic_feature_digitized_size,
-            "dt": 1. / float(sample_age_days_max),
+            "dt": 1. * float(time_step_model) / float(nb_steps),
             "maturity": 1.,
             "model_name": "microbial_genus",
             "nb_paths": nb_host,
-            "nb_steps": int(sample_age_days_max),
+            "nb_steps": nb_steps,
             "period": 1.}
 
-    with open(dataset_path + "metadata.txt", 'w') as f:
+    with open(os.path.join(dataset_path, 'metadata.txt'), 'w') as f:
         json.dump(metadata_dict, f, sort_keys=True)
 
     ### CREATE DATASET SUBDIVISION TRAIN/TEST/VAL ###
 
-    train_idx, val_idx = train_test_split(np.where(~abx_observed)[0], test_size=val_size, random_state=seed)
-    eval_ad_idx = np.where(abx_observed)[0]
+    if which_train == 'all':
+        train_idx, val_idx = train_test_split(np.arange(nb_host), test_size=val_size, random_state=seed)
+    elif which_train == 'no_abx':
+        train_idx, val_idx = train_test_split(np.where(~abx_observed)[0], test_size=val_size, random_state=seed)
 
-    idx_dataset_path = os.path.join(dataset_path, "no_abx/")
+    idx_dataset_path = os.path.join(dataset_path, dataset_sub_name)
     if not os.path.isdir(idx_dataset_path):
         os.mkdir(idx_dataset_path)
 
-    with open(idx_dataset_path + 'train_idx.npy', 'wb') as f:
+    with open(os.path.join(idx_dataset_path, 'train_idx.npy'), 'wb') as f:
         np.save(f, train_idx)
-    with open(idx_dataset_path + 'val_idx.npy', 'wb') as f:
+    with open(os.path.join(idx_dataset_path, 'val_idx.npy'), 'wb') as f:
         np.save(f, val_idx)
         
-    with open(idx_dataset_path + 'eval_ad_idx.npy', 'wb') as f:
-        np.save(f, eval_ad_idx)
+    # eval_ad_idx = np.where(abx_observed)[0]
+    # with open(idx_dataset_path + 'eval_ad_idx.npy', 'wb') as f:
+    #     np.save(f, eval_ad_idx)
 
 
 if __name__ == "__main__":
@@ -234,22 +274,36 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str, default='ft_vat19_anomaly_v20230824_genus',
                     help='name of dataset file in data/original_data')
+    parser.add_argument('--dataset_name', type=str, default='microbial_genus',
+                    help='name of dataset folder that will be saved in data/training_data')
+    parser.add_argument('--dataset_sub_name', type=str, default='all',
+                    help='name of dataset subdivision (selected hosts for train/test/val)')
 
-    parser.add_argument('--which_train', type=str,
+    parser.add_argument('--which_train', type=str, default='all',
                     help='criteria for the training data of the forecasting module')
-    parser.add_argument('--which_eval', type=str,
+    parser.add_argument('--which_eval', type=str, default=None,
                     help='criteria for the evaluation data of anomaly detection')
 
     parser.add_argument('--val_size', type=float, default=0.2,
                     help='proportion of the training dataset (for the forecasting module) used for validation')
     parser.add_argument('--seed', type=int, default=398,
                     help='radomness seed')
+    parser.add_argument('--init_val_method', type=tuple, default=('group_feat_mean','delivery_mode'),
+                    help='method and parameters to set ts initial values')
+    parser.add_argument('--time_step_model', type=int, default=7,
+                    help='time step of the model in days')
+    parser.add_argument('--starting_date', type=int, default=42,
+                    help='starting date of the time series in days')
 
     args = parser.parse_args()
-    dataset = args.dataset
-    seed = args.seed
-    val_size = args.val_size
 
-    make_dataset(dataset=dataset,
-                 seed=seed,
-                 val_size=val_size)
+    make_dataset(dataset=args.dataset,
+                 dataset_name=args.dataset_name,
+                 dataset_sub_name=args.dataset_sub_name,
+                 seed=args.seed,
+                 val_size=args.val_size,
+                 init_val_method=args.init_val_method,
+                 starting_date=args.starting_date,
+                 time_step_model=args.time_step_model,
+                 which_train=args.which_train,
+                 which_eval=args.which_eval,)

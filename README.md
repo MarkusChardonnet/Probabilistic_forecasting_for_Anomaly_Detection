@@ -7,7 +7,7 @@ The probabilistic forecasting is based on the PD-NJODE framework. This framework
 
 ### Dependencies
 - Python 3.7 and Conda
-- Create the environment and install dependencies:
+- Create environment in python 3.7:
   ```bash
     conda create -n pbforecast python=3.7
     pip install -r requirements.txt
@@ -16,6 +16,11 @@ The probabilistic forecasting is based on the PD-NJODE framework. This framework
     ```bash
     conda activate pbforecast
     ```
+- Install dependencies:
+  ```bash
+    pip install -r requirements.txt
+    ```
+
 
 ### Configurations 
 - The configurations can be accessed through the following folder :
@@ -40,6 +45,7 @@ The probabilistic forecasting is based on the PD-NJODE framework. This framework
 
 - Setting up the dataset from infant microbiome data :
     ```bash
+    cd src
     python make_microbial_dataset.py
     ```
 

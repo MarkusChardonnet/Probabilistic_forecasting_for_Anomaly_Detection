@@ -6,4 +6,3 @@ plots/
 src/__pycache__/
 src/configs/models/
 test.py
-microbiome_dataset.ipynb

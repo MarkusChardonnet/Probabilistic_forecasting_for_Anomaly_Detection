@@ -22,7 +22,12 @@ import data_utils
 # =====================================================================================================================
 def init_weights(m, bias=0.0, weight=0.0):  # initialize weights for model for linear NN
     if type(m) == torch.nn.Linear:
-        # torch.nn.init.xavier_uniform_(m.weight)
+        torch.nn.init.xavier_uniform_(m.weight)
+        if m.bias is not None:
+            m.bias.data.fill_(bias)
+
+def init_weights0(m, bias=0.0, weight=0.0):  # initialize weights for model for linear NN
+    if type(m) == torch.nn.Linear:
         m.weight.data.fill_(weight)
         if m.bias is not None:
             m.bias.data.fill_(bias)
@@ -788,6 +793,9 @@ class NJODE(torch.nn.Module):
         self.scale_dt = 1.
         if 'scale_dt' in options1:
             self.scale_dt = options1['scale_dt']
+        zero_weight_init = False
+        if 'zero_weight_init' in options1:
+            zero_weight_init = options1['zero_weight_init']
                 
         self.input_sig = False
         if 'input_sig' in options1:
@@ -883,7 +891,10 @@ class NJODE(torch.nn.Module):
         self.output_size = output_size
         self.delta_t = delta_t
 
-        self.apply(init_weights)
+        if zero_weight_init:
+            self.apply(init_weights0)
+        else:
+            self.apply(init_weights)
 
     def get_classifier(self, classifier_dict):
         self.classifier = None

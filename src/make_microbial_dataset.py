@@ -19,7 +19,6 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
                  val_size = 0.2, # 
                  seed = 398,
                  starting_date = 0,  # starting date of the time series in days
-                 time_step_model = 1, # time step of the model in days
                  init_val_method = ('group_feat_mean','delivery_mode'), # method to set per host initial value
                     # choose among ('group_feat_mean','delivery_mode') or ('sample_weighted_sum','time_neg_exp',100.)
                  which_train = 'all',
@@ -168,7 +167,7 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
             group_point_nan_idx = observed_dates[g,:starting_date].reshape(-1).astype(np.bool)
             mean_group = np.mean(group_points[group_point_nan_idx],axis=0)
             for idx in g:
-                if not observed_dates[idx,starting_date]:
+                if observed_dates[idx,starting_date] == 0:
                     paths[idx,:,starting_date] = mean_group
     
     elif isinstance(init_val_method, tuple) and init_val_method[0] == 'sample_weighted_sum':
@@ -238,7 +237,7 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
     metadata_dict = {"S0": None,
             "dimension": nb_microbial_features,
             "dynamic_cov_dim": dynamic_feature_digitized_size,
-            "dt": 1. * float(time_step_model) / float(nb_steps),
+            "dt": 1 / float(nb_steps),
             "maturity": 1.,
             "model_name": "microbial_genus",
             "nb_paths": nb_host,
@@ -290,8 +289,6 @@ if __name__ == "__main__":
                     help='radomness seed')
     parser.add_argument('--init_val_method', type=tuple, default=('group_feat_mean','delivery_mode'),
                     help='method and parameters to set ts initial values')
-    parser.add_argument('--time_step_model', type=int, default=7,
-                    help='time step of the model in days')
     parser.add_argument('--starting_date', type=int, default=42,
                     help='starting date of the time series in days')
 
@@ -304,6 +301,5 @@ if __name__ == "__main__":
                  val_size=args.val_size,
                  init_val_method=args.init_val_method,
                  starting_date=args.starting_date,
-                 time_step_model=args.time_step_model,
                  which_train=args.which_train,
                  which_eval=args.which_eval,)

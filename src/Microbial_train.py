@@ -322,6 +322,9 @@ def train(
             if weight_evolve_type == 'linear':
                 if options['weight_evolve']['reach'] == None:
                     options['weight_evolve']['reach'] = epochs
+    zero_weight_init = False
+    if 'zero_weight_init' in options:
+        zero_weight_init = options['zero_weight_init']
 
 
     # specify the input and output variables of the model, as function of X
@@ -398,7 +401,7 @@ def train(
         'input_size': input_size, 'epochs': epochs,
         'hidden_size': hidden_size, 'output_size': output_size, 'bias': bias,
         'ode_nn': ode_nn, 'readout_nn': readout_nn, 'enc_nn': enc_nn,
-        'use_rnn': use_rnn,
+        'use_rnn': use_rnn, 'zero_weight_init': zero_weight_init,
         'dropout_rate': dropout_rate, 'batch_size': batch_size,
         'solver': solver, 'dataset': dataset, 'dataset_id': dataset_id,
         'learning_rate': learning_rate, 'test_size': test_size, 'seed': seed,

@@ -5,4 +5,5 @@ models/
 plots/
 src/__pycache__/
 src/configs/models/
+scr/wandb/
 test.py

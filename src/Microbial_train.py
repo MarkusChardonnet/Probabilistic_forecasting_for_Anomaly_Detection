@@ -78,7 +78,7 @@ makedirs = config.makedirs
 
 def train(
         anomaly_detection=None, n_dataset_workers=None, use_gpu=None,
-        nb_cpus=None, send=None, gpu_num=0,
+        nb_cpus=None, send=None, gpu_num=0, use_wandb=False,
         model_id=None, epochs=100, batch_size=100, save_every=1,
         learning_rate=0.001, test_size=0.2, seed=398,
         hidden_size=10, bias=True, dropout_rate=0.1,
@@ -249,6 +249,10 @@ def train(
         N_CPUS = nb_cpus
     if n_dataset_workers is not None:
         N_DATASET_WORKERS = n_dataset_workers
+
+    if use_wandb:
+        import wandb
+        wandb.login()
 
     initial_print = "model-id: {}\n".format(model_id)
 
@@ -458,6 +462,15 @@ def train(
         save_extras = options['save_extras']
     else:
         save_extras = {}
+
+    if use_wandb:
+        wandb.init(
+        # Set the project where this run will be logged
+        project="pdnjode_forecasting", 
+        # We pass a run name (otherwise it’ll be randomly assigned, like sunshine-lollypop-10)
+        name=f"experiment_{model_id}", 
+        # Track hyperparameters and run metadata
+        config=params_dict)
 
     # get the model & optimizer
     if 'other_model' not in options:  # take NJODE model if not specified otherwise
@@ -743,6 +756,10 @@ def train(
             else:
                 metric_app.append([model.epoch, train_time, eval_time, train_loss, eval_loss] + list(loss_vals))
 
+            if use_wandb:
+                wandb.log({"epoch": model.epoch, "train_time": train_time, "eval_time": eval_time, "train_loss": train_loss, \
+                    "eval_loss": eval_loss})
+
         # save model
             if plot:
                 batch = next(iter(dl_val))
@@ -827,6 +844,8 @@ def train(
 
     # delete model & free memory
     del model, dl, dl_val, data_train, data_val
+    if use_wandb:
+        wandb.finish()
     # gc.collect()
 
     return 0

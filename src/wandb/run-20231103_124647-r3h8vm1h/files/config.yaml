@@ -1,0 +1,147 @@
+wandb_version: 1
+
+input_size:
+  desc: null
+  value: 106
+epochs:
+  desc: null
+  value: 10000
+hidden_size:
+  desc: null
+  value: 200
+output_size:
+  desc: null
+  value: 98
+bias:
+  desc: null
+  value: true
+ode_nn:
+  desc: null
+  value:
+  - - 500
+    - tanh
+  - - 300
+    - relu
+readout_nn:
+  desc: null
+  value:
+  - - 200
+    - tanh
+  - - 150
+    - tanh
+enc_nn:
+  desc: null
+  value:
+  - - 500
+    - tanh
+  - - 300
+    - tanh
+use_rnn:
+  desc: null
+  value: false
+zero_weight_init:
+  desc: null
+  value: true
+dropout_rate:
+  desc: null
+  value: 0.1
+batch_size:
+  desc: null
+  value: 30
+solver:
+  desc: null
+  value: euler
+dataset:
+  desc: null
+  value: microbial_genus
+dataset_id:
+  desc: null
+  value: all
+learning_rate:
+  desc: null
+  value: 0.001
+test_size:
+  desc: null
+  value: 0.2
+seed:
+  desc: null
+  value: 398
+weight:
+  desc: null
+  value: 0.5
+weight_evolve:
+  desc: null
+  value: null
+t_period:
+  desc: null
+  value: 1.0
+delta_t:
+  desc: null
+  value: 0.00625
+output_vars:
+  desc: null
+  value:
+  - id
+input_vars:
+  desc: null
+  value:
+  - id
+options:
+  desc: null
+  value:
+    add_dynamic_cov: true
+    add_pred: []
+    add_readout_activation:
+    - sum2one
+    - - id
+    enc_input_t: false
+    eval_metrics:
+    - exp
+    - std
+    evaluate: false
+    func_appl_X: []
+    input_current_t: true
+    input_sig: true
+    periodic_current_t: true
+    plot_moments: false
+    plot_variance: false
+    residual_enc_dec: true
+    scale_dt: 1.0
+    solver_delta_t_factor: 0.14285714285714285
+    std_factor: 1.96
+    test: false
+    use_cond_exp: true
+    which_loss: easy
+    which_val_loss: standard
+    zero_weight_init: true
+    resume_training: false
+    parallel: true
+_wandb:
+  desc: null
+  value:
+    python_version: 3.7.16
+    cli_version: 0.15.12
+    framework: torch
+    is_jupyter_run: false
+    is_kaggle_kernel: false
+    start_time: 1699012007.404844
+    t:
+      1:
+      - 1
+      - 5
+      - 53
+      - 55
+      2:
+      - 1
+      - 5
+      - 53
+      - 55
+      3:
+      - 13
+      - 16
+      - 23
+      4: 3.7.16
+      5: 0.15.12
+      8:
+      - 5
+      13: linux-x86_64

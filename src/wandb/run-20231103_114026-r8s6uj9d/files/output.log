@@ -1,0 +1,410 @@
+using loss: easy
+neuralODE use input scaling with tanh
+use residual network: input_size=400, output_size=98
+start training - model id=105
+model-id: 105
+using GPU
+model params:
+{"batch_size": 30, "bias": true, "dataset": "microbial_genus", "dataset_id": "no_abx", "delta_t": 0.00625, "dropout_rate": 0.1, "enc_nn": [[150, "tanh"], [150, "tanh"]], "epochs": 10000, "hidden_size": 400, "input_size": 106, "input_vars": ["id"], "learning_rate": 0.001, "ode_nn": [[400, "tanh"], [400, "relu"]], "options": {"add_dynamic_cov": true, "add_pred": [], "add_readout_activation": ["sum2one", ["id"]], "enc_input_t": false, "eval_metrics": ["exp", "std"], "evaluate": false, "func_appl_X": [], "input_current_t": true, "input_sig": false, "parallel": true, "periodic_current_t": true, "plot_moments": false, "plot_variance": false, "pre-train": 1, "resume_training": false, "scale_dt": 1.0, "solver_delta_t_factor": 0.14285714285714285, "std_factor": 1.96, "test": false, "use_cond_exp": true, "which_loss": "easy", "which_val_loss": "standard", "zero_weight_init": false}, "output_size": 98, "output_vars": ["id"], "readout_nn": [[150, "tanh"], [150, "tanh"]], "seed": 398, "solver": "euler", "t_period": 1.0, "test_size": 0.2, "use_rnn": true, "weight": 0.5, "weight_evolve": null, "zero_weight_init": false}
+initiate new model ...
+model overview:
+NJODE(
+  (ode_f): ODEFunc(
+    (f): Sequential(
+      (0): Linear(in_features=510, out_features=400, bias=True)
+      (1): Tanh()
+      (2): Dropout(p=0.1, inplace=False)
+      (3): Linear(in_features=400, out_features=400, bias=True)
+      (4): ReLU()
+      (5): Dropout(p=0.1, inplace=False)
+      (6): Linear(in_features=400, out_features=400, bias=True)
+    )
+  )
+  (encoder_map): FFNN(
+    (ffnn): Sequential(
+      (0): Linear(in_features=506, out_features=150, bias=True)
+      (1): Tanh()
+      (2): Dropout(p=0.1, inplace=False)
+      (3): Linear(in_features=150, out_features=150, bias=True)
+      (4): Tanh()
+      (5): Dropout(p=0.1, inplace=False)
+      (6): Linear(in_features=150, out_features=400, bias=True)
+    )
+  )
+  (readout_map): FFNN(
+    (ffnn): Sequential(
+      (0): Linear(in_features=400, out_features=150, bias=True)
+      (1): Tanh()
+      (2): Dropout(p=0.1, inplace=False)
+      (3): Linear(in_features=150, out_features=150, bias=True)
+      (4): Tanh()
+      (5): Dropout(p=0.1, inplace=False)
+      (6): Linear(in_features=150, out_features=98, bias=True)
+    )
+  )
+)
+# parameters=781898
+# trainable parameters=781898
+start training ...
+
+
+
+4it [00:12,  3.15s/it]
+epoch 1, weight=0.50000, train-loss=1.75798, eval-loss=10.38489, val-loss=11.86587,
+plotting ...
+save model ...
+saved!
+save new best model: last-best-loss: inf, new-best-loss: 11.86587, epoch: 1
+saved!
+----------------------------------------------------------------------------------------------------
+New loss weight : 0.5
+
+
+
+4it [00:07,  1.96s/it]
+epoch 2, weight=0.50000, train-loss=3.11632, eval-loss=28.18365, val-loss=31.35686,
+plotting ...
+0it [00:00, ?it/s]
+save model ...
+saved!
+----------------------------------------------------------------------------------------------------
+
+
+
+4it [00:55, 13.94s/it]
+epoch 3, weight=0.50000, train-loss=0.97718, eval-loss=1.12862, val-loss=0.63154,
+plotting ...
+save model ...
+saved!
+save new best model: last-best-loss: 11.86587, new-best-loss: 0.63154, epoch: 3
+saved!
+----------------------------------------------------------------------------------------------------
+New loss weight : 0.5
+
+
+
+
+4it [00:07,  1.95s/it]
+epoch 4, weight=0.50000, train-loss=0.89914, eval-loss=1.21262, val-loss=0.62276,
+plotting ...
+save model ...
+saved!
+save new best model: last-best-loss: 0.63154, new-best-loss: 0.62276, epoch: 4
+saved!
+----------------------------------------------------------------------------------------------------
+New loss weight : 0.5
+
+
+
+
+4it [00:07,  1.97s/it]
+epoch 5, weight=0.50000, train-loss=2.25447, eval-loss=1.07936, val-loss=0.54990,
+plotting ...
+save model ...
+saved!
+save new best model: last-best-loss: 0.62276, new-best-loss: 0.54990, epoch: 5
+saved!
+----------------------------------------------------------------------------------------------------
+New loss weight : 0.5
+
+
+
+4it [00:07,  1.90s/it]
+epoch 6, weight=0.50000, train-loss=1.24541, eval-loss=0.99949, val-loss=0.37992,
+plotting ...
+0it [00:00, ?it/s]
+save model ...
+saved!
+save new best model: last-best-loss: 0.54990, new-best-loss: 0.37992, epoch: 6
+saved!
+----------------------------------------------------------------------------------------------------
+
+
+
+4it [00:07,  1.82s/it]
+epoch 7, weight=0.50000, train-loss=0.98942, eval-loss=1.00544, val-loss=0.38819,
+plotting ...
+save model ...
+saved!
+----------------------------------------------------------------------------------------------------
+New loss weight : 0.5
+
+
+
+
+4it [00:07,  1.83s/it]
+epoch 8, weight=0.50000, train-loss=0.56289, eval-loss=1.88549, val-loss=2.84325,
+plotting ...
+save model ...
+saved!
+----------------------------------------------------------------------------------------------------
+New loss weight : 0.5
+
+
+
+4it [00:07,  1.82s/it]
+epoch 9, weight=0.50000, train-loss=1.88867, eval-loss=1.40639, val-loss=0.81399,
+plotting ...
+0it [00:00, ?it/s]
+save model ...
+saved!
+----------------------------------------------------------------------------------------------------
+
+
+
+4it [00:07,  1.92s/it]
+epoch 10, weight=0.50000, train-loss=0.96942, eval-loss=1.06305, val-loss=0.51492,
+plotting ...
+0it [00:00, ?it/s]
+save model ...
+saved!
+----------------------------------------------------------------------------------------------------
+
+
+
+4it [00:07,  1.93s/it]
+epoch 11, weight=0.50000, train-loss=0.92152, eval-loss=13.31864, val-loss=48.46298,
+plotting ...
+0it [00:00, ?it/s]
+save model ...
+saved!
+----------------------------------------------------------------------------------------------------
+
+
+
+4it [00:07,  1.97s/it]
+epoch 12, weight=0.50000, train-loss=1.43240, eval-loss=1.34633, val-loss=0.86578,
+plotting ...
+save model ...
+saved!
+----------------------------------------------------------------------------------------------------
+New loss weight : 0.5
+
+
+
+4it [00:08,  2.06s/it]
+epoch 13, weight=0.50000, train-loss=0.84873, eval-loss=1.23704, val-loss=0.87560,
+plotting ...
+0it [00:00, ?it/s]
+save model ...
+saved!
+----------------------------------------------------------------------------------------------------
+
+
+
+4it [00:08,  2.11s/it]
+epoch 14, weight=0.50000, train-loss=1.05130, eval-loss=1.60708, val-loss=1.39120,
+plotting ...
+0it [00:00, ?it/s]
+save model ...
+saved!
+----------------------------------------------------------------------------------------------------
+
+
+
+4it [00:08,  2.10s/it]
+epoch 15, weight=0.50000, train-loss=1.27267, eval-loss=125.76684, val-loss=125.54137,
+plotting ...
+0it [00:00, ?it/s]
+save model ...
+saved!
+----------------------------------------------------------------------------------------------------
+
+
+
+4it [00:07,  1.93s/it]
+epoch 16, weight=0.50000, train-loss=44.55753, eval-loss=2.35816, val-loss=3.56620,
+plotting ...
+0it [00:00, ?it/s]
+save model ...
+saved!
+----------------------------------------------------------------------------------------------------
+
+
+
+4it [00:07,  1.94s/it]
+epoch 17, weight=0.50000, train-loss=0.64182, eval-loss=116.29634, val-loss=457.27927,
+plotting ...
+save model ...
+saved!
+----------------------------------------------------------------------------------------------------
+New loss weight : 0.5
+
+
+
+4it [00:07,  1.93s/it]
+epoch 18, weight=0.50000, train-loss=0.81237, eval-loss=1.11356, val-loss=0.63455,
+plotting ...
+0it [00:00, ?it/s]
+save model ...
+saved!
+----------------------------------------------------------------------------------------------------
+
+
+
+4it [00:08,  2.00s/it]
+epoch 19, weight=0.50000, train-loss=0.79365, eval-loss=1.04091, val-loss=0.45860,
+plotting ...
+0it [00:00, ?it/s]
+save model ...
+saved!
+----------------------------------------------------------------------------------------------------
+
+
+
+4it [00:07,  1.95s/it]
+epoch 20, weight=0.50000, train-loss=303.81772, eval-loss=1.53537, val-loss=1.36900,
+plotting ...
+0it [00:00, ?it/s]
+save model ...
+saved!
+----------------------------------------------------------------------------------------------------
+
+
+
+4it [00:07,  1.96s/it]
+epoch 21, weight=0.50000, train-loss=0.44554, eval-loss=1.47945, val-loss=0.95854,
+plotting ...
+0it [00:00, ?it/s]
+save model ...
+saved!
+----------------------------------------------------------------------------------------------------
+
+
+
+4it [00:07,  1.82s/it]
+epoch 22, weight=0.50000, train-loss=1.68813, eval-loss=1.44613, val-loss=0.96226,
+plotting ...
+0it [00:00, ?it/s]
+save model ...
+saved!
+----------------------------------------------------------------------------------------------------
+
+
+
+4it [00:07,  1.85s/it]
+epoch 23, weight=0.50000, train-loss=1.39376, eval-loss=4.66909, val-loss=6.86380,
+plotting ...
+0it [00:00, ?it/s]
+save model ...
+saved!
+----------------------------------------------------------------------------------------------------
+
+
+
+4it [00:08,  2.09s/it]
+epoch 24, weight=0.50000, train-loss=0.96726, eval-loss=145.85278, val-loss=145.99612,
+plotting ...
+0it [00:00, ?it/s]
+save model ...
+saved!
+----------------------------------------------------------------------------------------------------
+
+
+
+4it [00:07,  2.00s/it]
+epoch 25, weight=0.50000, train-loss=0.98024, eval-loss=8.42422, val-loss=18.45588,
+plotting ...
+0it [00:00, ?it/s]
+save model ...
+saved!
+----------------------------------------------------------------------------------------------------
+
+
+
+4it [00:07,  1.94s/it]
+epoch 26, weight=0.50000, train-loss=0.70468, eval-loss=306.52228, val-loss=1214.05957,
+plotting ...
+0it [00:00, ?it/s]
+save model ...
+saved!
+----------------------------------------------------------------------------------------------------
+
+
+
+4it [00:07,  1.94s/it]
+epoch 27, weight=0.50000, train-loss=3.77287, eval-loss=2.87685, val-loss=4.83825,
+plotting ...
+0it [00:00, ?it/s]
+save model ...
+saved!
+----------------------------------------------------------------------------------------------------
+
+
+
+4it [00:07,  1.95s/it]
+epoch 28, weight=0.50000, train-loss=1.51820, eval-loss=1.98610, val-loss=1.99542,
+plotting ...
+save model ...
+saved!
+----------------------------------------------------------------------------------------------------
+New loss weight : 0.5
+
+
+
+4it [00:07,  1.94s/it]
+epoch 29, weight=0.50000, train-loss=0.60176, eval-loss=1.74728, val-loss=1.40080,
+plotting ...
+save model ...
+saved!
+----------------------------------------------------------------------------------------------------
+New loss weight : 0.5
+
+
+
+
+4it [00:07,  1.97s/it]
+epoch 30, weight=0.50000, train-loss=0.92662, eval-loss=2.69642, val-loss=2.08279,
+plotting ...
+0it [00:00, ?it/s]
+save model ...
+saved!
+----------------------------------------------------------------------------------------------------
+
+
+
+
+4it [00:07,  1.82s/it]
+epoch 31, weight=0.50000, train-loss=0.91213, eval-loss=7.39484, val-loss=6.77178,
+plotting ...
+save model ...
+0it [00:00, ?it/s]
+saved!
+----------------------------------------------------------------------------------------------------
+
+
+
+
+4it [00:07,  1.96s/it]
+epoch 32, weight=0.50000, train-loss=1.26408, eval-loss=119.01739, val-loss=118.39742,
+plotting ...
+0it [00:00, ?it/s]
+save model ...
+saved!
+----------------------------------------------------------------------------------------------------
+
+
+
+4it [00:07,  1.96s/it]
+epoch 33, weight=0.50000, train-loss=0.69820, eval-loss=49.47408, val-loss=48.89296,
+plotting ...
+0it [00:00, ?it/s]
+save model ...
+saved!
+----------------------------------------------------------------------------------------------------
+
+
+
+4it [00:07,  1.95s/it]
+epoch 34, weight=0.50000, train-loss=1.73621, eval-loss=12.14753, val-loss=11.99592,
+plotting ...
+save model ...
+saved!
+----------------------------------------------------------------------------------------------------
+New loss weight : 0.5
+
+
+
+
+4it [00:07,  1.98s/it]
+epoch 35, weight=0.50000, train-loss=1.16339, eval-loss=7.01410, val-loss=6.41148,

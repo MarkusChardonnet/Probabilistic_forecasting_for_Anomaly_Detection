@@ -1,0 +1,823 @@
+using loss: easy
+neuralODE use input scaling with tanh
+use residual network: input_size=106, output_size=200
+use residual network: input_size=200, output_size=98
+start training - model id=116
+model-id: 116
+using GPU
+model params:
+{"batch_size": 30, "bias": true, "dataset": "microbial_genus", "dataset_id": "all", "delta_t": 0.00625, "dropout_rate": 0.1, "enc_nn": [[500, "tanh"], [300, "tanh"]], "epochs": 10000, "hidden_size": 200, "input_size": 106, "input_vars": ["id"], "learning_rate": 0.001, "ode_nn": [[500, "tanh"], [300, "relu"]], "options": {"add_dynamic_cov": true, "add_pred": [], "add_readout_activation": ["sum2one", ["id"]], "enc_input_t": false, "eval_metrics": ["exp", "std"], "evaluate": false, "func_appl_X": [], "input_current_t": true, "input_sig": true, "parallel": true, "periodic_current_t": true, "plot_moments": false, "plot_variance": false, "residual_enc_dec": true, "resume_training": false, "scale_dt": 1.0, "solver_delta_t_factor": 0.14285714285714285, "std_factor": 1.96, "test": false, "use_cond_exp": true, "which_loss": "easy", "which_val_loss": "standard", "zero_weight_init": true}, "output_size": 98, "output_vars": ["id"], "readout_nn": [[200, "tanh"], [150, "tanh"]], "seed": 398, "solver": "euler", "t_period": 1.0, "test_size": 0.2, "use_rnn": false, "weight": 0.5, "weight_evolve": null, "zero_weight_init": true}
+initiate new model ...
+model overview:
+NJODE(
+  (ode_f): ODEFunc(
+    (f): Sequential(
+      (0): Linear(in_features=11866, out_features=500, bias=True)
+      (1): Tanh()
+      (2): Dropout(p=0.1, inplace=False)
+      (3): Linear(in_features=500, out_features=300, bias=True)
+      (4): ReLU()
+      (5): Dropout(p=0.1, inplace=False)
+      (6): Linear(in_features=300, out_features=200, bias=True)
+    )
+  )
+  (encoder_map): FFNN(
+    (ffnn): Sequential(
+      (0): Linear(in_features=11662, out_features=500, bias=True)
+      (1): Tanh()
+      (2): Dropout(p=0.1, inplace=False)
+      (3): Linear(in_features=500, out_features=300, bias=True)
+      (4): Tanh()
+      (5): Dropout(p=0.1, inplace=False)
+      (6): Linear(in_features=300, out_features=200, bias=True)
+    )
+  )
+  (readout_map): FFNN(
+    (ffnn): Sequential(
+      (0): Linear(in_features=200, out_features=200, bias=True)
+      (1): Tanh()
+      (2): Dropout(p=0.1, inplace=False)
+      (3): Linear(in_features=200, out_features=150, bias=True)
+      (4): Tanh()
+      (5): Dropout(p=0.1, inplace=False)
+      (6): Linear(in_features=150, out_features=98, bias=True)
+    )
+  )
+)
+# parameters=12271148
+# trainable parameters=12271148
+start training ...
+
+
+
+
+
+
+6it [00:22,  3.78s/it]
+7it [00:26,  3.73s/it]
+
+
+
+
+
+
+7it [00:25,  3.64s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+7it [00:27,  3.91s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+6it [00:28,  4.63s/it]
+7it [00:31,  4.48s/it]
+
+
+
+
+
+
+7it [00:28,  4.07s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+7it [00:24,  3.43s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+6it [00:24,  4.18s/it]
+7it [00:27,  3.98s/it]
+
+
+
+
+
+
+7it [00:24,  3.52s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+7it [00:27,  4.00s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+6it [00:19,  3.45s/it]
+7it [00:23,  3.32s/it]
+
+
+
+
+
+
+7it [00:28,  4.11s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+7it [00:24,  3.46s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+7it [00:27,  3.97s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+6it [00:19,  3.48s/it]
+7it [00:23,  3.34s/it]
+
+
+
+
+
+
+7it [00:27,  3.90s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+6it [00:19,  3.37s/it]
+7it [00:23,  3.30s/it]
+
+
+
+
+
+
+7it [00:29,  4.22s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+7it [00:28,  4.12s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+7it [00:31,  4.55s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+7it [00:26,  3.83s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+7it [00:25,  3.70s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+7it [00:24,  3.48s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+7it [00:25,  3.71s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+6it [00:21,  3.79s/it]
+7it [00:24,  3.56s/it]
+
+
+
+
+
+
+6it [00:23,  3.81s/it]
+7it [00:26,  3.71s/it]
+
+
+
+
+
+
+6it [00:22,  4.09s/it]
+7it [00:26,  3.71s/it]
+
+
+
+
+
+
+6it [00:23,  3.81s/it]
+7it [00:26,  3.74s/it]
+
+
+
+
+
+
+7it [00:25,  3.60s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+7it [00:25,  3.71s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+7it [00:24,  3.50s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+7it [00:26,  3.80s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+7it [00:26,  3.80s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+7it [00:25,  3.71s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+7it [00:25,  3.69s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+6it [00:21,  3.45s/it]
+7it [00:25,  3.62s/it]
+
+
+
+
+
+
+7it [00:26,  3.81s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+7it [00:25,  3.58s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+7it [00:26,  3.84s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+7it [00:24,  3.50s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+6it [00:22,  3.88s/it]
+7it [00:26,  3.84s/it]
+
+
+
+
+
+
+7it [00:33,  4.74s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+6it [00:34,  5.42s/it]
+7it [00:41,  5.87s/it]
+
+
+
+
+
+
+6it [00:32,  5.44s/it]
+7it [00:36,  5.16s/it]
+
+
+
+
+
+
+7it [00:36,  5.19s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+7it [00:33,  4.78s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+7it [00:35,  5.02s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+6it [00:28,  4.97s/it]
+7it [00:32,  4.66s/it]
+
+
+
+
+
+
+6it [00:33,  5.60s/it]
+7it [00:36,  5.25s/it]
+
+
+
+
+
+
+6it [00:30,  5.17s/it]
+7it [00:35,  5.05s/it]
+
+
+
+
+
+
+7it [00:35,  5.07s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+6it [00:30,  4.85s/it]
+7it [00:35,  5.07s/it]
+
+
+
+
+
+
+7it [00:32,  4.62s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+7it [00:36,  5.21s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+6it [00:29,  5.29s/it]
+7it [00:33,  4.73s/it]
+
+
+
+
+
+
+6it [00:31,  5.19s/it]
+7it [00:35,  5.11s/it]
+
+
+
+
+
+
+6it [00:28,  5.07s/it]
+7it [00:32,  4.58s/it]
+
+
+
+
+
+
+6it [00:30,  4.88s/it]
+7it [00:34,  4.89s/it]
+
+
+
+
+
+
+6it [00:28,  4.66s/it]
+7it [00:33,  4.82s/it]
+
+
+
+
+
+
+6it [00:30,  4.82s/it]
+7it [00:34,  4.89s/it]
+
+
+
+
+
+
+6it [00:30,  4.85s/it]
+7it [00:35,  5.07s/it]
+
+
+
+
+
+
+7it [00:33,  4.75s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+7it [00:38,  5.43s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+6it [00:25,  4.26s/it]
+7it [00:31,  4.50s/it]
+
+
+
+
+
+
+6it [00:32,  5.32s/it]
+7it [00:36,  5.18s/it]
+
+
+
+
+
+
+6it [00:27,  4.88s/it]
+7it [00:31,  4.54s/it]
+
+
+
+
+
+
+6it [00:32,  5.12s/it]
+7it [00:35,  5.07s/it]
+
+
+
+
+
+
+7it [00:33,  4.77s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+7it [00:36,  5.17s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+7it [00:35,  5.11s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+6it [00:30,  5.09s/it]
+7it [00:33,  4.79s/it]
+
+
+
+
+
+
+7it [00:35,  5.01s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+6it [00:27,  4.56s/it]
+7it [00:30,  4.33s/it]
+
+
+
+
+
+
+7it [00:34,  4.99s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+6it [00:27,  4.53s/it]
+7it [00:31,  4.56s/it]
+
+
+
+
+
+
+7it [00:36,  5.17s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+7it [00:32,  4.59s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+6it [00:31,  5.62s/it]
+7it [00:35,  5.11s/it]
+
+
+
+
+
+
+6it [00:27,  4.52s/it]
+7it [00:31,  4.53s/it]
+
+
+
+
+
+
+6it [00:31,  5.44s/it]
+7it [00:35,  5.14s/it]
+
+
+
+
+
+
+6it [00:29,  5.04s/it]
+7it [00:33,  4.82s/it]
+
+
+
+
+
+
+7it [00:35,  5.02s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+7it [00:36,  5.20s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+7it [00:31,  4.53s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+6it [00:31,  5.05s/it]
+7it [00:35,  5.05s/it]
+
+
+
+
+
+
+6it [00:29,  4.69s/it]
+7it [00:31,  4.56s/it]
+
+
+
+
+
+
+6it [00:31,  5.35s/it]
+7it [00:36,  5.16s/it]
+
+
+
+
+
+
+6it [00:28,  5.05s/it]
+7it [00:33,  4.81s/it]
+
+
+
+
+
+
+6it [00:34,  5.76s/it]
+7it [00:38,  5.46s/it]
+
+
+
+
+
+
+6it [00:29,  5.28s/it]
+7it [00:34,  4.94s/it]
+
+
+
+
+
+
+7it [00:34,  4.90s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+7it [00:32,  4.67s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+6it [00:29,  4.66s/it]
+7it [00:32,  4.69s/it]
+
+
+
+
+
+
+7it [00:34,  4.95s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+7it [00:32,  4.60s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+7it [00:35,  5.10s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+
+7it [00:32,  4.59s/it]
+0it [00:00, ?it/s]
+
+
+
+
+
+

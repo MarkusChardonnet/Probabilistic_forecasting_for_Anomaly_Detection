@@ -1,0 +1,145 @@
+using loss: easy
+neuralODE use input scaling with tanh
+use residual network: input_size=200, output_size=98
+start training - model id=107
+model-id: 107
+using GPU
+model params:
+{"batch_size": 30, "bias": true, "dataset": "microbial_genus", "dataset_id": "no_abx", "delta_t": 0.00625, "dropout_rate": 0.1, "enc_nn": [[500, "tanh"], [300, "tanh"]], "epochs": 10000, "hidden_size": 200, "input_size": 106, "input_vars": ["id"], "learning_rate": 0.001, "ode_nn": [[500, "tanh"], [300, "relu"]], "options": {"add_dynamic_cov": true, "add_pred": [], "add_readout_activation": ["sum2one", ["id"]], "enc_input_t": false, "eval_metrics": ["exp", "std"], "evaluate": false, "func_appl_X": [], "input_current_t": true, "input_sig": true, "parallel": true, "periodic_current_t": true, "plot_moments": false, "plot_variance": false, "pre-train": 1, "resume_training": false, "scale_dt": 1.0, "solver_delta_t_factor": 0.14285714285714285, "std_factor": 1.96, "test": false, "use_cond_exp": true, "which_loss": "easy", "which_val_loss": "standard", "zero_weight_init": false}, "output_size": 98, "output_vars": ["id"], "readout_nn": [[200, "tanh"], [150, "tanh"]], "seed": 398, "solver": "euler", "t_period": 1.0, "test_size": 0.2, "use_rnn": true, "weight": 0.5, "weight_evolve": null, "zero_weight_init": false}
+initiate new model ...
+model overview:
+NJODE(
+  (ode_f): ODEFunc(
+    (f): Sequential(
+      (0): Linear(in_features=11866, out_features=500, bias=True)
+      (1): Tanh()
+      (2): Dropout(p=0.1, inplace=False)
+      (3): Linear(in_features=500, out_features=300, bias=True)
+      (4): ReLU()
+      (5): Dropout(p=0.1, inplace=False)
+      (6): Linear(in_features=300, out_features=200, bias=True)
+    )
+  )
+  (encoder_map): FFNN(
+    (ffnn): Sequential(
+      (0): Linear(in_features=11862, out_features=500, bias=True)
+      (1): Tanh()
+      (2): Dropout(p=0.1, inplace=False)
+      (3): Linear(in_features=500, out_features=300, bias=True)
+      (4): Tanh()
+      (5): Dropout(p=0.1, inplace=False)
+      (6): Linear(in_features=300, out_features=200, bias=True)
+    )
+  )
+  (readout_map): FFNN(
+    (ffnn): Sequential(
+      (0): Linear(in_features=200, out_features=200, bias=True)
+      (1): Tanh()
+      (2): Dropout(p=0.1, inplace=False)
+      (3): Linear(in_features=200, out_features=150, bias=True)
+      (4): Tanh()
+      (5): Dropout(p=0.1, inplace=False)
+      (6): Linear(in_features=150, out_features=98, bias=True)
+    )
+  )
+)
+# parameters=12371148
+# trainable parameters=12371148
+start training ...
+
+
+
+4it [00:08,  2.16s/it]
+epoch 1, weight=0.50000, train-loss=0.60769, eval-loss=0.96206, val-loss=0.28794,
+plotting ...
+save model ...
+saved!
+save new best model: last-best-loss: inf, new-best-loss: 0.28794, epoch: 1
+saved!
+----------------------------------------------------------------------------------------------------
+New loss weight : 0.5
+
+
+
+4it [00:08,  2.22s/it]
+epoch 2, weight=0.50000, train-loss=0.93804, eval-loss=0.92965, val-loss=0.29366,
+plotting ...
+save model ...
+0it [00:00, ?it/s]
+saved!
+----------------------------------------------------------------------------------------------------
+
+
+
+4it [00:08,  2.15s/it]
+epoch 3, weight=0.50000, train-loss=0.54893, eval-loss=0.90338, val-loss=0.30946,
+plotting ...
+Traceback (most recent call last):
+  File "run.py", line 309, in <module>
+    app.run(main)
+  File "/userdata/mchardonnet/miniconda3/envs/pbforecast/lib/python3.7/site-packages/absl/app.py", line 312, in run
+    _run_main(main, args)
+  File "/userdata/mchardonnet/miniconda3/envs/pbforecast/lib/python3.7/site-packages/absl/app.py", line 258, in _run_main
+    sys.exit(main(argv))
+  File "run.py", line 292, in main
+    overwrite_params=overwrite_params
+  File "run.py", line 228, in parallel_training
+    for param in params)
+  File "/userdata/mchardonnet/miniconda3/envs/pbforecast/lib/python3.7/site-packages/joblib/parallel.py", line 1048, in __call__
+    if self.dispatch_one_batch(iterator):
+  File "/userdata/mchardonnet/miniconda3/envs/pbforecast/lib/python3.7/site-packages/joblib/parallel.py", line 866, in dispatch_one_batch
+    self._dispatch(tasks)
+  File "/userdata/mchardonnet/miniconda3/envs/pbforecast/lib/python3.7/site-packages/joblib/parallel.py", line 784, in _dispatch
+    job = self._backend.apply_async(batch, callback=cb)
+  File "/userdata/mchardonnet/miniconda3/envs/pbforecast/lib/python3.7/site-packages/joblib/_parallel_backends.py", line 208, in apply_async
+    result = ImmediateResult(func)
+  File "/userdata/mchardonnet/miniconda3/envs/pbforecast/lib/python3.7/site-packages/joblib/_parallel_backends.py", line 572, in __init__
+    self.results = batch()
+  File "/userdata/mchardonnet/miniconda3/envs/pbforecast/lib/python3.7/site-packages/joblib/parallel.py", line 263, in __call__
+    for func, args, kwargs in self.items]
+  File "/userdata/mchardonnet/miniconda3/envs/pbforecast/lib/python3.7/site-packages/joblib/parallel.py", line 263, in <listcomp>
+    for func, args, kwargs in self.items]
+  File "/scratch/userdata/mchardonnet/Probabilistic_forecasting_for_Anomaly_Detection/src/train_switcher.py", line 34, in train_switcher
+    return Microbial_train.train(**params)
+  File "/scratch/userdata/mchardonnet/Probabilistic_forecasting_for_Anomaly_Detection/src/Microbial_train.py", line 779, in train
+    dataset_metadata=dataset_metadata,
+  File "/scratch/userdata/mchardonnet/Probabilistic_forecasting_for_Anomaly_Detection/src/Microbial_train.py", line 1028, in plot_one_path_with_pred
+    plt.savefig(save, **save_extras)
+  File "/userdata/mchardonnet/miniconda3/envs/pbforecast/lib/python3.7/site-packages/matplotlib/pyplot.py", line 723, in savefig
+    res = fig.savefig(*args, **kwargs)
+  File "/userdata/mchardonnet/miniconda3/envs/pbforecast/lib/python3.7/site-packages/matplotlib/figure.py", line 2203, in savefig
+    self.canvas.print_figure(fname, **kwargs)
+  File "/userdata/mchardonnet/miniconda3/envs/pbforecast/lib/python3.7/site-packages/matplotlib/backend_bases.py", line 2105, in print_figure
+    **kwargs)
+  File "/userdata/mchardonnet/miniconda3/envs/pbforecast/lib/python3.7/site-packages/matplotlib/backends/backend_agg.py", line 514, in print_png
+    FigureCanvasAgg.draw(self)
+  File "/userdata/mchardonnet/miniconda3/envs/pbforecast/lib/python3.7/site-packages/matplotlib/backends/backend_agg.py", line 393, in draw
+    self.figure.draw(self.renderer)
+  File "/userdata/mchardonnet/miniconda3/envs/pbforecast/lib/python3.7/site-packages/matplotlib/artist.py", line 38, in draw_wrapper
+    return draw(artist, renderer, *args, **kwargs)
+  File "/userdata/mchardonnet/miniconda3/envs/pbforecast/lib/python3.7/site-packages/matplotlib/figure.py", line 1736, in draw
+    renderer, self, artists, self.suppressComposite)
+  File "/userdata/mchardonnet/miniconda3/envs/pbforecast/lib/python3.7/site-packages/matplotlib/image.py", line 137, in _draw_list_compositing_images
+    a.draw(renderer)
+  File "/userdata/mchardonnet/miniconda3/envs/pbforecast/lib/python3.7/site-packages/matplotlib/artist.py", line 38, in draw_wrapper
+    return draw(artist, renderer, *args, **kwargs)
+  File "/userdata/mchardonnet/miniconda3/envs/pbforecast/lib/python3.7/site-packages/matplotlib/axes/_base.py", line 2630, in draw
+    mimage._draw_list_compositing_images(renderer, self, artists)
+  File "/userdata/mchardonnet/miniconda3/envs/pbforecast/lib/python3.7/site-packages/matplotlib/image.py", line 137, in _draw_list_compositing_images
+    a.draw(renderer)
+  File "/userdata/mchardonnet/miniconda3/envs/pbforecast/lib/python3.7/site-packages/matplotlib/artist.py", line 38, in draw_wrapper
+    return draw(artist, renderer, *args, **kwargs)
+  File "/userdata/mchardonnet/miniconda3/envs/pbforecast/lib/python3.7/site-packages/matplotlib/axis.py", line 1227, in draw
+    ticks_to_draw = self._update_ticks()
+  File "/userdata/mchardonnet/miniconda3/envs/pbforecast/lib/python3.7/site-packages/matplotlib/axis.py", line 1111, in _update_ticks
+    minor_locs = self.get_minorticklocs()
+  File "/userdata/mchardonnet/miniconda3/envs/pbforecast/lib/python3.7/site-packages/matplotlib/axis.py", line 1353, in get_minorticklocs
+    major_locs = self.major.locator()
+  File "/userdata/mchardonnet/miniconda3/envs/pbforecast/lib/python3.7/site-packages/matplotlib/ticker.py", line 2234, in __call__
+    return self.tick_values(vmin, vmax)
+  File "/userdata/mchardonnet/miniconda3/envs/pbforecast/lib/python3.7/site-packages/matplotlib/ticker.py", line 2242, in tick_values
+    locs = self._raw_ticks(vmin, vmax)
+  File "/userdata/mchardonnet/miniconda3/envs/pbforecast/lib/python3.7/site-packages/matplotlib/ticker.py", line 2182, in _raw_ticks
+    max(1, self._min_n_ticks - 1), 9)
+  File "<__array_function__ internals>", line 2, in clip
+KeyboardInterrupt

@@ -1005,6 +1005,7 @@ def MicrobialCollateFnGen(func_names=None):
             dtype=torch.float32
         )
         start_Z = torch.tensor(dynamic_features[:, :, 0])
+        start_S = torch.tensor(signature_features[:, :, 0])
         X = []
         Z = []
         S = []
@@ -1049,7 +1050,7 @@ def MicrobialCollateFnGen(func_names=None):
                'true_paths': stock_paths, 'observed_dates': observed_dates,
                'true_mask': mask, 'ad_labels': ad_labels,
                'Z': torch.tensor(np.array(Z), dtype=torch.float32), 'start_Z': start_Z,
-               'S': torch.tensor(np.array(S), dtype=torch.float32),
+               'S': torch.tensor(np.array(S), dtype=torch.float32), 'start_S': start_S,
                'M': M, 'start_M': start_M}
         return res
 

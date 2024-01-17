@@ -332,6 +332,55 @@ param_dict_microbial_genus_5_base = {
     }
 # param_list_microbial_genus_base += get_parameter_array(param_dict=param_dict_microbial_genus_5_base)
 
+microbial_otu_models_path_base = "{}saved_models_microbial_otu_base/".format(data_path)
+param_list_microbial_otu_base = []
+
+for _nn in [nn_0, nn_1, nn_2, nn_0b, nn_1b, nn_2b]:
+    param_dict_microbial_otu_mult_base = {
+            'dataset': ["microbial_otu"],
+            'dataset_id': ["all"],
+            'epochs': [3000],
+            'batch_size': [batch_size],
+            'save_every': [1],
+            'learning_rate': [learning_rate],
+            'seed': [seed],
+            'hidden_size': [hidden_size_0, hidden_size_1],
+            'bias': [bias],
+            'dropout_rate': [dropout_rate],
+            'ode_nn': [_nn],
+            'readout_nn': [_nn],
+            'enc_nn': [_nn],
+            'use_rnn': [False],
+            'input_sig': [True],
+            'func_appl_X': [[]],              # [["power-2", "power-3", "power-4"]]
+            'add_pred': [[]],
+            'test': [test],
+            'solver': [solver],
+            'solver_delta_t_factor': [solver_delta_t_factor],
+            'weight': [0.5],
+            # 'weight_evolve': [weight_evolve],
+            'plot': [True],
+            'which_loss': ['easy'],
+            'which_val_loss': ['standard'],
+            'evaluate': [False],
+            'eval_metrics': [eval_metrics],
+            'paths_to_plot': [paths_to_plot],
+            'plot_variance': [False],
+            'std_factor': [std_factor],
+            'plot_moments': [plot_moments],
+            'saved_models_path': [microbial_otu_models_path_base],
+            'use_cond_exp': [True],
+            'input_current_t': [input_current_t],
+            'periodic_current_t': [True],
+            'scale_dt': [scale_dt],
+            'enc_input_t': [enc_input_t],
+            'add_readout_activation': [add_readout_activation], # ('softmax',['id']) ('sum2one',['id'])
+            'add_dynamic_cov': [True],
+            'pre-train': [1],
+            'zero_weight_init': [True],
+        }
+    param_list_microbial_otu_base += get_parameter_array(param_dict=param_dict_microbial_otu_mult_base)
+
 plot_paths_microbial_genus_base_dict = {
     'model_ids': [12],
     'saved_models_path': "{}saved_models_microbial_genus_base/".format(data_path),

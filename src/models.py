@@ -716,7 +716,7 @@ class NJODE(torch.nn.Module):
     NJ-ODE model
     """
     def __init__(  # initialize the class by naming relevant features
-            self, input_size, hidden_size, output_size,
+            self, input_size, hidden_size, output_size, sigf_size,
             ode_nn, readout_nn, enc_nn, use_rnn,
             bias=True, dropout_rate=0, solver="euler",
             weight=0.5, weight_evolve=None, t_period=1.,       ###
@@ -803,7 +803,7 @@ class NJODE(torch.nn.Module):
         self.level = 2
         if 'level' in options1:
             self.level = options1['level']
-        self.sig_depth = sig.siglength(input_size+1, self.level)
+        self.sig_depth = sig.siglength(sigf_size+1, self.level)
         self.masked = False
         if 'masked' in options1:
             self.masked = options1['masked']
@@ -995,7 +995,7 @@ class NJODE(torch.nn.Module):
         return signature
 
     def custom_forward(self, times, time_ptr, X, obs_idx, delta_t, T, start_X,
-                n_obs_ot, steps=1, get_loss=True,
+                n_obs_ot, steps=1, get_loss=True, 
                 M=None, start_M=None, which_loss=None, dim_to=None):
         """
         the forward run of this module class, used when calling the module
@@ -1264,7 +1264,7 @@ class NJODE(torch.nn.Module):
         loss = torch.sum(loss) / batch_size
         return loss
 
-    def forward(self, times, time_ptr, X, obs_idx, delta_t, T, start_X,
+    def forward(self, times, time_ptr, X, obs_idx, delta_t, T, start_X, S, start_S,
                 n_obs_ot, return_path=False, get_loss=True, until_T=False,
                 M=None, start_M=None, which_loss=None, dim_to=None,
                 predict_labels=None, return_classifier_out=False,
@@ -1341,8 +1341,8 @@ class NJODE(torch.nn.Module):
                     obs_idx=obs_idx, start_X=start_X)
             else:
                 signature = self.get_signature(
-                    times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx,
-                    start_X=start_X)
+                    times=times, time_ptr=time_ptr, X=S, obs_idx=obs_idx,
+                    start_X=start_S)
 
             # in beginning, no path was observed => set sig to 0
             current_sig = np.zeros((batch_size, self.sig_depth))
@@ -1774,7 +1774,7 @@ class NJODE(torch.nn.Module):
             return eval_loss, f1_scores
 
     def get_pred(self, times, time_ptr, X, obs_idx, delta_t, T, start_X,
-                 M=None, start_M=None):
+                 S, start_S, M=None, start_M=None):
         """
         get predicted path
         :param times: see forward
@@ -1793,7 +1793,7 @@ class NJODE(torch.nn.Module):
             times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx,
             delta_t=delta_t, T=T, start_X=start_X, n_obs_ot=None,
             return_path=True, get_loss=False, until_T=True, M=M,
-            start_M=start_M)
+            start_M=start_M, S=S, start_S=start_S)
         return {'pred': path_y, 'pred_t': path_t}
 
     def forward_classifier(self, x, y):

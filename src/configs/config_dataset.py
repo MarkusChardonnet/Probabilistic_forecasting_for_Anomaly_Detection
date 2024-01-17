@@ -1,6 +1,6 @@
 config_otu_abundance = {
     'dataset': 'ft_vat19_anomaly_v20240105_otu.tsv',
-    'dataset_name': 'otu_high_abundance_sig',
+    'dataset_name': 'microbial_otu',
     'microbial_features': 'otu_',
     'signature_features': 'ft_sel_signature_high_abundance_v20240105otu__.txt',
     'static_features': ["delivery_mode", "sex", "geo_location_name"],

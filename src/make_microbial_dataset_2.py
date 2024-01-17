@@ -267,7 +267,8 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
     
     metadata_dict = {"S0": None,
             "dimension": nb_microbial_features,
-            "dynamic_cov_dim": dynamic_feature_digitized_size,
+            "dimension_dyn_feat": dynamic_feature_digitized_size,
+            "dimension_sig_feat" : nb_signature_features,
             "dt": 1 / float(nb_steps),
             "maturity": 1.,
             "model_name": "microbial_genus",

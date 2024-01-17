@@ -301,7 +301,8 @@ def train(
     dataset_metadata = data_train.get_metadata()
     input_size = dataset_metadata['dimension']
     dimension = dataset_metadata['dimension']
-    dynamic_cov_dim = dataset_metadata['dynamic_cov_dim']
+    dimension_dyn_feat = dataset_metadata['dimension_dyn_feat']
+    dimension_sig_feat = dataset_metadata['dimension_sig_feat']
     output_size = input_size
     T = dataset_metadata['maturity']
     delta_t = dataset_metadata['dt']  # copy metadata
@@ -355,7 +356,7 @@ def train(
         output_size += nb_pred_add * dimension
         output_vars += add_pred
 
-    input_size += dynamic_cov_dim
+    input_size += dimension_dyn_feat
     
     # in case we want to evaluate the predictions, specifies the output variables
     eval_metrics = None
@@ -412,6 +413,7 @@ def train(
         'weight': weight, 'weight_evolve': weight_evolve,
         't_period': t_period, 'delta_t': model_delta_t,
         'output_vars': output_vars, 'input_vars': input_vars,
+        'sigf_size': dimension_sig_feat,
         'options': options}
     desc = json.dumps(params_dict, sort_keys=True)  # serialize to a JSON formatted str
 
@@ -618,9 +620,11 @@ def train(
             time_ptr = b["time_ptr"]  # pointer
             X = b["X"].to(device)
             Z = b["Z"].to(device)
+            S = b["S"].to(device)
 
             start_X = b["start_X"].to(device)
             start_Z = b["start_Z"].to(device)
+            start_S = b["start_S"].to(device)
             obs_idx = b["obs_idx"]
             n_obs_ot = b["n_obs_ot"].to(device)
 
@@ -629,12 +633,12 @@ def train(
                     hT, loss = model(
                         times=times, time_ptr=time_ptr, X=torch.cat((X,Z),dim=1), obs_idx=obs_idx,
                         delta_t=None, T=T, start_X=torch.cat((start_X,start_Z),dim=1), n_obs_ot=n_obs_ot,
-                        return_path=False, get_loss=True)
+                        S=S, start_S=start_S, return_path=False, get_loss=True)
                 else:
                     hT, loss = model(
                         times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx,
                         delta_t=None, T=T, start_X=start_X, n_obs_ot=n_obs_ot,
-                        return_path=False, get_loss=True)
+                        S=S, start_S=start_S, return_path=False, get_loss=True)
             else:
                 raise ValueError
             loss.backward()  # compute gradient of each weight regarding loss function
@@ -673,9 +677,11 @@ def train(
                     time_ptr = b["time_ptr"]
                     X = b["X"].to(device)
                     Z = b["Z"].to(device)
+                    S = b["S"].to(device)
 
                     start_X = b["start_X"].to(device)
                     start_Z = b["start_Z"].to(device)
+                    start_S = b["start_S"].to(device)
                     obs_idx = b["obs_idx"]
                     n_obs_ot = b["n_obs_ot"].to(device)
                     true_paths = b["true_paths"]
@@ -686,12 +692,12 @@ def train(
                             hT, c_loss = model(
                                 times=times, time_ptr=time_ptr, X=torch.cat((X,Z),dim=1), obs_idx=obs_idx, delta_t=None, T=T, 
                                 start_X=torch.cat((start_X,start_Z),dim=1), n_obs_ot=n_obs_ot, return_path=False, get_loss=True,
-                                which_loss=which_val_loss) # which_loss='standard'
+                                S=S, start_S=start_S, which_loss=which_val_loss) # which_loss='standard'
                         else:
                             hT, c_loss = model(
                                 times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx, delta_t=None, T=T, start_X=start_X,
                                 n_obs_ot=n_obs_ot, return_path=False, get_loss=True,
-                                which_loss=which_val_loss) # which_loss='standard'
+                                S=S, start_S=start_S, which_loss=which_val_loss) # which_loss='standard'
                     else:
                         raise ValueError
                     loss_vals += c_loss.detach().cpu().numpy()
@@ -701,11 +707,11 @@ def train(
                         if 'add_dynamic_cov' in options and options['add_dynamic_cov']:
                             hT, c2_loss = model(
                                 times=times, time_ptr=time_ptr, X=torch.cat((X,Z),dim=1), obs_idx=obs_idx, delta_t=None, T=T, 
-                                start_X=torch.cat((start_X,start_Z),dim=1), n_obs_ot=n_obs_ot, return_path=False, get_loss=True)
+                                S=S, start_S=start_S, start_X=torch.cat((start_X,start_Z),dim=1), n_obs_ot=n_obs_ot, return_path=False, get_loss=True)
                         else:
                             hT, c2_loss = model(
                                 times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx, delta_t=None, T=T, start_X=start_X,
-                                n_obs_ot=n_obs_ot, return_path=False, get_loss=True)
+                                S=S, start_S=start_S, n_obs_ot=n_obs_ot, return_path=False, get_loss=True)
                     else:
                         raise ValueError
                     eval_loss += c2_loss.detach().cpu().numpy()
@@ -908,11 +914,13 @@ def plot_one_path_with_pred(
     time_ptr = batch["time_ptr"]
     X = batch["X"].to(device)
     Z = batch["Z"].to(device)
+    S = batch["S"].to(device)
     M = batch["M"]
     if M is not None:
         M = M.to(device)
     start_X = batch["start_X"].to(device)
     start_Z = batch["start_Z"].to(device)
+    start_S = batch["start_S"].to(device)
     start_M = batch["start_M"]
     if start_M is not None:
         start_M = start_M.to(device)
@@ -930,7 +938,7 @@ def plot_one_path_with_pred(
         T=T, start_X=start_X, M=M, start_M=start_M)"""
     res = model.get_pred(
         times=times, time_ptr=time_ptr, X=torch.cat((X,Z),dim=1), obs_idx=obs_idx, delta_t=None,
-        T=T, start_X=torch.cat((start_X,start_Z),dim=1))
+        T=T, start_X=torch.cat((start_X,start_Z),dim=1), S=S, start_S=start_S)
     path_y_pred = res['pred'].detach().cpu().numpy()
     path_t_pred = res['pred_t']
 

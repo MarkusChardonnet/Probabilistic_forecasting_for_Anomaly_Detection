@@ -38,7 +38,7 @@ from scipy.stats import norm
     plt.savefig('levy_anomly_shift.png')
     plt.close()'''
 
-path = 'PD-NJODE/data/training_data/AD_OrnsteinUhlenbeckWithSeason-30/'
+"""path = 'PD-NJODE/data/training_data/AD_OrnsteinUhlenbeckWithSeason-30/'
 
 with open('{}data.npy'.format(path), 'rb') as f:
     data_paths = np.load(f)
@@ -112,7 +112,9 @@ for i in range(data_paths.shape[0]):
         plt.subplots_adjust(right=0.7)
         plt.xlabel('$t$')
         plt.savefig(path + "sample_{}_{}.png".format(i,anomaly_type))
-        plt.close()
+        plt.close()"""
+
+
 
 # if __name__== "__main__" :
  #   pass

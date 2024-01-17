@@ -15,58 +15,81 @@ original_data_path = config.original_data_path
 
 def make_dataset(dataset,  # name of dataset file in data/original_data
                  dataset_name, # name of dataset that will be saved in data/training_data
-                 dataset_type, # name of dataset subdivision (selected hosts for train/test/val)
-                 val_size = 0.2, # 
-                 seed = 398,
+                 microbial_features, # name of dataset subdivision (selected hosts for train/test/val)
+                 signature_features, # dynamic features to be used for th computation of the signature
+                 static_features, # static additional features
+                 dynamic_features, # dynamic additional features
+                 val_size = 0.2, # proportion of the validation set
+                 seed = 398, # random seed for splitting into train/val
                  starting_date = 0,  # starting date of the time series in days
                  init_val_method = ('group_feat_mean','delivery_mode'), # method to set per host initial value
                     # choose among ('group_feat_mean','delivery_mode') or ('sample_weighted_sum','time_neg_exp',100.)
                  which_split = 'all',
                 ):
     
-    data_path = os.path.join(original_data_path, dataset + '.tsv')
-    df = pandas.read_csv(data_path,sep='\t')
+    df = pandas.read_csv(os.path.join(original_data_path, dataset) ,sep='\t')
 
 
     ### PRE-PROCESSING ###
 
     # Features
 
-    cols = df.columns
-    microbial_features = []
-    abx_features = []
-    static_features = ["delivery_mode", "sex", "geo_location_name"]
-    dynamic_features = ["delivery_mode", "diet_milk", "diet_weaning"] # "sex", "geo_location_name",
+    features = df.columns
+    abx_feature_prefix = 'abx_'
 
-    for col in cols:
-        print(col)
-        if col[:2] == 'g_' and dataset_type == 'genus':
-            microbial_features.append(col)
-        elif col[:4] == 'otu_' and dataset_type == 'otu':
-            microbial_features.append(col)
-        if len(col) > 4 and col[:4] == 'abx_':
-            abx_features.append(col)
-            
+    if isinstance(microbial_features, str):
+        l = len(microbial_features)
+        microbial_feature_prefix = microbial_features
+        microbial_features = []
+        for feature in features:
+            print(feature)
+            if len(feature) < l:
+                continue
+            if feature[:l] == microbial_feature_prefix:
+                microbial_features.append(feature)
+            elif feature[:l] == microbial_feature_prefix:
+                microbial_features.append(feature)
+
+    abx_features = []
+    for feature in features:
+        if len(feature) > len(abx_feature_prefix) and feature[:l] == abx_feature_prefix:
+            abx_features.append(feature)
+
+
+    
+    if isinstance(signature_features, str):
+        signature_features_filename = signature_features
+        #signature_features = []
+        with open(os.path.join(original_data_path, signature_features_filename), 'r') as f:
+            signature_features = f.readlines()
+        signature_features = [f.replace('\n', '') for f in signature_features]
+        for f in signature_features:
+            if f not in features:
+                print("Warning : signature feature " + f + " is not part of the features in the dataset")
+
     microbial_features = np.array(microbial_features)
     nb_microbial_features = len(microbial_features)
     static_features = np.array(static_features)
     nb_static_features = len(static_features)
     dynamic_features = np.array(dynamic_features)
     nb_dynamic_features = len(dynamic_features)
+    signature_features = np.array(signature_features)
+    nb_signature_features = len(signature_features)
     abx_features = np.array(abx_features)
 
     # Raw data
 
     microbial_data = np.array(df[microbial_features])
-    host_data_1 = np.array(df[static_features])
-    host_data_2 = np.array(df[dynamic_features])
+    host_data_static = np.array(df[static_features])
+    host_data_dynamic = np.array(df[dynamic_features])
+    host_data_signature = np.array(df[signature_features])
     abx_data = np.array(df[abx_features])
 
-    static_feature_values = np.array([list(set(host_data_1[:,i])) for i in range(nb_static_features)], dtype=object)
+    static_feature_values = np.array([list(set(host_data_static[:,i])) for i in range(nb_static_features)], dtype=object)
     static_feature_values_counter = np.array([len(static_feature_values[i]) for i in range(nb_static_features)])
     static_feature_digitized_size = len(sum(static_feature_values, []))
 
-    dynamic_feature_values = np.array([list(set(host_data_2[:,i])) for i in range(nb_dynamic_features)], dtype=object)
+    dynamic_feature_values = np.array([list(set(host_data_dynamic[:,i])) for i in range(nb_dynamic_features)], dtype=object)
     dynamic_feature_values_counter = np.array([len(dynamic_feature_values[i]) for i in range(nb_dynamic_features)])
     dynamic_feature_digitized_size = len(sum(dynamic_feature_values, []))
 
@@ -105,6 +128,7 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
 
     static = np.zeros((nb_host,static_feature_digitized_size), dtype=np.float32)
     dynamic = np.zeros((nb_host,dynamic_feature_digitized_size,sample_age_days_max+1), dtype=np.float32)
+    signature = np.zeros((nb_host,nb_signature_features,sample_age_days_max+1), dtype=np.float32)
 
     abx_any = np.zeros(nb_host, dtype=np.bool_)
     abx_observed = np.zeros(nb_host, dtype=np.bool_)
@@ -116,10 +140,11 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
         time = sample_age_days[i][0]
         observed_dates[idx,time]=1
         paths[idx,:,time] = microbial_data[i]
+        signature[idx,:,time] = host_data_signature[i]
         host_feature = np.zeros(dynamic_feature_digitized_size)
         c = 0
         for f in range(nb_static_features):
-            feature = host_data_2[i,f]
+            feature = host_data_dynamic[i,f]
             feature_idx = dynamic_feature_values[f].index(feature)
             host_feature[c + feature_idx] = 1.
             c += dynamic_feature_values_counter[f]
@@ -136,7 +161,7 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
         host_feature = np.zeros(static_feature_digitized_size)
         c = 0
         for f in range(nb_static_features):
-            feature = host_data_1[i,f]
+            feature = host_data_static[i,f]
             feature_idx = static_feature_values[f].index(feature)
             host_feature[c + feature_idx] = 1.
             c += static_feature_values_counter[f]
@@ -187,6 +212,7 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
     paths = paths[:,:,starting_date:]
     observed_dates = observed_dates[:,starting_date:]
     dynamic = dynamic[:,:,starting_date:]
+    signature = signature[:,:,starting_date:]
     observed_dates[:,0] = 1
     nb_obs = np.sum(observed_dates, axis=1)
     nb_steps = int(sample_age_days_max - starting_date)
@@ -234,8 +260,10 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
         np.save(f, paths)
         np.save(f, observed_dates)
         np.save(f, nb_obs)
+        np.save(f, signature)
         np.save(f, dynamic)
         np.save(f, static)
+
     
     metadata_dict = {"S0": None,
             "dimension": nb_microbial_features,
@@ -274,32 +302,9 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', type=str, default='ft_vat19_anomaly_v20240105_otu',
-                    help='name of dataset file in data/original_data')
-    parser.add_argument('--dataset_name', type=str, default='microbial_otu',
-                    help='name of dataset folder that will be saved in data/training_data')
-    parser.add_argument('--dataset_type', type=str, default='otu',
-                    help='name of microbial feature set')
-
-    parser.add_argument('--which_split', type=str, default='all',
-                    help='criteria for the training data of the forecasting module')
-
-    parser.add_argument('--val_size', type=float, default=0.2,
-                    help='proportion of the training dataset (for the forecasting module) used for validation')
-    parser.add_argument('--seed', type=int, default=398,
-                    help='radomness seed')
-    parser.add_argument('--init_val_method', type=tuple, default=('group_feat_mean','delivery_mode'),
-                    help='method and parameters to set ts initial values')
-    parser.add_argument('--starting_date', type=int, default=42,
-                    help='starting date of the time series in days')
+    parser.add_argument('--dataset_config', type=str,
+                    help='config to generate the dataset')
 
     args = parser.parse_args()
-
-    make_dataset(dataset=args.dataset,
-                 dataset_name=args.dataset_name,
-                 dataset_type=args.dataset_type,
-                 seed=args.seed,
-                 val_size=args.val_size,
-                 init_val_method=args.init_val_method,
-                 starting_date=args.starting_date,
-                 which_split=args.which_split)
+    dataset_config = eval("config."+args.dataset_config)
+    make_dataset(**dataset_config)

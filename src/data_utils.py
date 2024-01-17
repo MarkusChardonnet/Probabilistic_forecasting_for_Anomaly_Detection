@@ -730,6 +730,7 @@ class MicrobialDataset(Dataset):
             stock_paths = np.load(f)
             observed_dates = np.load(f)
             nb_obs = np.load(f)
+            signature = np.load(f)
             dynamic = np.load(f)
             static = np.load(f)
         with open('{}/metadata.txt'.format(path), 'r') as f:
@@ -744,6 +745,7 @@ class MicrobialDataset(Dataset):
         self.nb_obs = nb_obs[idx]
         self.dynamic = dynamic[idx]
         self.static = static[idx]
+        self.signature = signature[idx]
 
     def get_metadata(self):
         return self.metadata
@@ -758,7 +760,8 @@ class MicrobialDataset(Dataset):
         return {"idx": idx, "stock_path": self.stock_paths[idx], 
                 "observed_dates": self.observed_dates[idx], 
                 "nb_obs": self.nb_obs[idx], "dt": self.metadata['dt'],
-                "dynamic": self.dynamic[idx], "static": self.static[idx]}
+                "dynamic": self.dynamic[idx], "static": self.static[idx],
+                "signature": self.signature[idx]}
 
 class IrregularDataset(Dataset):
     """
@@ -985,6 +988,7 @@ def MicrobialCollateFnGen(func_names=None):
             ad_labels = None
         observed_dates = np.concatenate([b['observed_dates'] for b in batch], axis=0)
         dynamic_features = np.concatenate([b['dynamic'] for b in batch], axis=0)
+        signature_features = np.concatenate([b['signature'] for b in batch], axis=0)
 
         masked = False
         mask = None
@@ -1003,6 +1007,7 @@ def MicrobialCollateFnGen(func_names=None):
         start_Z = torch.tensor(dynamic_features[:, :, 0])
         X = []
         Z = []
+        S = []
         if masked:
             M = []
             start_M = torch.tensor(mask[:,:,0], dtype=torch.float32).repeat(
@@ -1028,6 +1033,7 @@ def MicrobialCollateFnGen(func_names=None):
                         X.append(_get_X_with_func_appl(stock_paths[i, :, t], 
                                                        functions, axis=0))
                         Z.append(dynamic_features[i, :, t])
+                        S.append(signature_features[i, :, t])
                         if masked:
                             M.append(np.tile(mask[i, :, t], reps=mult))
                         obs_idx.append(i)
@@ -1043,6 +1049,7 @@ def MicrobialCollateFnGen(func_names=None):
                'true_paths': stock_paths, 'observed_dates': observed_dates,
                'true_mask': mask, 'ad_labels': ad_labels,
                'Z': torch.tensor(np.array(Z), dtype=torch.float32), 'start_Z': start_Z,
+               'S': torch.tensor(np.array(S), dtype=torch.float32),
                'M': M, 'start_M': start_M}
         return res
 

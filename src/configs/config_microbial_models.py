@@ -1,0 +1,215 @@
+import numpy as np
+
+from configs.config_utils import get_parameter_array, get_dataset_overview, \
+    makedirs, data_path, training_data_path
+
+
+batch_size = 30
+learning_rate = 0.001
+seed = 398
+bias = True
+dropout_rate = 0.1
+use_rnn = True
+input_sig = True
+func_appl_X = ["power-2"]
+add_pred = ["var"]
+solver = "euler"
+solver_delta_t_factor = 1./7.
+weight = 0
+eval_metrics = ['exp','std']
+std_factor = 1.96
+plot_variance = True
+plot_moments = False
+paths_to_plot = (0,1,2,)
+input_current_t = True
+enc_input_t = False
+scale_dt = 1.
+test = False
+pre_train = 10000
+add_readout_activation = ('sum2one',['id'])
+datasets = ["microbial_genus", "microbial_genus_sig_div", "microbial_genus_sig_highab", "microbial_genus_sig_nonzero"]
+dataset_splits = ["all"] #, "no_abx"]
+
+hidden_size = 300
+ode_nn = ((300, 'tanh'), (300, 'relu'))
+enc_nn = ((200, 'tanh'), (300, 'tanh'))
+readout_nn = ((300, 'tanh'), (200, 'tanh'))
+
+# base setup
+microbial_genus_models_path = "{}saved_models_microbial_genus/".format(data_path)
+param_list_microbial_genus = []
+
+param_dict_microbial_genus_sig_rnn = {
+        'dataset': datasets,
+        'dataset_split': dataset_splits,
+        'epochs': [4000],
+        'batch_size': [batch_size],
+        'save_every': [1],
+        'learning_rate': [learning_rate],
+        'seed': [seed],
+        'hidden_size': [hidden_size],
+        'bias': [bias],
+        'dropout_rate': [dropout_rate],
+        'ode_nn': [ode_nn],
+        'readout_nn': [readout_nn],
+        'enc_nn': [enc_nn],
+        'use_rnn': [True],
+        'input_sig': [True],
+        'func_appl_X': [[]],              # [["power-2", "power-3", "power-4"]]
+        'add_pred': [[]],
+        'test': [test],
+        'solver': [solver],
+        'solver_delta_t_factor': [solver_delta_t_factor],
+        'weight': [0.5],
+        'plot': [True],
+        'which_loss': ['easy'],
+        'which_val_loss': ['standard'],
+        'evaluate': [False],
+        'eval_metrics': [eval_metrics],
+        'paths_to_plot': [paths_to_plot],
+        'plot_variance': [False],
+        'std_factor': [std_factor],
+        'plot_moments': [plot_moments],
+        'saved_models_path': [microbial_genus_models_path],
+        'use_cond_exp': [True],
+        'input_current_t': [input_current_t],
+        'periodic_current_t': [True],
+        'scale_dt': [scale_dt],
+        'enc_input_t': [enc_input_t],
+        'add_readout_activation': [add_readout_activation], # ('softmax',['id']) ('sum2one',['id'])
+        'add_dynamic_cov': [True],
+        'pre-train': [10000],
+        'zero_weight_init': [True],
+    }
+param_list_microbial_genus += get_parameter_array(param_dict=param_dict_microbial_genus_sig_rnn)
+param_dict_microbial_genus_rnn = {
+        'dataset': datasets,
+        'dataset_id': dataset_splits,
+        'epochs': [10000],
+        'batch_size': [batch_size],
+        'save_every': [100],
+        'learning_rate': [learning_rate],
+        'seed': [seed],
+        'hidden_size': [hidden_size],
+        'bias': [bias],
+        'dropout_rate': [dropout_rate],
+        'ode_nn': [ode_nn],
+        'readout_nn': [readout_nn],
+        'enc_nn': [enc_nn],
+        'use_rnn': [True],
+        'input_sig': [False],
+        'func_appl_X': [[]],              # [["power-2", "power-3", "power-4"]]
+        'add_pred': [[]],
+        'test': [test],
+        'solver': [solver],
+        'solver_delta_t_factor': [solver_delta_t_factor],
+        'weight': [0.5],
+        'plot': [True],
+        'which_loss': ['easy'],
+        'which_val_loss': ['standard'],
+        'evaluate': [False],
+        'eval_metrics': [eval_metrics],
+        'paths_to_plot': [paths_to_plot],
+        'plot_variance': [False],
+        'std_factor': [std_factor],
+        'plot_moments': [plot_moments],
+        'saved_models_path': [microbial_genus_models_path],
+        'use_cond_exp': [True],
+        'input_current_t': [input_current_t],
+        'periodic_current_t': [True],
+        'scale_dt': [scale_dt],
+        'enc_input_t': [enc_input_t],
+        'add_readout_activation': [add_readout_activation], # ('softmax',['id']) ('sum2one',['id'])
+        'add_dynamic_cov': [True],
+        'pre-train': [10000],
+        'zero_weight_init': [False],
+    }
+param_list_microbial_genus += get_parameter_array(param_dict=param_dict_microbial_genus_rnn)
+param_dict_microbial_genus_sig_res = {
+        'dataset': datasets,
+        'dataset_id': dataset_splits,
+        'epochs': [10000],
+        'batch_size': [batch_size],
+        'save_every': [100],
+        'learning_rate': [learning_rate],
+        'seed': [seed],
+        'hidden_size': [hidden_size],
+        'bias': [bias],
+        'dropout_rate': [dropout_rate],
+        'ode_nn': [ode_nn],
+        'readout_nn': [readout_nn],
+        'enc_nn': [enc_nn],
+        'use_rnn': [False],
+        'input_sig': [True],
+        'residual_enc_dec': [True],
+        'func_appl_X': [[]],              # [["power-2", "power-3", "power-4"]]
+        'add_pred': [[]],
+        'test': [test],
+        'solver': [solver],
+        'solver_delta_t_factor': [solver_delta_t_factor],
+        'weight': [0.5],
+        'plot': [True],
+        'which_loss': ['easy'],
+        'which_val_loss': ['standard'],
+        'evaluate': [False],
+        'eval_metrics': [eval_metrics],
+        'paths_to_plot': [paths_to_plot],
+        'plot_variance': [False],
+        'std_factor': [std_factor],
+        'plot_moments': [plot_moments],
+        'saved_models_path': [microbial_genus_models_path],
+        'use_cond_exp': [True],
+        'input_current_t': [input_current_t],
+        'periodic_current_t': [True],
+        'scale_dt': [scale_dt],
+        'enc_input_t': [enc_input_t],
+        'add_readout_activation': [add_readout_activation], # ('softmax',['id']) ('sum2one',['id'])
+        'add_dynamic_cov': [True],
+        'pre-train': [0],
+        'zero_weight_init': [True]
+    }
+param_list_microbial_genus += get_parameter_array(param_dict=param_dict_microbial_genus_sig_res)
+param_dict_microbial_genus_res = {
+        'dataset': datasets,
+        'dataset_id': dataset_splits,
+        'epochs': [10000],
+        'batch_size': [batch_size],
+        'save_every': [100],
+        'learning_rate': [learning_rate],
+        'seed': [seed],
+        'hidden_size': [hidden_size],
+        'bias': [bias],
+        'dropout_rate': [dropout_rate],
+        'ode_nn': [ode_nn],
+        'readout_nn': [readout_nn],
+        'enc_nn': [enc_nn],
+        'use_rnn': [False],
+        'input_sig': [False],
+        'residual_enc_dec': [True],
+        'func_appl_X': [[]],              # [["power-2", "power-3", "power-4"]]
+        'add_pred': [[]],
+        'test': [test],
+        'solver': [solver],
+        'solver_delta_t_factor': [solver_delta_t_factor],
+        'weight': [0.5],
+        'plot': [True],
+        'which_loss': ['easy'],
+        'which_val_loss': ['standard'],
+        'evaluate': [False],
+        'eval_metrics': [eval_metrics],
+        'paths_to_plot': [paths_to_plot],
+        'plot_variance': [False],
+        'std_factor': [std_factor],
+        'plot_moments': [plot_moments],
+        'saved_models_path': [microbial_genus_models_path],
+        'use_cond_exp': [True],
+        'input_current_t': [input_current_t],
+        'periodic_current_t': [True],
+        'scale_dt': [scale_dt],
+        'enc_input_t': [enc_input_t],
+        'add_readout_activation': [add_readout_activation], # ('softmax',['id']) ('sum2one',['id'])
+        'add_dynamic_cov': [True],
+        'pre-train': [0],
+        'zero_weight_init': [True],
+    }
+param_list_microbial_genus += get_parameter_array(param_dict=param_dict_microbial_genus_res)

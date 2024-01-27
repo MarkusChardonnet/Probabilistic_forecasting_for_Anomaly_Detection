@@ -66,6 +66,8 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
         for f in signature_features:
             if f not in features:
                 print("Warning : signature feature " + f + " is not part of the features in the dataset")
+    elif signature_features is None:
+        signature_features = microbial_features
 
     microbial_features = np.array(microbial_features)
     nb_microbial_features = len(microbial_features)
@@ -281,19 +283,19 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
 
     ### CREATE DATASET SUBDIVISION TRAIN/TEST/VAL ###
 
-    if which_split == 'all':
-        train_idx, val_idx = train_test_split(np.arange(nb_host), test_size=val_size, random_state=seed)
-    elif which_split == 'no_abx':
-        train_idx, val_idx = train_test_split(np.where(~abx_observed)[0], test_size=val_size, random_state=seed)
+    for split in which_split:
+        if split == 'all':
+            train_idx, val_idx = train_test_split(np.arange(nb_host), test_size=val_size, random_state=seed)
+        if split == 'no_abx':
+            train_idx, val_idx = train_test_split(np.where(~abx_observed)[0], test_size=val_size, random_state=seed)
 
-    idx_dataset_path = os.path.join(dataset_path, which_split)
-    if not os.path.isdir(idx_dataset_path):
-        os.mkdir(idx_dataset_path)
-
-    with open(os.path.join(idx_dataset_path, 'train_idx.npy'), 'wb') as f:
-        np.save(f, train_idx)
-    with open(os.path.join(idx_dataset_path, 'val_idx.npy'), 'wb') as f:
-        np.save(f, val_idx)
+        idx_dataset_path = os.path.join(dataset_path, split)
+        if not os.path.isdir(idx_dataset_path):
+            os.mkdir(idx_dataset_path)
+        with open(os.path.join(idx_dataset_path, 'train_idx.npy'), 'wb') as f:
+            np.save(f, train_idx)
+        with open(os.path.join(idx_dataset_path, 'val_idx.npy'), 'wb') as f:
+            np.save(f, val_idx)
         
     # eval_ad_idx = np.where(abx_observed)[0]
     # with open(idx_dataset_path + 'eval_ad_idx.npy', 'wb') as f:

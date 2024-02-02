@@ -7,7 +7,7 @@ config_genus = {
     'dynamic_features': ["delivery_mode", "diet_milk", "diet_weaning"], # "sex", "geo_location_name"
     'val_size': 0.2,
     'seed': 398,
-    'starting_date': 0,
+    'starting_date': 42,
     'init_val_method': ('group_feat_mean','delivery_mode'),
     'which_split': ['all', 'no_abx'],
 }
@@ -21,7 +21,7 @@ config_genus_sig_highab = {
     'dynamic_features': ["delivery_mode", "diet_milk", "diet_weaning"], # "sex", "geo_location_name"
     'val_size': 0.2,
     'seed': 398,
-    'starting_date': 0,
+    'starting_date': 42,
     'init_val_method': ('group_feat_mean','delivery_mode'),
     'which_split': ['all', 'no_abx'],
 }
@@ -35,7 +35,7 @@ config_genus_sig_nonzero = {
     'dynamic_features': ["delivery_mode", "diet_milk", "diet_weaning"], # "sex", "geo_location_name"
     'val_size': 0.2,
     'seed': 398,
-    'starting_date': 0,
+    'starting_date': 42,
     'init_val_method': ('group_feat_mean','delivery_mode'),
     'which_split': ['all', 'no_abx'],
 }
@@ -49,7 +49,7 @@ config_genus_sig_div = {
     'dynamic_features': ["delivery_mode", "diet_milk", "diet_weaning"], # "sex", "geo_location_name"
     'val_size': 0.2,
     'seed': 398,
-    'starting_date': 0,
+    'starting_date': 42,
     'init_val_method': ('group_feat_mean','delivery_mode'),
     'which_split': ['all', 'no_abx'],
 }
@@ -63,7 +63,7 @@ config_otu = {
     'dynamic_features': ["delivery_mode", "diet_milk", "diet_weaning"], # "sex", "geo_location_name"
     'val_size': 0.2,
     'seed': 398,
-    'starting_date': 0,
+    'starting_date': 42,
     'init_val_method': ('group_feat_mean','delivery_mode'),
     'which_split': ['all', 'no_abx'],
 }
@@ -77,7 +77,7 @@ config_otu_sig_highab = {
     'dynamic_features': ["delivery_mode", "diet_milk", "diet_weaning"], # "sex", "geo_location_name"
     'val_size': 0.2,
     'seed': 398,
-    'starting_date': 0,
+    'starting_date': 42,
     'init_val_method': ('group_feat_mean','delivery_mode'),
     'which_split': ['all', 'no_abx'],
 }
@@ -91,7 +91,7 @@ config_otu_sig_nonzero = {
     'dynamic_features': ["delivery_mode", "diet_milk", "diet_weaning"], # "sex", "geo_location_name"
     'val_size': 0.2,
     'seed': 398,
-    'starting_date': 0,
+    'starting_date': 42,
     'init_val_method': ('group_feat_mean','delivery_mode'),
     'which_split': ['all', 'no_abx'],
 }
@@ -105,7 +105,7 @@ config_otu_sig_div = {
     'dynamic_features': ["delivery_mode", "diet_milk", "diet_weaning"], # "sex", "geo_location_name"
     'val_size': 0.2,
     'seed': 398,
-    'starting_date': 0,
+    'starting_date': 42,
     'init_val_method': ('group_feat_mean','delivery_mode'),
     'which_split': ['all', 'no_abx'],
 }

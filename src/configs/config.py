@@ -8,8 +8,9 @@ from configs.config_AD_dataset import *
 from configs.config_AD_dataset_anomalies import *
 from configs.config_AD_model import *
 from configs.config_AD_experiments import *
-from configs.config_microbial import *
-from configs.config_dataset import *
+from configs.config_microbial_test import *
+from configs.config_microbial_dataset import *
+from configs.config_microbial_models import *
 
 import numpy as np
 import socket

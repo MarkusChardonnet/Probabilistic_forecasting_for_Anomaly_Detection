@@ -30,7 +30,7 @@ def train_switcher(**params):
         return train.train(**params)
     elif params['dataset'] in ['Cloud_KPI']:
         return KPI_train.train(**params)
-    elif params['dataset'] in ['microbial_genus', 'microbial_otu']:
+    elif 'microbial' in params['dataset']:
         return Microbial_train.train(**params)
     else:
         raise ValueError('the specified "dataset" is not supported')

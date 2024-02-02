@@ -86,7 +86,7 @@ def train(
         enc_nn=default_enc_nn, use_rnn=False,
         solver="euler", weight=0.5, # weight_decay=1.,
         # dataset_id=None, data_dict=None,
-        dataset='microbial_genus', dataset_id=0,
+        dataset='microbial_genus', dataset_split="all",
         plot=True, paths_to_plot=(0,),
         saved_models_path=saved_models_path,
         **options
@@ -283,14 +283,14 @@ def train(
         initial_print += '\nusing CPU'
 
     train_idx = np.load(os.path.join(
-        train_data_path, dataset, str(dataset_id), 'train_idx.npy'
+        train_data_path, dataset, dataset_split, 'train_idx.npy'
         ), allow_pickle=True)
     val_idx = np.load(os.path.join(
-        train_data_path, dataset, str(dataset_id), 'val_idx.npy'
+        train_data_path, dataset, dataset_split, 'val_idx.npy'
         ), allow_pickle=True)
     if 'test' in options and options['test'] == True:
         test_idx = np.load(os.path.join(
-            train_data_path, dataset, str(dataset_id), 'test_idx.npy'
+            train_data_path, dataset, dataset_split, 'test_idx.npy'
             ), allow_pickle=True)
         
     data_train = data_utils.MicrobialDataset(
@@ -408,7 +408,7 @@ def train(
         'ode_nn': ode_nn, 'readout_nn': readout_nn, 'enc_nn': enc_nn,
         'use_rnn': use_rnn, 'zero_weight_init': zero_weight_init,
         'dropout_rate': dropout_rate, 'batch_size': batch_size,
-        'solver': solver, 'dataset': dataset, 'dataset_id': dataset_id,
+        'solver': solver, 'dataset': dataset, 'dataset_split': dataset_split,
         'learning_rate': learning_rate, 'test_size': test_size, 'seed': seed,
         'weight': weight, 'weight_evolve': weight_evolve,
         't_period': t_period, 'delta_t': model_delta_t,

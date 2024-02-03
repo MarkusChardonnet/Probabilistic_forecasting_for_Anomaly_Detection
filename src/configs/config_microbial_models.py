@@ -42,6 +42,7 @@ readout_nn = ((300, 'tanh'), (200, 'tanh'))
 microbial_genus_models_path = "{}saved_models_microbial_genus/".format(data_path)
 param_list_microbial_genus = []
 
+# with rnn and signature
 param_dict_microbial_genus_sig_rnn = {
         'dataset': datasets_genus,
         'dataset_split': dataset_splits,
@@ -81,10 +82,11 @@ param_dict_microbial_genus_sig_rnn = {
         'enc_input_t': [enc_input_t],
         'add_readout_activation': [add_readout_activation], # ('softmax',['id']) ('sum2one',['id'])
         'add_dynamic_cov': [True],
-        'pre-train': [0],
+        'pre-train': [10000],
         'zero_weight_init': [False],
     }
 param_list_microbial_genus += get_parameter_array(param_dict=param_dict_microbial_genus_sig_rnn)
+# with rnn
 param_dict_microbial_genus_rnn = {
         'dataset': datasets_genus,
         'dataset_id': dataset_splits,
@@ -124,10 +126,11 @@ param_dict_microbial_genus_rnn = {
         'enc_input_t': [enc_input_t],
         'add_readout_activation': [add_readout_activation], # ('softmax',['id']) ('sum2one',['id'])
         'add_dynamic_cov': [True],
-        'pre-train': [0],
+        'pre-train': [10000],
         'zero_weight_init': [False],
     }
 param_list_microbial_genus += get_parameter_array(param_dict=param_dict_microbial_genus_rnn)
+# with signature and residual connection
 param_dict_microbial_genus_sig_res = {
         'dataset': datasets_genus,
         'dataset_id': dataset_splits,
@@ -169,9 +172,10 @@ param_dict_microbial_genus_sig_res = {
         'add_readout_activation': [add_readout_activation], # ('softmax',['id']) ('sum2one',['id'])
         'add_dynamic_cov': [True],
         'pre-train': [0],
-        'zero_weight_init': [False]
+        'zero_weight_init': [True]
     }
 param_list_microbial_genus += get_parameter_array(param_dict=param_dict_microbial_genus_sig_res)
+# with residual connection
 param_dict_microbial_genus_res = {
         'dataset': datasets_genus,
         'dataset_id': dataset_splits,
@@ -213,7 +217,7 @@ param_dict_microbial_genus_res = {
         'add_readout_activation': [add_readout_activation], # ('softmax',['id']) ('sum2one',['id'])
         'add_dynamic_cov': [True],
         'pre-train': [0],
-        'zero_weight_init': [False],
+        'zero_weight_init': [True],
     }
 param_list_microbial_genus += get_parameter_array(param_dict=param_dict_microbial_genus_res)
 
@@ -221,7 +225,7 @@ param_list_microbial_genus += get_parameter_array(param_dict=param_dict_microbia
 
 microbial_otu_models_path = "{}saved_models_microbial_otu/".format(data_path)
 param_list_microbial_otu = []
-
+# with rnn and signature
 param_dict_microbial_otu_sig_rnn = {
         'dataset': datasets_otu,
         'dataset_split': dataset_splits,
@@ -261,10 +265,11 @@ param_dict_microbial_otu_sig_rnn = {
         'enc_input_t': [enc_input_t],
         'add_readout_activation': [add_readout_activation], # ('softmax',['id']) ('sum2one',['id'])
         'add_dynamic_cov': [True],
-        'pre-train': [0],
+        'pre-train': [10000],
         'zero_weight_init': [False],
     }
 param_list_microbial_otu += get_parameter_array(param_dict=param_dict_microbial_otu_sig_rnn)
+# with rnn
 param_dict_microbial_otu_rnn = {
         'dataset': datasets_otu,
         'dataset_id': dataset_splits,
@@ -304,10 +309,11 @@ param_dict_microbial_otu_rnn = {
         'enc_input_t': [enc_input_t],
         'add_readout_activation': [add_readout_activation], # ('softmax',['id']) ('sum2one',['id'])
         'add_dynamic_cov': [True],
-        'pre-train': [0],
+        'pre-train': [10000],
         'zero_weight_init': [False],
     }
 param_list_microbial_otu += get_parameter_array(param_dict=param_dict_microbial_otu_rnn)
+# with signature and residual connection
 param_dict_microbial_otu_sig_res = {
         'dataset': datasets_otu,
         'dataset_id': dataset_splits,
@@ -349,9 +355,10 @@ param_dict_microbial_otu_sig_res = {
         'add_readout_activation': [add_readout_activation], # ('softmax',['id']) ('sum2one',['id'])
         'add_dynamic_cov': [True],
         'pre-train': [0],
-        'zero_weight_init': [False]
+        'zero_weight_init': [True]
     }
 param_list_microbial_otu += get_parameter_array(param_dict=param_dict_microbial_otu_sig_res)
+# with residual connection
 param_dict_microbial_otu_res = {
         'dataset': datasets_otu,
         'dataset_id': dataset_splits,
@@ -393,6 +400,6 @@ param_dict_microbial_otu_res = {
         'add_readout_activation': [add_readout_activation], # ('softmax',['id']) ('sum2one',['id'])
         'add_dynamic_cov': [True],
         'pre-train': [0],
-        'zero_weight_init': [False],
+        'zero_weight_init': [True],
     }
 param_list_microbial_otu += get_parameter_array(param_dict=param_dict_microbial_otu_res)

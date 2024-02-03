@@ -1,0 +1,11 @@
+g__Alistipes
+g__Bacteroides
+g__Bifidobacterium
+g__Blautia
+g__Escherichia_Shigella
+g__Faecalibacterium
+g__Roseburia
+g__Ruminococcus_gnavus_group
+g__Sutterella
+g__Veillonella
+div_alpha_faith_pd

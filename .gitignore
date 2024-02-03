@@ -1,8 +1,8 @@
 __pycache__/
 .vscode/
 
-data/
-!data/training_data/
+!data/
+data/*
 !data/original_data/
 
 models/
@@ -11,7 +11,7 @@ plots/
 
 src/__pycache__/
 src/configs/models/
-src/configs/config_AD_*.py
+src/configs/config_AD*.py
 src/wandb/
 
 test.py

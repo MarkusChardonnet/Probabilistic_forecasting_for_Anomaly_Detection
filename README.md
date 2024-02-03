@@ -10,7 +10,6 @@ The probabilistic forecasting is based on the PD-NJODE framework. This framework
 - Create environment in python 3.7:
   ```bash
     conda create -n pbforecast python=3.7
-    pip install -r requirements.txt
     ```
 - Activate environment:
     ```bash
@@ -46,7 +45,7 @@ The probabilistic forecasting is based on the PD-NJODE framework. This framework
 - Setting up the dataset from infant microbiome data :
     ```bash
     cd src
-    python make_microbial_dataset.py
+    python make_microbial_dataset.py --dataset_config=config_genus
     ```
 
 ### Training the probabilistic forecasting module
@@ -68,7 +67,7 @@ Important flags:
 - Training with PD-NJODE on infant microbiome data :
     ```bash
     cd src
-    python run.py --params=param_list_microbial_genus_base --NB_JOBS=1 --USE_GPU=True
+    python run.py --params=param_list_microbial_genus --NB_JOBS=1 --USE_GPU=True --GPU_NUM=0
     ```
 
 ### Training / Evaluating the Anomaly detection modules on data with ingested anomalies

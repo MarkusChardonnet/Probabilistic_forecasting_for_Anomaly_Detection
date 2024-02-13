@@ -163,7 +163,15 @@ def train(
             'plot_obs_prob' bool, whether to plot the observation probability
             'which_loss'    'standard' or 'easy', used by models.NJODE
             'residual_enc_dec'  bool, whether resNNs are used for encoder and
-                            readout NN, used by models.NJODE, default True
+                            readout NN, used by models.NJODE. the provided value
+                            is overwritten by 'residual_enc' & 'residual_dec' if
+                            they are provided. default: False
+            'residual_enc'  bool, whether resNNs are used for encoder NN,
+                            used by models.NJODE.
+                            default: True if use_rnn=False, else: False (this is
+                            for backward compatibility)
+            'residual_dec'  bool, whether resNNs are used for readout NN,
+                            used by models.NJODE. default: True
             'use_y_for_ode' bool, whether to use y (after jump) or x_impute for
                             the ODE as input, only in masked case, default: True
             'coord_wise_tau'    bool, whether to use a coordinate wise tau

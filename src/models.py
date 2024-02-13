@@ -774,9 +774,22 @@ class NJODE(torch.nn.Module):
         if input_vars is not None:
             self.input_vars = input_vars
 
-        self.residual_enc_dec = True
+        self.residual_enc = True
+        self.residual_dec = True
+        # for backward compatibility, set residual_enc to False as default
+        #   if RNN is used. (before, it was not possible to use residual
+        #   connections with RNNs)
+        if self.use_rnn:
+            self.residual_enc = False
         if 'residual_enc_dec' in options1:
-            self.residual_enc_dec = options1['residual_enc_dec']
+            residual_enc_dec = options1['residual_enc_dec']
+            self.residual_enc = residual_enc_dec
+            self.residual_dec = residual_enc_dec
+        if 'residual_enc' in options1:
+            self.residual_enc = options1['residual_enc']
+        if 'residual_dec' in options1:
+            self.residual_dec = options1['residual_dec']
+            
         self.input_current_t = False
         if 'input_current_t' in options1:
             self.input_current_t = options1['input_current_t']
@@ -845,13 +858,13 @@ class NJODE(torch.nn.Module):
         self.encoder_map = FFNN(
             input_size=input_size, output_size=hidden_size, nn_desc=enc_nn,
             dropout_rate=dropout_rate, bias=bias, recurrent=self.use_rnn,
-            masked=self.masked, residual=self.residual_enc_dec,
+            masked=self.masked, residual=self.residual_enc,
             input_sig=self.input_sig, sig_depth=self.sig_depth,
             input_t=self.enc_input_t, t_size=t_size)
         self.readout_map = FFNN(
             input_size=hidden_size, output_size=output_size, nn_desc=readout_nn,
             dropout_rate=dropout_rate, bias=bias,
-            residual=self.residual_enc_dec, clamp=self.clamp)
+            residual=self.residual_dec, clamp=self.clamp)
         
         if 'add_readout_activation' in options1 and output_vars is not None:
             self.add_readout_act = True

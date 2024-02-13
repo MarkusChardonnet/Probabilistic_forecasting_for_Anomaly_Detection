@@ -648,8 +648,7 @@ class FFNN(torch.nn.Module):
             input_size=in_size, output_size=output_size,
             nn_desc=nn_desc, dropout_rate=dropout_rate, bias=bias)
 
-
-        if residual and not self.recurrent and not self.use_lstm:
+        if residual:
             print('use residual network: input_size={}, output_size={}'.format(
                 input_size, output_size))
             if input_size <= output_size:
@@ -660,27 +659,22 @@ class FFNN(torch.nn.Module):
             self.case = 0
 
     def forward(self, nn_input, mask=None, sig=None, h=None, t=None):
+        identity = None
+        if self.case == 1:
+            identity = torch.zeros((nn_input.shape[0], self.output_size)).to(
+                self.device)
+            identity[:, 0:nn_input.shape[1]] = nn_input
+        elif self.case == 2:
+            identity = nn_input[:, 0:self.output_size]
+
         if self.recurrent or self.use_lstm:
             assert h is not None
             # x = torch.tanh(nn_input)
             x = nn_input
-            if not self.use_lstm:
-                x = torch.cat((x, h), dim=1)
-            if self.input_t:
-                x = torch.cat((x, t), dim=1)
-            if self.masked:
-                assert mask is not None
-                x = torch.cat((x, mask), dim=1)
-            if self.input_sig:
-                assert sig is not None
-                x = torch.cat((x, sig), dim=1)
-            if self.use_lstm:
-                h_, c_ = torch.chunk(h, chunks=2, dim=1)
-                h_, c_ = self.lstm(x.float(), (h_, c_))
-                x = torch.concat((h_, c_), dim=1)
-            return self.ffnn(x.float())
-
-        x = torch.tanh(nn_input)    # maybe not helpful
+        else:
+            x = torch.tanh(nn_input)  # maybe not helpful
+        if self.recurrent and not self.use_lstm:
+            x = torch.cat((x, h), dim=1)
         if self.input_t:
             x = torch.cat((x, t), dim=1)
         if self.masked:
@@ -689,22 +683,22 @@ class FFNN(torch.nn.Module):
         if self.input_sig:
             assert sig is not None
             x = torch.cat((x, sig), dim=1)
+        if self.use_lstm:
+            h_, c_ = torch.chunk(h, chunks=2, dim=1)
+            h_, c_ = self.lstm(x.float(), (h_, c_))
+            x = torch.concat((h_, c_), dim=1)
         out = self.ffnn(x.float())
 
         if self.case == 0:
             pass
-        elif self.case == 1:
-            identity = torch.zeros((nn_input.shape[0], self.output_size)).to(self.device)
-            identity[:, 0:nn_input.shape[1]] = nn_input
-            out = identity + out
-        elif self.case == 2:
-            identity = nn_input[:, 0:self.output_size]
+        else:
             out = identity + out
 
         if self.clamp is not None:
             out = torch.clamp(out, min=-self.clamp, max=self.clamp)
+
         return out
-    
+
     @property
     def device(self):
         device = next(self.parameters()).device

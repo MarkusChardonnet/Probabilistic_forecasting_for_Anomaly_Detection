@@ -388,6 +388,21 @@ def compute_loss_val_variance(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=
     outer += torch.sum(inner / n_obs_ot, dim=1)
     return outer / batch_size
 
+
+def compute_loss_noisy_obs(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size,
+                           eps=1e-10, weight=0.5, M_obs=None):
+    """
+    similar to compute_loss, but only using the 2nd term of the original loss
+    function, which enables training with noisy observations
+    """
+    if M_obs is None:
+        M_obs = 1.
+    inner = torch.sum(M_obs * (Y_obs_bj - X_obs) ** 2, dim=1)
+
+    outer = torch.sum(inner / n_obs_ot)
+    return outer / batch_size
+
+
 LOSS_FUN_DICT = {
     # dictionary of used loss functions. Reminder inputs: (X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
     # weight=0.5, M_obs=None, output_vars=None)
@@ -395,6 +410,7 @@ LOSS_FUN_DICT = {
     'easy': compute_loss_2,
     'easy_bis': compute_loss_2_bis,
     'abs': compute_loss_3,
+    'noisy_obs': compute_loss_noisy_obs,
     
     'moment_2': compute_loss_ad,
     'variance': compute_loss_ad_variance,

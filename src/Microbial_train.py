@@ -367,6 +367,7 @@ def train(
         which_eval_loss = options['which_eval_loss']
     else:
         which_eval_loss = 'standard'
+    initial_print += "\neval loss: {}\n".format(which_eval_loss)
 
     # get data-loader for training
     dl = DataLoader(  # class to iterate over training data

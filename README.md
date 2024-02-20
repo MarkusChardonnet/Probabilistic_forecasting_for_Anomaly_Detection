@@ -89,3 +89,16 @@ Important flags:
     cd src
     python run.py --forecast_model_ids=[0] --forecast_saved_models_path=../data/saved_models_microbial_genus_base/ --ad_params=param_dict_AD_microbial_genus
     ```
+
+
+
+## Training commands (Florian)
+#### Generate Dataset:
+```shell
+python make_microbial_dataset.py --dataset_config=config_otu_sig_highab
+```
+
+#### Training PD-NJODE:
+```shell
+python run.py --params=param_list_microbial_otu2 --NB_JOBS=1 --NB_CPUS=1 --SEND=True --USE_GPU=False
+```

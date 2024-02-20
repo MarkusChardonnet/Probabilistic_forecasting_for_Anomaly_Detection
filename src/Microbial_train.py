@@ -707,11 +707,13 @@ def train(
                         if 'add_dynamic_cov' in options and options['add_dynamic_cov']:
                             hT, c2_loss = model(
                                 times=times, time_ptr=time_ptr, X=torch.cat((X,Z),dim=1), obs_idx=obs_idx, delta_t=None, T=T, 
-                                S=S, start_S=start_S, start_X=torch.cat((start_X,start_Z),dim=1), n_obs_ot=n_obs_ot, return_path=False, get_loss=True)
+                                S=S, start_S=start_S, start_X=torch.cat((start_X,start_Z),dim=1),
+                                n_obs_ot=n_obs_ot, return_path=False, get_loss=True, which_loss=which_val_loss)
                         else:
                             hT, c2_loss = model(
                                 times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx, delta_t=None, T=T, start_X=start_X,
-                                S=S, start_S=start_S, n_obs_ot=n_obs_ot, return_path=False, get_loss=True)
+                                S=S, start_S=start_S, n_obs_ot=n_obs_ot, return_path=False,
+                                get_loss=True, which_loss=which_val_loss)
                     else:
                         raise ValueError
                     eval_loss += c2_loss.detach().cpu().numpy()

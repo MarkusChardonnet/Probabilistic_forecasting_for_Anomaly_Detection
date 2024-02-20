@@ -727,7 +727,7 @@ def train(
                         hT, c_loss = model(
                             times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx, delta_t=None, T=T, start_X=start_X,
                             n_obs_ot=n_obs_ot, return_path=False, get_loss=True, M=M,
-                            start_M=start_M, which_loss=which_eval_loss) # which_loss='standard'
+                            start_M=start_M, which_loss=which_eval_loss)
                     elif options['other_model'] == "GRU_ODE_Bayes":
                         if M is None:
                             M = torch.ones_like(X)
@@ -747,7 +747,7 @@ def train(
                             hT_corrected, c_loss_corrected = model(
                                 times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx, delta_t=None, T=T, start_X=start_X,
                                 n_obs_ot=n_obs_ot, return_path=False, get_loss=True, M=M,
-                                start_M=start_M, which_loss='standard',
+                                start_M=start_M, which_loss=which_eval_loss,
                                 dim_to=dimension)
                         loss_val_corrected += c_loss_corrected.detach().cpu().numpy()
 

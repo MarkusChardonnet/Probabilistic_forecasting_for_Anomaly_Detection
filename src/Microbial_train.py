@@ -792,13 +792,13 @@ def train(
                 # model.ode_f.input_features_save_and_reset(os.path.join(plot_save_path, plot_features_filename))
                 if plot_train:
                     batch = next(iter(dl))
-                    plot_filename = 'epoch-{}_train'.format(model.epoch)
-                    plot_filename = plot_filename + '_path-{}.png'
+                    plot_filename1 = 'epoch-{}_train'.format(model.epoch)
+                    plot_filename1 = plot_filename1 + '_path-{}.png'
                     plot_one_path_with_pred(
                         device=device, model=model, batch=batch,
                         delta_t=delta_t, T=T,
                         path_to_plot=paths_to_plot, save_path=plot_save_path,
-                        filename=plot_filename, plot_variance=plot_variance,
+                        filename=plot_filename1, plot_variance=plot_variance,
                         plot_moments=plot_moments, output_vars=output_vars,
                         functions=input_vars, std_factor=std_factor,
                         model_name=model_name, save_extras=save_extras,
@@ -843,6 +843,10 @@ def train(
             for i in paths_to_plot:
                 files_to_send.append(
                     os.path.join(plot_save_path, plot_filename.format(i)))
+        if plot_train:
+            for i in paths_to_plot:
+                files_to_send.append(
+                    os.path.join(plot_save_path, plot_filename1.format(i)))
         SBM.send_notification(
             text='finished training: {}, id={}\n\n{}'.format(
                 model_name, model_id, desc),

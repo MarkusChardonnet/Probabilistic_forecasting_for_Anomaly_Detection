@@ -1614,7 +1614,7 @@ class NJODE(torch.nn.Module):
             which_true = np.argmax(np.array(self.input_vars) == 'id')
             which_pred = np.argmax(np.array(self.output_vars) == 'id')
             true_path_y_id = true_path_y[:,:,dim*which_true:dim*(which_true+1)]
-            path_y_id = path_y[:,:,dim*which_true:dim*(which_true+1)].detach().cpu().numpy()
+            path_y_id = path_y[:,:,dim*which_pred:dim*(which_pred+1)].detach().cpu().numpy()
             if path_y_id.shape == true_path_y_id.shape:
                 which = np.argmax(np.array(eval_vars) == 'exp')
                 #eval_loss['exp_mean'] = diff_fun(path_y_id, true_path_y_id)

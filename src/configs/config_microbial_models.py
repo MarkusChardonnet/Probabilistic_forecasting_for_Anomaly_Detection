@@ -35,6 +35,7 @@ dataset_splits = ["all", "no_abx"]
 
 hidden_size = 300
 ode_nn = ((300, 'tanh'), (300, 'relu'))
+ode_nn1 = ((300, 'tanh'), (300, 'tanh'))
 enc_nn = ((200, 'tanh'), (300, 'tanh'))
 readout_nn = ((300, 'tanh'), (200, 'tanh'))
 
@@ -403,3 +404,63 @@ param_dict_microbial_otu_res = {
         'zero_weight_init': [True],
     }
 param_list_microbial_otu += get_parameter_array(param_dict=param_dict_microbial_otu_res)
+
+
+
+
+
+# ------------------------------------------------------------------------------
+# testing on otu:
+#   - different loss and eval loss function
+#   - use RNN with residual connection to see whether there is really no
+#       path-dependency
+#   - only train on no_abx and only with highabundance signature features
+
+microbial_otu_models_path2 = "{}saved_models_microbial_otu2/".format(data_path)
+param_list_microbial_otu2 = []
+
+param_dict_microbial_otu_sig_rnn = {
+        'dataset': ["microbial_otu_sig_highab"],
+        'dataset_split': ["no_abx"],
+        'epochs': [epochs],
+        'batch_size': [batch_size],
+        'save_every': [save_every],
+        'learning_rate': [learning_rate],
+        'seed': [seed],
+        'hidden_size': [hidden_size],
+        'bias': [bias],
+        'dropout_rate': [dropout_rate],
+        'ode_nn': [ode_nn, ode_nn1],
+        'readout_nn': [readout_nn],
+        'enc_nn': [enc_nn],
+        'use_rnn': [True, False],
+        'input_sig': [True, False],
+        'residual_enc_dec': [True, False],
+        'func_appl_X': [[]],              # [["power-2", "power-3", "power-4"]]
+        'add_pred': [[]],
+        'test': [test],
+        'solver': [solver],
+        'solver_delta_t_factor': [solver_delta_t_factor],
+        'weight': [0.5],
+        'plot': [True],
+        'which_loss': ['easy', 'noisy_obs'],
+        'which_eval_loss': ['noisy_obs'],
+        'evaluate': [False],
+        'eval_metrics': [eval_metrics],
+        'paths_to_plot': [paths_to_plot],
+        'plot_variance': [False],
+        'std_factor': [std_factor],
+        'plot_moments': [plot_moments],
+        'saved_models_path': [microbial_otu_models_path2],
+        'use_cond_exp': [True],
+        'input_current_t': [input_current_t],
+        'periodic_current_t': [True],
+        'scale_dt': [scale_dt],
+        'enc_input_t': [enc_input_t],
+        'add_readout_activation': [add_readout_activation], # ('softmax',['id']) ('sum2one',['id'])
+        'add_dynamic_cov': [True],
+        'pre-train': [10000],
+        'zero_weight_init': [False],
+    }
+param_list_microbial_otu2 += get_parameter_array(param_dict=param_dict_microbial_otu_sig_rnn)
+

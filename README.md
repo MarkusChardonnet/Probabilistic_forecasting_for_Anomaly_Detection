@@ -100,5 +100,5 @@ python make_microbial_dataset.py --dataset_config=config_otu_sig_highab
 
 #### Training PD-NJODE:
 ```shell
-python run.py --params=param_list_microbial_otu2 --NB_JOBS=1 --NB_CPUS=1 --SEND=True --USE_GPU=False
+python run.py --params=param_list_microbial_otu2 --NB_JOBS=1 --NB_CPUS=1 --SEND=True --USE_GPU=False  --first_id=1
 ```

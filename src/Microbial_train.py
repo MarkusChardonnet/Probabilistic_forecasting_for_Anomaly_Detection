@@ -363,10 +363,10 @@ def train(
     if 'evaluate' in options and options['evaluate']:
         if 'eval_metrics' in options:
             eval_metrics = options['eval_metrics']
-    if 'which_val_loss' in options:
-        which_val_loss = options['which_val_loss']
+    if 'which_eval_loss' in options:
+        which_eval_loss = options['which_eval_loss']
     else:
-        which_val_loss = 'standard'
+        which_eval_loss = 'standard'
 
     # get data-loader for training
     dl = DataLoader(  # class to iterate over training data
@@ -492,7 +492,7 @@ def train(
     best_val_loss = np.infty
     metr_columns = METR_COLUMNS
     val_loss_weights = 1.
-    if which_val_loss == 'val_variance':
+    if which_eval_loss == 'val_variance':
         val_loss_names = ['val_loss_{}'.format(i+1) for i in range(4)]
         metr_columns += val_loss_names
         if 'val_loss_weights' in options:
@@ -692,12 +692,12 @@ def train(
                             hT, c_loss = model(
                                 times=times, time_ptr=time_ptr, X=torch.cat((X,Z),dim=1), obs_idx=obs_idx, delta_t=None, T=T, 
                                 start_X=torch.cat((start_X,start_Z),dim=1), n_obs_ot=n_obs_ot, return_path=False, get_loss=True,
-                                S=S, start_S=start_S, which_loss=which_val_loss) # which_loss='standard'
+                                S=S, start_S=start_S, which_loss=which_eval_loss) # which_loss='standard'
                         else:
                             hT, c_loss = model(
                                 times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx, delta_t=None, T=T, start_X=start_X,
                                 n_obs_ot=n_obs_ot, return_path=False, get_loss=True,
-                                S=S, start_S=start_S, which_loss=which_val_loss) # which_loss='standard'
+                                S=S, start_S=start_S, which_loss=which_eval_loss) # which_loss='standard'
                     else:
                         raise ValueError
                     loss_vals += c_loss.detach().cpu().numpy()
@@ -708,12 +708,12 @@ def train(
                             hT, c2_loss = model(
                                 times=times, time_ptr=time_ptr, X=torch.cat((X,Z),dim=1), obs_idx=obs_idx, delta_t=None, T=T, 
                                 S=S, start_S=start_S, start_X=torch.cat((start_X,start_Z),dim=1),
-                                n_obs_ot=n_obs_ot, return_path=False, get_loss=True, which_loss=which_val_loss)
+                                n_obs_ot=n_obs_ot, return_path=False, get_loss=True, which_loss=which_eval_loss)
                         else:
                             hT, c2_loss = model(
                                 times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx, delta_t=None, T=T, start_X=start_X,
                                 S=S, start_S=start_S, n_obs_ot=n_obs_ot, return_path=False,
-                                get_loss=True, which_loss=which_val_loss)
+                                get_loss=True, which_loss=which_eval_loss)
                     else:
                         raise ValueError
                     eval_loss += c2_loss.detach().cpu().numpy()

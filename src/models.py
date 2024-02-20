@@ -390,7 +390,7 @@ def compute_loss_val_variance(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=
 
 
 def compute_loss_noisy_obs(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size,
-                           eps=1e-10, weight=0.5, M_obs=None):
+                           eps=1e-10, weight=0.5, M_obs=None, output_vars=None):
     """
     similar to compute_loss, but only using the 2nd term of the original loss
     function, which enables training with noisy observations

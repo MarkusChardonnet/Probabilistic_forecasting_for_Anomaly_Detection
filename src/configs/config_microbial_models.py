@@ -440,7 +440,7 @@ param_dict_microbial_otu_sig_rnn = {
         'add_pred': [[]],
         'test': [test],
         'solver': [solver],
-        'solver_delta_t_factor': [solver_delta_t_factor],
+        'solver_delta_t_factor': [solver_delta_t_factor, 1.],
         'weight': [0.5],
         'plot': [True],
         'which_loss': ['easy', 'noisy_obs'],

@@ -464,3 +464,19 @@ param_dict_microbial_otu_sig_rnn = {
     }
 param_list_microbial_otu2 += get_parameter_array(param_dict=param_dict_microbial_otu_sig_rnn)
 
+overview_dict_microbial_otu2 = dict(
+    ids_from=1, ids_to=len(param_list_microbial_otu2),
+    path=microbial_otu_models_path2,
+    params_extract_desc=('dataset', 'dataset_split',
+                         'ode_nn', 'enc_nn', 'readout_nn',
+                         'dropout_rate', 'hidden_size', 'batch_size',
+                         'which_loss', 'which_eval_loss',
+                         'solver_delta_t_factor',
+                         'residual_enc_dec', 'use_rnn',
+                         'input_sig', 'level', ),
+    val_test_params_extract=(
+        ("max", "epoch", "epoch", "epochs_trained"),
+        ("min", "eval_loss", "eval_loss", "eval_loss_min"),
+    ),
+    sortby=["eval_loss_min"],
+)

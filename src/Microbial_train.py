@@ -23,6 +23,7 @@ import matplotlib.colors
 from torch.backends import cudnn
 import gc
 from torch.optim.lr_scheduler import CyclicLR
+import glob
 
 from configs import config
 import models
@@ -769,7 +770,7 @@ def train(
                 wandb.log({"epoch": model.epoch, "train_time": train_time, "eval_time": eval_time, "train_loss": train_loss, \
                     "eval_loss": eval_loss})
 
-        # save model
+            # save model
             if plot:
                 batch = next(iter(dl_val))
                 print('plotting ...')
@@ -842,12 +843,14 @@ def train(
         caption = "{} - id={}".format(model_name, model_id)
         if plot:
             for i in paths_to_plot:
-                files_to_send.append(
-                    os.path.join(plot_save_path, plot_filename.format(i)))
+                files_to_send.append(sorted(glob.glob(
+                    os.path.join(plot_save_path, plot_filename.format(
+                        "{}*".format(i)))))[0])
         if plot_train:
             for i in paths_to_plot:
-                files_to_send.append(
-                    os.path.join(plot_save_path, plot_filename1.format(i)))
+                files_to_send.append(sorted(glob.glob(
+                    os.path.join(plot_save_path, plot_filename1.format(
+                        "{}*".format(i)))))[0])
         SBM.send_notification(
             text='finished training: {}, id={}\n\n{}'.format(
                 model_name, model_id, desc),

@@ -539,7 +539,7 @@ def train(
         model.epoch -= 1
         initial_print += '\nplotting ...'
         plot_filename = 'demo-plot_epoch-{}'.format(model.epoch)
-        plot_filename = plot_filename + '_path-{}.png'
+        plot_filename = plot_filename + '_path-{}.pdf'
         plot_one_path_with_pred(
             device, model, batch, delta_t, T,
             path_to_plot=paths_to_plot, save_path=plot_save_path,
@@ -553,8 +553,9 @@ def train(
             files_to_send = []
             caption = "{} - id={}".format(model_name, model_id)
             for i in paths_to_plot:
-                files_to_send.append(
-                    os.path.join(plot_save_path, plot_filename.format(i)))
+                files_to_send.append(sorted(glob.glob(
+                    os.path.join(plot_save_path, plot_filename.format(
+                        "{}*".format(i)))))[0])
             SBM.send_notification(
                 text='finished plot-only: {}, id={}\n\n{}'.format(
                     model_name, model_id, desc),
@@ -775,7 +776,7 @@ def train(
                 batch = next(iter(dl_val))
                 print('plotting ...')
                 plot_filename = 'epoch-{}'.format(model.epoch)
-                plot_filename = plot_filename + '_path-{}.png'
+                plot_filename = plot_filename + '_path-{}.pdf'
                 plot_one_path_with_pred(
                     device=device, model=model, batch=batch,
                     delta_t=delta_t, T=T,
@@ -795,7 +796,7 @@ def train(
                 if plot_train:
                     batch = next(iter(dl))
                     plot_filename1 = 'epoch-{}_train'.format(model.epoch)
-                    plot_filename1 = plot_filename1 + '_path-{}.png'
+                    plot_filename1 = plot_filename1 + '_path-{}.pdf'
                     plot_one_path_with_pred(
                         device=device, model=model, batch=batch,
                         delta_t=delta_t, T=T,

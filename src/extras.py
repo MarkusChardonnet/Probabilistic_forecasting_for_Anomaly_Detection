@@ -13,9 +13,11 @@ import os
 import json
 import socket
 import matplotlib.colors
+import time
 
 from configs import config
 from train_switcher import train_switcher
+
 
 try:
     from telegram_notifications import send_bot_message as SBM
@@ -364,7 +366,7 @@ def get_training_overview(
 def plot_paths_from_checkpoint(
         saved_models_path=config.saved_models_path, send=SEND,
         model_ids=(1,), which='best', paths_to_plot=(0,), LOB_plot_errors=False,
-        **options
+        wait_time=None, **options
 ):
     """
     function to plot paths (using plot_one_path_with_pred) from a saved model
@@ -376,6 +378,9 @@ def plot_paths_from_checkpoint(
     :param LOB_plot_errors: bool, whether to plot the error distribution for
         LOB model
     :param options: feed directly to train
+    :param send: bool, whether to send a notification
+    :param saved_models_path: str, path where models are saved
+    :param wait_time: None or float, time to wait before sending notification
     :return:
     """
     model_overview_file_name = '{}model_overview.csv'.format(saved_models_path)
@@ -386,6 +391,8 @@ def plot_paths_from_checkpoint(
         df_overview = pd.read_csv(model_overview_file_name, index_col=0)
 
     for model_id in model_ids:
+        if wait_time is not None:
+            time.sleep(wait_time)
         if model_id not in df_overview['id'].values:
             print("model_id={} does not exist yet -> skip".format(model_id))
         else:

@@ -483,5 +483,5 @@ overview_dict_microbial_otu2 = dict(
 
 plot_paths_microbial_otu2 = {
     'model_ids': [27, 25, 36], 'saved_models_path': microbial_otu_models_path2,
-    'which': 'best', 'paths_to_plot': [0,1,2,3,4,5],
+    'which': 'best', 'paths_to_plot': [0,1,2,3,4,5], 'wait_time': 5,
     'save_extras': {'bbox_inches': 'tight', 'pad_inches': 0.01},}

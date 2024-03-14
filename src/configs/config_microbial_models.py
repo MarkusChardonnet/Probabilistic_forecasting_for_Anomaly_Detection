@@ -519,7 +519,7 @@ param_dict_microbial_otu_sig_rnn = {
         'weight_evolve': [{'type': 'linear', 'target': 1, 'reach': None}],
         'plot': [True],
         'which_loss': ['variance'],
-        'which_eval_loss': ['eval_variance'],
+        'which_eval_loss': ['val_variance'],
         'evaluate': [True],
         'eval_metrics': [eval_metrics],
         'paths_to_plot': [(0,)],

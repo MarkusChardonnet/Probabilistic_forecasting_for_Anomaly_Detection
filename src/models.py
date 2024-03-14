@@ -1549,7 +1549,8 @@ class NJODE(torch.nn.Module):
         return device
 
     def evaluate(self, times, time_ptr, X, obs_idx, delta_t, T, start_X,
-                 n_obs_ot, stockmodel=None, cond_exp_fun_kwargs=None,
+                 n_obs_ot, S=None, start_S=None,
+                 stockmodel=None, cond_exp_fun_kwargs=None,
                  diff_fun=lambda x, y: np.nanmean((x - y) ** 2),
                  diff_fun_std=lambda x, y: np.nanstd((x - y) ** 2),
                  return_paths=False, M=None, true_paths=None, start_M=None,
@@ -1585,7 +1586,8 @@ class NJODE(torch.nn.Module):
         dim = round(start_X.shape[1]/len(self.input_vars))
 
         _, _, path_t, path_h, path_y = self.forward(
-            times, time_ptr, X, obs_idx, delta_t, T, start_X, None,
+            times, time_ptr, X, obs_idx, delta_t, T, start_X,
+            S, start_S, n_obs_ot,
             return_path=True, get_loss=False, until_T=True, M=M,
             start_M=start_M)
 

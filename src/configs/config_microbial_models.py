@@ -520,7 +520,7 @@ param_dict_microbial_otu_sig_rnn = {
         'plot': [True],
         'which_loss': ['variance'],
         'which_eval_loss': ['val_variance'],
-        'evaluate': [True],
+        'evaluate': [False],
         'eval_metrics': [eval_metrics],
         'paths_to_plot': [(0,)],
         'plot_variance': [True],

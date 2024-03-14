@@ -711,12 +711,12 @@ def train(
                             hT, c2_loss = model(
                                 times=times, time_ptr=time_ptr, X=torch.cat((X,Z),dim=1), obs_idx=obs_idx, delta_t=None, T=T, 
                                 S=S, start_S=start_S, start_X=torch.cat((start_X,start_Z),dim=1),
-                                n_obs_ot=n_obs_ot, return_path=False, get_loss=True, which_loss=which_eval_loss)
+                                n_obs_ot=n_obs_ot, return_path=False, get_loss=True,)
                         else:
                             hT, c2_loss = model(
                                 times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx, delta_t=None, T=T, start_X=start_X,
                                 S=S, start_S=start_S, n_obs_ot=n_obs_ot, return_path=False,
-                                get_loss=True, which_loss=which_eval_loss)
+                                get_loss=True,)
                     else:
                         raise ValueError
                     eval_loss += c2_loss.detach().cpu().numpy()
@@ -726,7 +726,7 @@ def train(
                         if 'add_dynamic_cov' in options and options['add_dynamic_cov']:
                             _eval_msd = model.evaluate(
                                 times=times, time_ptr=time_ptr, X=torch.cat((X,Z),dim=1),
-                                obs_idx=obs_idx, delta_t=delta_t, T=T,
+                                obs_idx=obs_idx, delta_t=delta_t, T=T, S=S, start_S=start_S,
                                 start_X=torch.cat((start_X,start_Z),dim=1), n_obs_ot=n_obs_ot,
                                 return_paths=False, true_paths=true_paths,
                                 true_mask=true_mask, eval_vars=eval_metrics,) # mult=mult)
@@ -734,7 +734,7 @@ def train(
                             _eval_msd = model.evaluate(
                                 times=times, time_ptr=time_ptr, X=X,
                                 obs_idx=obs_idx, delta_t=delta_t, T=T,
-                                start_X=start_X, n_obs_ot=n_obs_ot,
+                                start_X=start_X, n_obs_ot=n_obs_ot, S=S, start_S=start_S,
                                 return_paths=False, true_paths=true_paths,
                                 true_mask=true_mask, eval_vars=eval_metrics,) # mult=mult)
                         eval_msd += _eval_msd

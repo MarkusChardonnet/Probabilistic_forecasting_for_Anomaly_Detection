@@ -103,3 +103,7 @@ python make_microbial_dataset.py --dataset_config=config_otu_sig_highab
 python run.py --params=param_list_microbial_otu2 --NB_JOBS=64 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_otu2
 python run.py --plot_paths=plot_paths_microbial_otu2
 ```
+
+```shell
+python run.py --params=param_list_microbial_otu3 --NB_JOBS=64 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_otu3
+```

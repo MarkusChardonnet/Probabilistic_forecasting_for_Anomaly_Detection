@@ -21,6 +21,7 @@ import socket
 import matplotlib  # plots
 import matplotlib.colors
 from torch.backends import cudnn
+import copy
 import gc
 from torch.optim.lr_scheduler import CyclicLR
 import glob
@@ -492,7 +493,7 @@ def train(
 
     # load saved model if wanted/possible
     best_val_loss = np.infty
-    metr_columns = METR_COLUMNS
+    metr_columns = copy.deepcopy(METR_COLUMNS)
     val_loss_weights = 1.
     if which_eval_loss == 'val_variance':
         val_loss_names = ['val_loss_{}'.format(i+1) for i in range(4)]
@@ -810,7 +811,8 @@ def train(
                         dataset_metadata=dataset_metadata,
                         )
                 del batch
-            print('save model ...')
+            print('save model ...', end="")
+            print("mode id:", model_id)
             df_m_app = pd.DataFrame(data=metric_app, columns=metr_columns)
             df_metric = pd.concat([df_metric, df_m_app], ignore_index=True)
             df_metric.to_csv(model_metric_file)

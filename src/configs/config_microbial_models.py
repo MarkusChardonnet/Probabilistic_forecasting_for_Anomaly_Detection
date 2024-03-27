@@ -556,6 +556,7 @@ overview_dict_microbial_otu3 = dict(
     val_test_params_extract=(
         ("max", "epoch", "epoch", "epochs_trained"),
         ("min", "eval_loss", "eval_loss", "eval_loss_min"),
+        ("min", "val_loss", "val_loss", "val_loss_min"),
     ),
-    sortby=["eval_loss_min"],
+    sortby=["val_loss_min"],
 )

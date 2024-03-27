@@ -495,7 +495,7 @@ param_list_microbial_otu3 = []
 
 for add_pred, which_loss in [
         [["var"], "variance"], [[], "moment_2"], [[], "easy_bis"],
-        [[], "noisy_obs"],
+        [[], "noisy_obs"], [["var"], "variance_bis"],
 ]:
         param_dict_microbial_otu_sig_rnn = {
                 'dataset': ["microbial_otu_sig_highab"],

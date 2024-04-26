@@ -3,6 +3,8 @@ import scipy
 import numpy as np
 import os
 import torch.nn as nn
+import tqdm
+import scipy.stats as stat
 
 
 def gaussian_scoring_2_moments(obs, 
@@ -33,6 +35,57 @@ def gaussian_scoring_2_moments(obs,
         scores = - np.log(p_vals + 1e-10)
     # scores : [nb_steps, nb_samples, dimension, steps_ahead]
     return scores
+
+
+def dirichlet_scoring(
+        obs, cond_exp, cond_var, nb_samples=10**5,
+        min_var_val=1e-5, replace_var=None, verbose=False):
+    # obs : [nb_steps, nb_samples, dimension]
+    # cond_exp : [nb_steps, nb_samples, dimension]
+    # cond_var : [nb_steps, nb_samples, dimension]
+
+    assert cond_exp.shape == cond_var.shape
+    assert len(cond_exp.shape) == 3
+    dimension = cond_exp.shape[2]
+    time_steps = cond_exp.shape[0]
+    samples = cond_exp.shape[1]
+    if np.any(cond_var < 0):
+        # print('WARNING: some predicted cond. variances below 0 -> clip')
+        if replace_var is not None:
+            for d in range(dimension):
+                condition = ~np.isnan(cond_var[:,:,d])
+                condition = np.logical_and(condition, cond_var[:,:,d] <= 0)
+                cond_var[:,:,d][condition] = replace_var[d]
+        else:
+            cond_var = np.maximum(min_var_val, cond_var)
+
+    scores = np.zeros((time_steps, samples,))
+    for t in tqdm.tqdm(range(time_steps), disable=not verbose):
+        for s in range(samples):
+            E = np.maximum(cond_exp[t,s], 1e-10)  # only positive values
+            E = E/np.sum(E)  # normalize s.t. sum = 1
+            # TODO: here we could try to find the ind with the best variance prediction
+            factors = (E*(1-E))/cond_var[t,s] - 1
+            factor = np.median(factors[factors > 0])
+            # use_ind = 0
+            # factor = -1
+            # while factor <= 0:
+            #     use_ind += 1
+            #     factor = (E[use_ind]*(1-E[use_ind]))/cond_var[t,s,use_ind] - 1
+            #     if use_ind == dimension-1:
+            #         factor = 1
+            #         break
+            alpha = E * factor
+            diri = stat.dirichlet(alpha)
+            rvs = diri.rvs(size=nb_samples)
+            pdfs = np.array([diri.logpdf(r) for r in rvs])
+            obs_pdf = diri.logpdf(obs[t,s])
+            pval = np.mean(obs_pdf <= pdfs)
+            scores[t,s] = -np.log(pval + 1e-10)
+
+    # scores : [nb_steps, nb_samples]
+    return scores
+
 
 def save_checkpoint(model, optimizer, path, epoch):
     """

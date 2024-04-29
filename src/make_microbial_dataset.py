@@ -271,6 +271,7 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
         np.save(f, signature)
         np.save(f, dynamic)
         np.save(f, static)
+        np.save(f, abx_observed)
 
     
     metadata_dict = {"S0": None,
@@ -290,10 +291,14 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
     ### CREATE DATASET SUBDIVISION TRAIN/TEST/VAL ###
 
     for split in which_split:
+        abx_train_idx, abx_val_idx = train_test_split(np.where(abx_observed)[0], test_size=val_size, random_state=seed)
+        noabx_train_idx, noabx_val_idx = train_test_split(np.where(~abx_observed)[0], test_size=val_size, random_state=seed)
         if split == 'all':
-            train_idx, val_idx = train_test_split(np.arange(nb_host), test_size=val_size, random_state=seed)
+            train_idx = np.concatenate((abx_train_idx, noabx_train_idx))
+            val_idx = np.concatenate((abx_val_idx, noabx_val_idx))
         if split == 'no_abx':
-            train_idx, val_idx = train_test_split(np.where(~abx_observed)[0], test_size=val_size, random_state=seed)
+            train_idx = noabx_train_idx
+            val_idx = noabx_val_idx
 
         idx_dataset_path = os.path.join(dataset_path, split)
         if not os.path.isdir(idx_dataset_path):

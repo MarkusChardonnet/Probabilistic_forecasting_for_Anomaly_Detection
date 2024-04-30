@@ -40,7 +40,8 @@ def gaussian_scoring_2_moments(obs,
 def dirichlet_scoring(
         obs, cond_exp, cond_var, observed_dates,
         nb_samples=10**5,
-        min_var_val=1e-5, replace_var=None, verbose=False):
+        min_var_val=1e-5, replace_var=None, verbose=False,
+        seed=1):
     # obs : [nb_steps, nb_samples, dimension]
     # cond_exp : [nb_steps, nb_samples, dimension, 1]
     # cond_var : [nb_steps, nb_samples, dimension, 1]
@@ -66,6 +67,8 @@ def dirichlet_scoring(
     for t in tqdm.tqdm(range(time_steps), disable=not verbose):
         for s in range(samples):
             if observed_dates[t,s]:
+                if seed is not None:
+                    np.random.seed(seed)
                 E = np.maximum(cond_exp[t,s], 1e-10)  # only positive values
                 E = E/np.sum(E)  # normalize s.t. sum = 1
                 # TODO: here we could try to find the ind with the best variance prediction
@@ -573,6 +576,7 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
                  replace_values = None,
                  class_thres = 0.5,
                  nb_MC_samples = 10**5,
+                 seed=None,
                  verbose=False,):
         super(Simple_AD_module, self).__init__()
         self.output_vars = output_vars
@@ -582,6 +586,7 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
         self.threshold = class_thres
         self.nb_samples = nb_MC_samples
         self.verbose = verbose
+        self.seed = seed
 
         self.weight = score_factor
 
@@ -617,7 +622,7 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
                 obs=obs, cond_exp=cond_exp, cond_var=cond_var,
                 observed_dates=observed_dates,
                 nb_samples=self.nb_samples, replace_var=None, min_var_val=0.,
-                verbose=self.verbose)
+                verbose=self.verbose, seed=self.seed)
             scores_valid = scores_valid.transpose(1,0)
         return scores_valid
 

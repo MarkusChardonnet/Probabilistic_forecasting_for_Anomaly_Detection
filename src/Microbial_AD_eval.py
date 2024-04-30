@@ -169,6 +169,7 @@ def compute_scores(
         forecast_model_id=None,
         dataset='microbial_genus',
         forecast_param=None,
+        load_best=True,
         use_gpu=None,
         nb_cpus=None,
         n_dataset_workers=None,
@@ -177,6 +178,24 @@ def compute_scores(
         seed=333,
         **options
 ):
+    """
+    Compute the anomaly detection scores
+
+    args:
+        forecast_saved_models_path: str, path to the saved models
+        forecast_model_id: int, id of the model
+        dataset: str, name of the dataset
+        forecast_param: dict, parameters of the forecast model (NJODE)
+        load_best: bool, whether to load the best model instance or the last one
+            (during training)
+        use_gpu: bool, whether to use GPU
+        nb_cpus: int, number of CPUs to use
+        n_dataset_workers: int, number of dataset workers
+        nb_MC_samples: int, number of MC samples for approximating the pvalue
+            when using the dirichlet distribution
+        verbose: bool, whether to print the progress
+        seed: int, seed for reproducibility
+    """
     global USE_GPU, N_CPUS, N_DATASET_WORKERS
     if use_gpu is not None:
         USE_GPU = use_gpu
@@ -235,7 +254,8 @@ def compute_scores(
     forecast_model_path_save_last = '{}last_checkpoint/'.format(
         forecast_model_path)
     ad_path = '{}anomaly_detection/'.format(forecast_model_path)
-    scores_path = '{}scores/'.format(ad_path)
+    which = 'best' if load_best else 'last'
+    scores_path = '{}scores_{}/'.format(ad_path, which)
     makedirs(scores_path)
 
     # get params_dict
@@ -250,7 +270,9 @@ def compute_scores(
 
     forecast_optimizer = torch.optim.Adam(forecast_model.parameters(), lr=0.001,
                                           weight_decay=0.0005)
-    models.get_ckpt_model(forecast_model_path_save_last, forecast_model,
+    path = forecast_model_path_save_best if load_best else \
+        forecast_model_path_save_last
+    models.get_ckpt_model(path, forecast_model,
                           forecast_optimizer, device)
     forecast_model.eval()
     del forecast_optimizer
@@ -262,23 +284,14 @@ def compute_scores(
         dataset=data_val, collate_fn=collate_fn, shuffle=False,
         batch_size=len(val_idx))
 
-    # eval_plot_path = ad_path + 'plots/'
-    # eval_metrics_path = ad_path + 'metrics/'
-    # if not os.path.exists(eval_plot_path):
-    #     os.mkdir(eval_plot_path)
-    # if not os.path.exists(eval_metrics_path):
-    #     os.mkdir(eval_metrics_path)
-
     ad_module = Simple_AD_module(
         output_vars=output_vars,
         nb_MC_samples=nb_MC_samples,
         distribution_class="dirichlet",
         replace_values=None,
         class_thres=class_thres,
+        seed=seed,
         verbose=verbose)
-
-    if seed is not None:
-        np.random.seed(seed)
 
     # train data
     cond_moments, observed_dates, true_X, abx_labels = get_model_predictions(
@@ -301,16 +314,26 @@ def compute_scores(
     del cond_moments, observed_dates, true_X, abx_labels, ad_scores
 
 
-def evaluate_scores(forecast_saved_models_path, forecast_model_id=None,
-                    validation=False, **options):
+def evaluate_scores(
+        forecast_saved_models_path, forecast_model_id=None, load_best=True,
+        validation=False, **options):
     """
     Evaluate the anomaly detection scores
+
+    args:
+        forecast_saved_models_path: str, path to the saved models
+        forecast_model_id: int, id of the model
+        load_best: bool, whether to load the best model instance or the last one
+            (during training)
+        validation: bool, whether to evaluate the validation (if True) set or
+            the training set
     """
     forecast_model_path = '{}id-{}/'.format(
         forecast_saved_models_path, forecast_model_id)
     ad_path = '{}anomaly_detection/'.format(forecast_model_path)
-    scores_path = '{}scores/'.format(ad_path)
-    evaluation_path = '{}evaluation/'.format(ad_path)
+    which = 'best' if load_best else 'last'
+    scores_path = '{}scores_{}/'.format(ad_path, which)
+    evaluation_path = '{}evaluation_{}/'.format(ad_path, which)
     makedirs(evaluation_path)
 
     with open('{}train_ad_scores.npy'.format(scores_path), 'rb') as f:
@@ -347,6 +370,9 @@ def evaluate_scores(forecast_saved_models_path, forecast_model_id=None,
     plt.tight_layout()
 
     plt.savefig(evaluation_path+'hist_'+postfix+'.pdf', format='pdf')
+
+    # print(np.all(np.isnan(abx_samples), axis=1).sum())
+    # print(np.all(np.isnan(non_abx_samples), axis=1).sum())
 
 
 

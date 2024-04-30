@@ -38,11 +38,13 @@ def gaussian_scoring_2_moments(obs,
 
 
 def dirichlet_scoring(
-        obs, cond_exp, cond_var, nb_samples=10**5,
+        obs, cond_exp, cond_var, observed_dates,
+        nb_samples=10**5,
         min_var_val=1e-5, replace_var=None, verbose=False):
     # obs : [nb_steps, nb_samples, dimension]
-    # cond_exp : [nb_steps, nb_samples, dimension]
-    # cond_var : [nb_steps, nb_samples, dimension]
+    # cond_exp : [nb_steps, nb_samples, dimension, 1]
+    # cond_var : [nb_steps, nb_samples, dimension, 1]
+    # observed_dates : [nb_steps, nb_samples]
 
     assert cond_exp.shape == cond_var.shape
     assert len(cond_exp.shape) == 3
@@ -60,31 +62,56 @@ def dirichlet_scoring(
             cond_var = np.maximum(min_var_val, cond_var)
 
     scores = np.zeros((time_steps, samples,))
+    scores[~observed_dates] = np.nan
     for t in tqdm.tqdm(range(time_steps), disable=not verbose):
         for s in range(samples):
-            E = np.maximum(cond_exp[t,s], 1e-10)  # only positive values
-            E = E/np.sum(E)  # normalize s.t. sum = 1
-            # TODO: here we could try to find the ind with the best variance prediction
-            factors = (E*(1-E))/cond_var[t,s] - 1
-            factor = np.median(factors[factors > 0])
-            # use_ind = 0
-            # factor = -1
-            # while factor <= 0:
-            #     use_ind += 1
-            #     factor = (E[use_ind]*(1-E[use_ind]))/cond_var[t,s,use_ind] - 1
-            #     if use_ind == dimension-1:
-            #         factor = 1
-            #         break
-            alpha = E * factor
-            diri = stat.dirichlet(alpha)
-            rvs = diri.rvs(size=nb_samples)
-            pdfs = np.array([diri.logpdf(r) for r in rvs])
-            obs_pdf = diri.logpdf(obs[t,s])
-            pval = np.mean(obs_pdf <= pdfs)
-            scores[t,s] = -np.log(pval + 1e-10)
+            if observed_dates[t,s]:
+                E = np.maximum(cond_exp[t,s], 1e-10)  # only positive values
+                E = E/np.sum(E)  # normalize s.t. sum = 1
+                # TODO: here we could try to find the ind with the best variance prediction
+                factors = (E*(1-E))/cond_var[t,s] - 1
+                factor = np.median(factors[(factors > 0) & (cond_var[t,s] > 0)])
+                # use_ind = 0
+                # factor = -1
+                # while factor <= 0:
+                #     use_ind += 1
+                #     factor = (E[use_ind]*(1-E[use_ind]))/cond_var[t,s,use_ind] - 1
+                #     if use_ind == dimension-1:
+                #         factor = 1
+                #         break
+                alpha = E * factor
+                diri = stat.dirichlet(alpha)
+                rvs = diri.rvs(size=nb_samples)
+                pdfs = np.array(
+                    [diri.logpdf(check_dirichlet_input(r)) for r in rvs])
+                obs_pdf = diri.logpdf(check_dirichlet_input(obs[t,s]))
+                pval = np.mean(obs_pdf <= pdfs)
+                scores[t,s] = -np.log(pval + 1e-10)
 
     # scores : [nb_steps, nb_samples]
     return scores
+
+
+def check_dirichlet_input(sample):
+    """
+    check if the input sample is a valid dirichlet distribution
+    :param sample: np.array, the sample
+    """
+    if np.any(sample <= 0):
+        # print(np.min(sample))
+        sample = np.maximum(sample, 1e-14)
+    if np.sum(sample) != 1:
+        # to avoid rounding errors, which can break the code
+        sample = sample.astype(np.double)
+        sample = sample/np.sum(sample)
+    s = np.sum(sample)
+    if s > 1:
+        d = s - 1.
+        sample[np.argmax(sample)] -= d
+    if s < 1:
+        d = 1. - s
+        sample[np.argmax(sample)] += d
+    return sample
 
 
 def save_checkpoint(model, optimizer, path, epoch):
@@ -536,7 +563,7 @@ class AD_module(torch.nn.Module): # AD_module_1D, AD_module_ND
 
 '''
 
-class Simple_AD_module(torch.nn.Module): # AD_module_1D, AD_module_ND
+class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
     def __init__(self, 
                  output_vars,
                  scoring_metric = 'p-value',
@@ -545,13 +572,16 @@ class Simple_AD_module(torch.nn.Module): # AD_module_1D, AD_module_ND
                  activation_fct = 'sigmoid',
                  replace_values = None,
                  class_thres = 0.5,
-                 ):
+                 nb_MC_samples = 10**5,
+                 verbose=False,):
         super(Simple_AD_module, self).__init__()
         self.output_vars = output_vars
         self.scoring_metric = scoring_metric
         self.distribution_class = distribution_class
         self.replace_values = replace_values
         self.threshold = class_thres
+        self.nb_samples = nb_MC_samples
+        self.verbose = verbose
 
         self.weight = score_factor
 
@@ -560,38 +590,49 @@ class Simple_AD_module(torch.nn.Module): # AD_module_1D, AD_module_ND
         elif activation_fct == 'id':
             self.act = torch.nn.Identity()
 
-    def get_individual_scores(self, cond_moments, obs):
-        if self.distribution_class == 'gaussian':
-            assert(('id' in self.output_vars) and (('var' in self.output_vars) or ('power-2' in self.output_vars)))
-            which = np.argmax(np.array(self.output_vars) == 'id')
-            cond_exp = np.expand_dims(cond_moments[:,:,:,which].cpu().numpy(),3)
-            if 'var' in self.output_vars:
-                which = np.argmax(np.array(self.output_vars) == 'var')
-                cond_var = np.expand_dims(cond_moments[:,:,:,which].cpu().numpy(),3)
-            elif 'power-2' in self.output_vars:
-                which = np.argmax(np.array(self.output_vars) == 'power-2')
-                cond_exp_2 = np.expand_dims(cond_moments[:,:,:,which].cpu().numpy(),3)
-                cond_var = cond_exp_2 - cond_exp ** 2
-            scores_valid = gaussian_scoring_2_moments(obs=obs.numpy(), cond_exp=cond_exp, cond_var=cond_var, 
-                                                      scoring_metric=self.scoring_metric, replace_var=None)
-            scores_valid = torch.tensor(scores_valid, dtype=torch.float32)
+    def get_individual_scores(self, cond_moments, obs, observed_dates=None):
 
+        assert(('id' in self.output_vars) and (
+                ('var' in self.output_vars) or ('power-2' in self.output_vars)))
+        which = np.argmax(np.array(self.output_vars) == 'id')
+        cond_exp = cond_moments[:,:,:,which]
+        if 'var' in self.output_vars:
+            which = np.argmax(np.array(self.output_vars) == 'var')
+            cond_var = cond_moments[:, :, :, which]
+        elif 'power-2' in self.output_vars:
+            which = np.argmax(np.array(self.output_vars) == 'power-2')
+            cond_exp_2 = cond_moments[:,:,:,which]
+            cond_var = cond_exp_2 - cond_exp ** 2
+
+        if self.distribution_class == 'gaussian':
+            cond_exp = np.expand_dims(cond_exp, 3)
+            cond_var = np.expand_dims(cond_var, 3)
+            # scores : [nb_steps, nb_samples, dimension]
+            scores_valid = gaussian_scoring_2_moments(
+                obs=obs, cond_exp=cond_exp, cond_var=cond_var,
+                scoring_metric=self.scoring_metric, replace_var=None)
+        elif self.distribution_class == 'dirichlet':
+            # scores : [nb_steps, nb_samples]
+            scores_valid = dirichlet_scoring(
+                obs=obs, cond_exp=cond_exp, cond_var=cond_var,
+                observed_dates=observed_dates,
+                nb_samples=self.nb_samples, replace_var=None, min_var_val=0.,
+                verbose=self.verbose)
+            scores_valid = scores_valid.transpose(1,0)
         return scores_valid
 
-    def forward(self, obs, cond_moments):
+    def forward(self, obs, cond_moments, observed_dates=None):
         # obs : [nb_steps, nb_samples, dimension]
         # cond_moments : [nb_steps, nb_samples, dimension, nb_moments]
 
-        scores = self.get_individual_scores(cond_moments, obs)
+        scores = self.get_individual_scores(cond_moments, obs, observed_dates)
 
-        # scores = scores.permute(1,2,0,3)
-
-        # scores : [nb_steps, nb_samples, dimension]
+        # scores : [nb_steps, nb_samples, dimension] or [nb_steps, nb_samples]
         return scores
 
-    def get_predicted_label(self, obs, cond_moments):
+    def get_predicted_label(self, obs, cond_moments, observed_dates=None):
         
-        scores = self(obs, cond_moments)
+        scores = self(obs, cond_moments, observed_dates)
 
         # scores = scores.detach().cpu().numpy()
         labels = torch.zeros_like(scores)

@@ -163,7 +163,15 @@ def train(
             'plot_obs_prob' bool, whether to plot the observation probability
             'which_loss'    'standard' or 'easy', used by models.NJODE
             'residual_enc_dec'  bool, whether resNNs are used for encoder and
-                            readout NN, used by models.NJODE, default True
+                            readout NN, used by models.NJODE. the provided value
+                            is overwritten by 'residual_enc' & 'residual_dec' if
+                            they are provided. default: False
+            'residual_enc'  bool, whether resNNs are used for encoder NN,
+                            used by models.NJODE.
+                            default: True if use_rnn=False, else: False (this is
+                            for backward compatibility)
+            'residual_dec'  bool, whether resNNs are used for readout NN,
+                            used by models.NJODE. default: True
             'use_y_for_ode' bool, whether to use y (after jump) or x_impute for
                             the ODE as input, only in masked case, default: True
             'coord_wise_tau'    bool, whether to use a coordinate wise tau
@@ -719,7 +727,7 @@ def train(
                         hT, c_loss = model(
                             times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx, delta_t=None, T=T, start_X=start_X,
                             n_obs_ot=n_obs_ot, return_path=False, get_loss=True, M=M,
-                            start_M=start_M, which_loss=which_eval_loss) # which_loss='standard'
+                            start_M=start_M, which_loss=which_eval_loss)
                     elif options['other_model'] == "GRU_ODE_Bayes":
                         if M is None:
                             M = torch.ones_like(X)
@@ -739,7 +747,7 @@ def train(
                             hT_corrected, c_loss_corrected = model(
                                 times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx, delta_t=None, T=T, start_X=start_X,
                                 n_obs_ot=n_obs_ot, return_path=False, get_loss=True, M=M,
-                                start_M=start_M, which_loss='standard',
+                                start_M=start_M, which_loss=which_eval_loss,
                                 dim_to=dimension)
                         loss_val_corrected += c_loss_corrected.detach().cpu().numpy()
 

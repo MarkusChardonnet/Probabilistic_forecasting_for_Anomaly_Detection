@@ -45,6 +45,9 @@ flags.DEFINE_string("anomaly_data_dict", None,
                     "blabla")
 flags.DEFINE_string("ad_params", None,
                     "blabla")
+flags.DEFINE_bool("evaluate", False, "whether to evaluate the model")
+flags.DEFINE_bool("compute_scores", False, "whether to compute the scores")
+flags.DEFINE_bool("evaluate_scores", False, "whether to evaluate the scores")
 
 flags.DEFINE_bool("USE_GPU", False, "whether to use GPU for training")
 flags.DEFINE_bool("ANOMALY_DETECTION", False,
@@ -113,34 +116,274 @@ def load_AD_dataset(stock_model_name="BlackScholes", time_id=None):
 
     return stock_paths, observed_dates, nb_obs, ad_labels, hyperparam_dict
 
-"""
-class IrregularADDataset(Dataset):
-    def __init__(self, model_name, time_id=None, idx=None):
-        stock_paths, observed_dates, nb_obs, ad_labels, hyperparam_dict = load_AD_dataset(
-            stock_model_name=model_name, time_id=time_id)
-        if idx is None:
-            idx = np.arange(hyperparam_dict['nb_paths'])
-        self.metadata = hyperparam_dict
-        self.stock_paths = stock_paths[idx]
-        self.observed_dates = observed_dates[idx]
-        self.nb_obs = nb_obs[idx]
-        self.ad_labels = ad_labels[idx]
 
-    def __len__(self):
-        return len(self.nb_obs)
+def get_model_predictions(
+        dl, device, forecast_model, output_vars, T, delta_t, dimension):
+    """
+    Get the NJODE model predictions for the given dataset
+    """
+    b = next(iter(dl))
 
-    def __getitem__(self, idx):
-        if type(idx) == int:
-            idx = [idx]
-        # stock_path dimension: [BATCH_SIZE, DIMENSION, TIME_STEPS]
-        return {"idx": idx, "stock_path": self.stock_paths[idx], 
-                "observed_dates": self.observed_dates[idx], 
-                "nb_obs": self.nb_obs[idx], "ad_labels": self.ad_labels[idx],
-                "dt": self.metadata['dt']}
-"""
+    times = b["times"]
+    time_ptr = b["time_ptr"]
+    X = b["X"].to(device)
+    Z = b["Z"].to(device)
+    S = b["S"].to(device)
+    start_X = b["start_X"].to(device)
+    start_Z = b["start_Z"].to(device)
+    start_S = b["start_S"].to(device)
+    obs_idx = b["obs_idx"]
+    n_obs_ot = b["n_obs_ot"].to(device)
+    observed_dates = np.transpose(b['observed_dates'], (1, 0)).astype(np.bool)
+    path_t_true_X = np.linspace(0., T, int(np.round(T / delta_t)) + 1)
+    true_X = b["true_paths"]
+    abx_labels = b["abx_observed"]
+
+    with torch.no_grad():
+        res = forecast_model.get_pred(
+            times=times, time_ptr=time_ptr, X=torch.cat((X, Z), dim=1),
+            obs_idx=obs_idx, delta_t=None, S=S, start_S=start_S,
+            T=T, start_X=torch.cat((start_X, start_Z), dim=1))
+        path_y_pred = res['pred'].detach().cpu().numpy()
+        path_t_pred = res['pred_t']
+        torch.cuda.empty_cache()
+
+    indices = []
+    for t in path_t_true_X:
+        indices.append(np.argmin(np.abs(path_t_pred - t)))
+    y_preds = path_y_pred[indices]
+
+    nb_steps = path_t_true_X.shape[0]
+    nb_moments = len(output_vars)
+
+    cond_moments = y_preds.reshape(
+        (nb_steps, dl.batch_size, dimension, nb_moments))
+    # cond_moments[0] = np.nan
+    observed_dates[0] = False
+
+    return cond_moments, observed_dates, true_X, abx_labels
+
+
+def compute_scores(
+        forecast_saved_models_path,
+        forecast_model_id=None,
+        dataset='microbial_genus',
+        forecast_param=None,
+        load_best=True,
+        use_gpu=None,
+        nb_cpus=None,
+        n_dataset_workers=None,
+        nb_MC_samples=10**5,
+        verbose=False,
+        seed=333,
+        **options
+):
+    """
+    Compute the anomaly detection scores
+
+    args:
+        forecast_saved_models_path: str, path to the saved models
+        forecast_model_id: int, id of the model
+        dataset: str, name of the dataset
+        forecast_param: dict, parameters of the forecast model (NJODE)
+        load_best: bool, whether to load the best model instance or the last one
+            (during training)
+        use_gpu: bool, whether to use GPU
+        nb_cpus: int, number of CPUs to use
+        n_dataset_workers: int, number of dataset workers
+        nb_MC_samples: int, number of MC samples for approximating the pvalue
+            when using the dirichlet distribution
+        verbose: bool, whether to print the progress
+        seed: int, seed for reproducibility
+    """
+    global USE_GPU, N_CPUS, N_DATASET_WORKERS
+    if use_gpu is not None:
+        USE_GPU = use_gpu
+    if nb_cpus is not None:
+        N_CPUS = nb_cpus
+    if n_dataset_workers is not None:
+        N_DATASET_WORKERS = n_dataset_workers
+
+    if USE_GPU and torch.cuda.is_available():
+        gpu_num = 0
+        device = torch.device("cuda:{}".format(gpu_num))
+        torch.cuda.set_device(gpu_num)
+    else:
+        device = torch.device("cpu")
+
+    # load dataset-metadata
+
+    train_idx = np.load(os.path.join(
+        train_data_path, dataset, "all", 'train_idx.npy'
+    ), allow_pickle=True)
+    val_idx = np.load(os.path.join(
+        train_data_path, dataset, "all", 'val_idx.npy'
+    ), allow_pickle=True)
+
+    data_train = data_utils.MicrobialDataset(
+        dataset_name=dataset, idx=train_idx)
+    data_val = data_utils.MicrobialDataset(
+        dataset_name=dataset, idx=val_idx)
+
+    dataset_metadata = data_train.get_metadata()
+    dimension = dataset_metadata['dimension']
+    T = dataset_metadata['maturity']
+    delta_t = dataset_metadata['dt']  # copy metadata
+
+    # get additional plotting information
+    plot_forecast_predictions = False
+    if 'plot_forecast_predictions' in options:
+        plot_forecast_predictions = options['plot_forecast_predictions']
+    std_factor = 1  # factor with which the std is multiplied
+    if 'plot_variance' in options:
+        plot_variance = options['plot_variance']
+    if 'std_factor' in options:
+        std_factor = options['std_factor']
+    class_thres = 0.5
+    autom_thres = None
+    if 'class_thres' in options:
+        class_thres = options['class_thres']
+        if 'autom_thres' in options:
+            autom_thres = options['autom_thres']
+
+    # get all needed paths
+    forecast_model_path = '{}id-{}/'.format(
+        forecast_saved_models_path, forecast_model_id)
+    forecast_model_path_save_best = '{}best_checkpoint/'.format(
+        forecast_model_path)
+    forecast_model_path_save_last = '{}last_checkpoint/'.format(
+        forecast_model_path)
+    ad_path = '{}anomaly_detection/'.format(forecast_model_path)
+    which = 'best' if load_best else 'last'
+    scores_path = '{}scores_{}/'.format(ad_path, which)
+    makedirs(scores_path)
+
+    # get params_dict
+    forecast_params_dict, collate_fn = get_forecast_model_param_dict(
+        **forecast_param
+    )
+    output_vars = forecast_params_dict['output_vars']
+
+    forecast_model = models.NJODE(
+        **forecast_params_dict)  # get NJODE model class from
+    forecast_model.to(device)
+
+    forecast_optimizer = torch.optim.Adam(forecast_model.parameters(), lr=0.001,
+                                          weight_decay=0.0005)
+    path = forecast_model_path_save_best if load_best else \
+        forecast_model_path_save_last
+    models.get_ckpt_model(path, forecast_model,
+                          forecast_optimizer, device)
+    forecast_model.eval()
+    del forecast_optimizer
+
+    dl_train = DataLoader(
+        dataset=data_train, collate_fn=collate_fn, shuffle=False,
+        batch_size=len(train_idx))
+    dl_val = DataLoader(
+        dataset=data_val, collate_fn=collate_fn, shuffle=False,
+        batch_size=len(val_idx))
+
+    ad_module = Simple_AD_module(
+        output_vars=output_vars,
+        nb_MC_samples=nb_MC_samples,
+        distribution_class="dirichlet",
+        replace_values=None,
+        class_thres=class_thres,
+        seed=seed,
+        verbose=verbose)
+
+    # train data
+    cond_moments, observed_dates, true_X, abx_labels = get_model_predictions(
+        dl_train, device, forecast_model, output_vars, T, delta_t, dimension)
+    obs = true_X.transpose(2, 0, 1)
+    ad_scores = ad_module(obs, cond_moments, observed_dates)
+    with open('{}train_ad_scores.npy'.format(scores_path), 'wb') as f:
+        np.save(f, ad_scores)
+        np.save(f, abx_labels)
+    del cond_moments, observed_dates, true_X, abx_labels, ad_scores
+
+    # test data
+    cond_moments, observed_dates, true_X, abx_labels = get_model_predictions(
+        dl_val, device, forecast_model, output_vars, T, delta_t, dimension)
+    obs = true_X.transpose(2, 0, 1)
+    ad_scores = ad_module(obs, cond_moments, observed_dates)
+    with open('{}val_ad_scores.npy'.format(scores_path), 'wb') as f:
+        np.save(f, ad_scores)
+        np.save(f, abx_labels)
+    del cond_moments, observed_dates, true_X, abx_labels, ad_scores
+
+
+def evaluate_scores(
+        forecast_saved_models_path, forecast_model_id=None, load_best=True,
+        validation=False, **options):
+    """
+    Evaluate the anomaly detection scores
+
+    args:
+        forecast_saved_models_path: str, path to the saved models
+        forecast_model_id: int, id of the model
+        load_best: bool, whether to load the best model instance or the last one
+            (during training)
+        validation: bool, whether to evaluate the validation (if True) set or
+            the training set
+    """
+    forecast_model_path = '{}id-{}/'.format(
+        forecast_saved_models_path, forecast_model_id)
+    ad_path = '{}anomaly_detection/'.format(forecast_model_path)
+    which = 'best' if load_best else 'last'
+    scores_path = '{}scores_{}/'.format(ad_path, which)
+    evaluation_path = '{}evaluation_{}/'.format(ad_path, which)
+    makedirs(evaluation_path)
+
+    with open('{}train_ad_scores.npy'.format(scores_path), 'rb') as f:
+        train_ad_scores = np.load(f)
+        train_abx_labels = np.load(f)
+    with open('{}val_ad_scores.npy'.format(scores_path), 'rb') as f:
+        val_ad_scores = np.load(f)
+        val_abx_labels = np.load(f)
+
+    if not validation:
+        abx_samples = train_ad_scores[train_abx_labels == 1]
+        non_abx_samples = train_ad_scores[train_abx_labels == 0]
+        postfix = 'train'
+    else:
+        abx_samples = val_ad_scores[val_abx_labels == 1]
+        non_abx_samples = val_ad_scores[val_abx_labels == 0]
+        postfix = 'val'
+
+    fig, ax = plt.subplots(4, 2, figsize=(6*2, 4*4))
+    ax[0, 0].hist(np.nanmin(abx_samples, axis=1), label='abx min', bins=50)
+    ax[0, 1].hist(np.nanmin(non_abx_samples, axis=1), label='non-abx min', bins=50)
+    ax[1, 0].hist(np.nanmax(abx_samples, axis=1), label='abx max', bins=50)
+    ax[1, 1].hist(np.nanmax(non_abx_samples, axis=1), label='non-abx max', bins=50)
+    ax[2, 0].hist(np.nanmean(abx_samples, axis=1), label='abx mean', bins=50)
+    ax[2, 1].hist(np.nanmean(non_abx_samples, axis=1), label='non-abx mean', bins=50)
+    ax[3, 0].hist(np.nanmedian(abx_samples, axis=1), label='abx median', bins=50)
+    ax[3, 1].hist(np.nanmedian(non_abx_samples, axis=1), label='non-abx median', bins=50)
+    ax[0, 0].set_title("abx")
+    ax[0, 1].set_title("non-abx")
+    ax[0, 0].set_ylabel("min")
+    ax[1, 0].set_ylabel("max")
+    ax[2, 0].set_ylabel("mean")
+    ax[3, 0].set_ylabel("median")
+    plt.tight_layout()
+
+    plt.savefig(evaluation_path+'hist_'+postfix+'.pdf', format='pdf')
+
+    # print(np.all(np.isnan(abx_samples), axis=1).sum())
+    # print(np.all(np.isnan(non_abx_samples), axis=1).sum())
+
+
+
+
+    # train_score = metrics.roc_auc_score(train_abx_labels, train_ad_scores)
+    # val_score = metrics.roc_auc_score(val_abx_labels, val_ad_scores)
+
+
+
 
 def evaluate(
-        
         saved_models_path,
         forecast_saved_models_path,
         forecast_model_id=None, 
@@ -410,7 +653,8 @@ def get_forecast_model_param_dict(
     dataset_metadata = data_train.get_metadata()
     input_size = dataset_metadata['dimension']
     dimension = dataset_metadata['dimension']
-    dynamic_cov_dim = dataset_metadata['dynamic_cov_dim']
+    dimension_dyn_feat = dataset_metadata['dimension_dyn_feat']
+    dimension_sig_feat = dataset_metadata['dimension_sig_feat']
     output_size = input_size
     T = dataset_metadata['maturity']
     delta_t = dataset_metadata['dt']  # copy metadata
@@ -424,7 +668,7 @@ def get_forecast_model_param_dict(
         model_delta_t = delta_t
     if 'scale_dt' in options:
         if options['scale_dt'] == 'automatic':
-            options['scale_dt'] = 1./delta_t
+            options['scale_dt'] = 1. / delta_t
             if 'solver_delta_t_factor' in options:
                 options['scale_dt'] *= options['solver_delta_t_factor']
     weight_evolve = None
@@ -435,6 +679,9 @@ def get_forecast_model_param_dict(
             if weight_evolve_type == 'linear':
                 if options['weight_evolve']['reach'] == None:
                     options['weight_evolve']['reach'] = epochs
+    zero_weight_init = False
+    if 'zero_weight_init' in options:
+        zero_weight_init = options['zero_weight_init']
 
     # specify the input and output variables of the model, as function of X
     input_vars = ['id']
@@ -459,7 +706,7 @@ def get_forecast_model_param_dict(
         #mult += nb_pred_add
         output_size += nb_pred_add * dimension
         output_vars += add_pred
-    input_size += dynamic_cov_dim
+    input_size += dimension_dyn_feat
     
     opt_eval_loss = np.nan
     params_dict = {  # create a dictionary of the wanted parameters
@@ -469,7 +716,7 @@ def get_forecast_model_param_dict(
         'use_rnn': use_rnn,
         'dropout_rate': dropout_rate, 'batch_size': batch_size,
         'solver': solver, 'dataset': dataset, 'dataset_id': dataset_id,
-        'seed': seed,
+        'seed': seed, 'sigf_size': dimension_sig_feat,
         'weight': weight, 'weight_decay': weight_decay,
         'optimal_eval_loss': opt_eval_loss, 
         't_period': t_period, 'output_vars': output_vars, 'delta_t': delta_t,
@@ -667,16 +914,17 @@ def main(arg):
             forecast_model_ids = eval("config."+FLAGS.forecast_model_ids)
         except Exception:
             forecast_model_ids = eval(FLAGS.forecast_model_ids)
+        print("evaluate forecast model ids: ", forecast_model_ids)
     if FLAGS.ad_params:
         ad_params = eval("config."+FLAGS.ad_params)
-    #get_training_overview_dict = None
-    #if FLAGS.get_overview:
-    #    get_training_overview_dict = eval("config."+FLAGS.get_overview)
+    if FLAGS.forecast_saved_models_path:
+        try:
+            forecast_saved_models_path = eval(
+                "config."+FLAGS.forecast_saved_models_path)
+        except Exception:
+            forecast_saved_models_path = FLAGS.forecast_saved_models_path
 
     if forecast_model_ids is not None:
-        forecast_params = forecast_params_list
-
-        forecast_saved_models_path = FLAGS.forecast_saved_models_path
         forecast_model_overview_file_name = '{}model_overview.csv'.format(forecast_saved_models_path)
         
         df_overview = pd.read_csv(forecast_model_overview_file_name, index_col=0)
@@ -705,10 +953,28 @@ def main(arg):
                     forecast_param["dataset"] = data_dict["model_name"]
             # evaluate(anomaly_data_dict=anomaly_data_dict, **forecast_param)
             for ad_param in ad_params:
-                evaluate(forecast_param=forecast_param, forecast_model_id=forecast_model_ids[i], 
-                         forecast_saved_models_path=forecast_saved_models_path,
-                         n_dataset_workers=FLAGS.N_DATASET_WORKERS, use_gpu=FLAGS.USE_GPU, nb_cpus=FLAGS.NB_CPUS,
-                         **ad_param)
+                print("AD param: ", ad_param)
+                if FLAGS.evaluate:
+                    evaluate(
+                        forecast_param=forecast_param,
+                        forecast_model_id=forecast_model_ids[i],
+                        forecast_saved_models_path=forecast_saved_models_path,
+                        n_dataset_workers=FLAGS.N_DATASET_WORKERS,
+                        use_gpu=FLAGS.USE_GPU, nb_cpus=FLAGS.NB_CPUS,
+                        **ad_param)
+                if FLAGS.compute_scores:
+                    compute_scores(
+                        forecast_saved_models_path=forecast_saved_models_path,
+                        forecast_model_id=forecast_model_ids[i],
+                        forecast_param=forecast_param,
+                        n_dataset_workers=FLAGS.N_DATASET_WORKERS,
+                        use_gpu=FLAGS.USE_GPU, nb_cpus=FLAGS.NB_CPUS,
+                        **ad_param)
+                if FLAGS.evaluate_scores:
+                    evaluate_scores(
+                        forecast_saved_models_path=forecast_saved_models_path,
+                        forecast_model_id=forecast_model_ids[i],
+                        **ad_param)
 
 
 if __name__ == '__main__':

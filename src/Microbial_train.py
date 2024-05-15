@@ -21,8 +21,10 @@ import socket
 import matplotlib  # plots
 import matplotlib.colors
 from torch.backends import cudnn
+import copy
 import gc
 from torch.optim.lr_scheduler import CyclicLR
+import glob
 
 from configs import config
 import models
@@ -363,10 +365,11 @@ def train(
     if 'evaluate' in options and options['evaluate']:
         if 'eval_metrics' in options:
             eval_metrics = options['eval_metrics']
-    if 'which_val_loss' in options:
-        which_val_loss = options['which_val_loss']
+    if 'which_eval_loss' in options:
+        which_eval_loss = options['which_eval_loss']
     else:
-        which_val_loss = 'standard'
+        which_eval_loss = 'standard'
+    initial_print += "\neval loss: {}\n".format(which_eval_loss)
 
     # get data-loader for training
     dl = DataLoader(  # class to iterate over training data
@@ -490,9 +493,9 @@ def train(
 
     # load saved model if wanted/possible
     best_val_loss = np.infty
-    metr_columns = METR_COLUMNS
+    metr_columns = copy.deepcopy(METR_COLUMNS)
     val_loss_weights = 1.
-    if which_val_loss == 'val_variance':
+    if which_eval_loss == 'val_variance':
         val_loss_names = ['val_loss_{}'.format(i+1) for i in range(4)]
         metr_columns += val_loss_names
         if 'val_loss_weights' in options:
@@ -537,7 +540,7 @@ def train(
         model.epoch -= 1
         initial_print += '\nplotting ...'
         plot_filename = 'demo-plot_epoch-{}'.format(model.epoch)
-        plot_filename = plot_filename + '_path-{}.png'
+        plot_filename = plot_filename + '_path-{}.pdf'
         plot_one_path_with_pred(
             device, model, batch, delta_t, T,
             path_to_plot=paths_to_plot, save_path=plot_save_path,
@@ -551,8 +554,9 @@ def train(
             files_to_send = []
             caption = "{} - id={}".format(model_name, model_id)
             for i in paths_to_plot:
-                files_to_send.append(
-                    os.path.join(plot_save_path, plot_filename.format(i)))
+                files_to_send.append(sorted(glob.glob(
+                    os.path.join(plot_save_path, plot_filename.format(
+                        "{}*".format(i)))))[0])
             SBM.send_notification(
                 text='finished plot-only: {}, id={}\n\n{}'.format(
                     model_name, model_id, desc),
@@ -692,12 +696,12 @@ def train(
                             hT, c_loss = model(
                                 times=times, time_ptr=time_ptr, X=torch.cat((X,Z),dim=1), obs_idx=obs_idx, delta_t=None, T=T, 
                                 start_X=torch.cat((start_X,start_Z),dim=1), n_obs_ot=n_obs_ot, return_path=False, get_loss=True,
-                                S=S, start_S=start_S, which_loss=which_val_loss) # which_loss='standard'
+                                S=S, start_S=start_S, which_loss=which_eval_loss) # which_loss='standard'
                         else:
                             hT, c_loss = model(
                                 times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx, delta_t=None, T=T, start_X=start_X,
                                 n_obs_ot=n_obs_ot, return_path=False, get_loss=True,
-                                S=S, start_S=start_S, which_loss=which_val_loss) # which_loss='standard'
+                                S=S, start_S=start_S, which_loss=which_eval_loss) # which_loss='standard'
                     else:
                         raise ValueError
                     loss_vals += c_loss.detach().cpu().numpy()
@@ -707,11 +711,13 @@ def train(
                         if 'add_dynamic_cov' in options and options['add_dynamic_cov']:
                             hT, c2_loss = model(
                                 times=times, time_ptr=time_ptr, X=torch.cat((X,Z),dim=1), obs_idx=obs_idx, delta_t=None, T=T, 
-                                S=S, start_S=start_S, start_X=torch.cat((start_X,start_Z),dim=1), n_obs_ot=n_obs_ot, return_path=False, get_loss=True)
+                                S=S, start_S=start_S, start_X=torch.cat((start_X,start_Z),dim=1),
+                                n_obs_ot=n_obs_ot, return_path=False, get_loss=True,)
                         else:
                             hT, c2_loss = model(
                                 times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx, delta_t=None, T=T, start_X=start_X,
-                                S=S, start_S=start_S, n_obs_ot=n_obs_ot, return_path=False, get_loss=True)
+                                S=S, start_S=start_S, n_obs_ot=n_obs_ot, return_path=False,
+                                get_loss=True,)
                     else:
                         raise ValueError
                     eval_loss += c2_loss.detach().cpu().numpy()
@@ -721,7 +727,7 @@ def train(
                         if 'add_dynamic_cov' in options and options['add_dynamic_cov']:
                             _eval_msd = model.evaluate(
                                 times=times, time_ptr=time_ptr, X=torch.cat((X,Z),dim=1),
-                                obs_idx=obs_idx, delta_t=delta_t, T=T,
+                                obs_idx=obs_idx, delta_t=delta_t, T=T, S=S, start_S=start_S,
                                 start_X=torch.cat((start_X,start_Z),dim=1), n_obs_ot=n_obs_ot,
                                 return_paths=False, true_paths=true_paths,
                                 true_mask=true_mask, eval_vars=eval_metrics,) # mult=mult)
@@ -729,7 +735,7 @@ def train(
                             _eval_msd = model.evaluate(
                                 times=times, time_ptr=time_ptr, X=X,
                                 obs_idx=obs_idx, delta_t=delta_t, T=T,
-                                start_X=start_X, n_obs_ot=n_obs_ot,
+                                start_X=start_X, n_obs_ot=n_obs_ot, S=S, start_S=start_S,
                                 return_paths=False, true_paths=true_paths,
                                 true_mask=true_mask, eval_vars=eval_metrics,) # mult=mult)
                         eval_msd += _eval_msd
@@ -766,12 +772,12 @@ def train(
                 wandb.log({"epoch": model.epoch, "train_time": train_time, "eval_time": eval_time, "train_loss": train_loss, \
                     "eval_loss": eval_loss})
 
-        # save model
+            # save model
             if plot:
                 batch = next(iter(dl_val))
                 print('plotting ...')
                 plot_filename = 'epoch-{}'.format(model.epoch)
-                plot_filename = plot_filename + '_path-{}.png'
+                plot_filename = plot_filename + '_path-{}.pdf'
                 plot_one_path_with_pred(
                     device=device, model=model, batch=batch,
                     delta_t=delta_t, T=T,
@@ -790,13 +796,13 @@ def train(
                 # model.ode_f.input_features_save_and_reset(os.path.join(plot_save_path, plot_features_filename))
                 if plot_train:
                     batch = next(iter(dl))
-                    plot_filename = 'epoch-{}_train'.format(model.epoch)
-                    plot_filename = plot_filename + '_path-{}.png'
+                    plot_filename1 = 'epoch-{}_train'.format(model.epoch)
+                    plot_filename1 = plot_filename1 + '_path-{}.pdf'
                     plot_one_path_with_pred(
                         device=device, model=model, batch=batch,
                         delta_t=delta_t, T=T,
                         path_to_plot=paths_to_plot, save_path=plot_save_path,
-                        filename=plot_filename, plot_variance=plot_variance,
+                        filename=plot_filename1, plot_variance=plot_variance,
                         plot_moments=plot_moments, output_vars=output_vars,
                         functions=input_vars, std_factor=std_factor,
                         model_name=model_name, save_extras=save_extras,
@@ -805,7 +811,8 @@ def train(
                         dataset_metadata=dataset_metadata,
                         )
                 del batch
-            print('save model ...')
+            print('save model ...', end="")
+            print("mode id:", model_id)
             df_m_app = pd.DataFrame(data=metric_app, columns=metr_columns)
             df_metric = pd.concat([df_metric, df_m_app], ignore_index=True)
             df_metric.to_csv(model_metric_file)
@@ -839,8 +846,14 @@ def train(
         caption = "{} - id={}".format(model_name, model_id)
         if plot:
             for i in paths_to_plot:
-                files_to_send.append(
-                    os.path.join(plot_save_path, plot_filename.format(i)))
+                files_to_send.append(sorted(glob.glob(
+                    os.path.join(plot_save_path, plot_filename.format(
+                        "{}*".format(i)))))[0])
+        if plot_train:
+            for i in paths_to_plot:
+                files_to_send.append(sorted(glob.glob(
+                    os.path.join(plot_save_path, plot_filename1.format(
+                        "{}*".format(i)))))[0])
         SBM.send_notification(
             text='finished training: {}, id={}\n\n{}'.format(
                 model_name, model_id, desc),

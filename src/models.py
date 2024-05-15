@@ -388,6 +388,21 @@ def compute_loss_val_variance(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=
     outer += torch.sum(inner / n_obs_ot, dim=1)
     return outer / batch_size
 
+
+def compute_loss_noisy_obs(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size,
+                           eps=1e-10, weight=0.5, M_obs=None, output_vars=None):
+    """
+    similar to compute_loss, but only using the 2nd term of the original loss
+    function, which enables training with noisy observations
+    """
+    if M_obs is None:
+        M_obs = 1.
+    inner = torch.sum(M_obs * (Y_obs_bj - X_obs) ** 2, dim=1)
+
+    outer = torch.sum(inner / n_obs_ot)
+    return outer / batch_size
+
+
 LOSS_FUN_DICT = {
     # dictionary of used loss functions. Reminder inputs: (X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
     # weight=0.5, M_obs=None, output_vars=None)
@@ -395,6 +410,7 @@ LOSS_FUN_DICT = {
     'easy': compute_loss_2,
     'easy_bis': compute_loss_2_bis,
     'abs': compute_loss_3,
+    'noisy_obs': compute_loss_noisy_obs,
     
     'moment_2': compute_loss_ad,
     'variance': compute_loss_ad_variance,
@@ -648,8 +664,7 @@ class FFNN(torch.nn.Module):
             input_size=in_size, output_size=output_size,
             nn_desc=nn_desc, dropout_rate=dropout_rate, bias=bias)
 
-
-        if residual and not self.recurrent and not self.use_lstm:
+        if residual:
             print('use residual network: input_size={}, output_size={}'.format(
                 input_size, output_size))
             if input_size <= output_size:
@@ -660,27 +675,22 @@ class FFNN(torch.nn.Module):
             self.case = 0
 
     def forward(self, nn_input, mask=None, sig=None, h=None, t=None):
+        identity = None
+        if self.case == 1:
+            identity = torch.zeros((nn_input.shape[0], self.output_size)).to(
+                self.device)
+            identity[:, 0:nn_input.shape[1]] = nn_input
+        elif self.case == 2:
+            identity = nn_input[:, 0:self.output_size]
+
         if self.recurrent or self.use_lstm:
             assert h is not None
             # x = torch.tanh(nn_input)
             x = nn_input
-            if not self.use_lstm:
-                x = torch.cat((x, h), dim=1)
-            if self.input_t:
-                x = torch.cat((x, t), dim=1)
-            if self.masked:
-                assert mask is not None
-                x = torch.cat((x, mask), dim=1)
-            if self.input_sig:
-                assert sig is not None
-                x = torch.cat((x, sig), dim=1)
-            if self.use_lstm:
-                h_, c_ = torch.chunk(h, chunks=2, dim=1)
-                h_, c_ = self.lstm(x.float(), (h_, c_))
-                x = torch.concat((h_, c_), dim=1)
-            return self.ffnn(x.float())
-
-        x = torch.tanh(nn_input)    # maybe not helpful
+        else:
+            x = torch.tanh(nn_input)  # maybe not helpful
+        if self.recurrent and not self.use_lstm:
+            x = torch.cat((x, h), dim=1)
         if self.input_t:
             x = torch.cat((x, t), dim=1)
         if self.masked:
@@ -689,22 +699,22 @@ class FFNN(torch.nn.Module):
         if self.input_sig:
             assert sig is not None
             x = torch.cat((x, sig), dim=1)
+        if self.use_lstm:
+            h_, c_ = torch.chunk(h, chunks=2, dim=1)
+            h_, c_ = self.lstm(x.float(), (h_, c_))
+            x = torch.concat((h_, c_), dim=1)
         out = self.ffnn(x.float())
 
         if self.case == 0:
             pass
-        elif self.case == 1:
-            identity = torch.zeros((nn_input.shape[0], self.output_size)).to(self.device)
-            identity[:, 0:nn_input.shape[1]] = nn_input
-            out = identity + out
-        elif self.case == 2:
-            identity = nn_input[:, 0:self.output_size]
+        else:
             out = identity + out
 
         if self.clamp is not None:
             out = torch.clamp(out, min=-self.clamp, max=self.clamp)
+
         return out
-    
+
     @property
     def device(self):
         device = next(self.parameters()).device
@@ -780,9 +790,22 @@ class NJODE(torch.nn.Module):
         if input_vars is not None:
             self.input_vars = input_vars
 
-        self.residual_enc_dec = True
+        self.residual_enc = True
+        self.residual_dec = True
+        # for backward compatibility, set residual_enc to False as default
+        #   if RNN is used. (before, it was not possible to use residual
+        #   connections with RNNs)
+        if self.use_rnn:
+            self.residual_enc = False
         if 'residual_enc_dec' in options1:
-            self.residual_enc_dec = options1['residual_enc_dec']
+            residual_enc_dec = options1['residual_enc_dec']
+            self.residual_enc = residual_enc_dec
+            self.residual_dec = residual_enc_dec
+        if 'residual_enc' in options1:
+            self.residual_enc = options1['residual_enc']
+        if 'residual_dec' in options1:
+            self.residual_dec = options1['residual_dec']
+            
         self.input_current_t = False
         if 'input_current_t' in options1:
             self.input_current_t = options1['input_current_t']
@@ -851,13 +874,13 @@ class NJODE(torch.nn.Module):
         self.encoder_map = FFNN(
             input_size=input_size, output_size=hidden_size, nn_desc=enc_nn,
             dropout_rate=dropout_rate, bias=bias, recurrent=self.use_rnn,
-            masked=self.masked, residual=self.residual_enc_dec,
+            masked=self.masked, residual=self.residual_enc,
             input_sig=self.input_sig, sig_depth=self.sig_depth,
             input_t=self.enc_input_t, t_size=t_size)
         self.readout_map = FFNN(
             input_size=hidden_size, output_size=output_size, nn_desc=readout_nn,
             dropout_rate=dropout_rate, bias=bias,
-            residual=self.residual_enc_dec, clamp=self.clamp)
+            residual=self.residual_dec, clamp=self.clamp)
         
         if 'add_readout_activation' in options1 and output_vars is not None:
             self.add_readout_act = True
@@ -1526,7 +1549,8 @@ class NJODE(torch.nn.Module):
         return device
 
     def evaluate(self, times, time_ptr, X, obs_idx, delta_t, T, start_X,
-                 n_obs_ot, stockmodel=None, cond_exp_fun_kwargs=None,
+                 n_obs_ot, S=None, start_S=None,
+                 stockmodel=None, cond_exp_fun_kwargs=None,
                  diff_fun=lambda x, y: np.nanmean((x - y) ** 2),
                  diff_fun_std=lambda x, y: np.nanstd((x - y) ** 2),
                  return_paths=False, M=None, true_paths=None, start_M=None,
@@ -1562,7 +1586,8 @@ class NJODE(torch.nn.Module):
         dim = round(start_X.shape[1]/len(self.input_vars))
 
         _, _, path_t, path_h, path_y = self.forward(
-            times, time_ptr, X, obs_idx, delta_t, T, start_X, None,
+            times, time_ptr, X, obs_idx, delta_t, T, start_X,
+            S, start_S, n_obs_ot,
             return_path=True, get_loss=False, until_T=True, M=M,
             start_M=start_M)
 
@@ -1591,7 +1616,7 @@ class NJODE(torch.nn.Module):
             which_true = np.argmax(np.array(self.input_vars) == 'id')
             which_pred = np.argmax(np.array(self.output_vars) == 'id')
             true_path_y_id = true_path_y[:,:,dim*which_true:dim*(which_true+1)]
-            path_y_id = path_y[:,:,dim*which_true:dim*(which_true+1)].detach().cpu().numpy()
+            path_y_id = path_y[:,:,dim*which_pred:dim*(which_pred+1)].detach().cpu().numpy()
             if path_y_id.shape == true_path_y_id.shape:
                 which = np.argmax(np.array(eval_vars) == 'exp')
                 #eval_loss['exp_mean'] = diff_fun(path_y_id, true_path_y_id)

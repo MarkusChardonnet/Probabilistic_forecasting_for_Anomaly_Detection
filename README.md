@@ -74,7 +74,7 @@ Important flags:
 
 Important flags:
 
-- **ad_params**: name of the anomaly deteaction params list (defined in config.py)
+- **ad_params**: name of the anomaly detection params list (defined in config.py)
 - **forecast_saved_models_path**: path where the forecast models are saved
 - **forecast_model_ids**: List of forecast model ids to run
 
@@ -89,3 +89,27 @@ Important flags:
     cd src
     python run.py --forecast_model_ids=[0] --forecast_saved_models_path=../data/saved_models_microbial_genus_base/ --ad_params=param_dict_AD_microbial_genus
     ```
+
+
+
+## Training commands (Florian)
+#### Generate Dataset:
+```shell
+python make_microbial_dataset.py --dataset_config=config_otu_sig_highab
+```
+
+#### Training PD-NJODE:
+```shell
+python run.py --params=param_list_microbial_otu2 --NB_JOBS=64 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_otu2
+python run.py --plot_paths=plot_paths_microbial_otu2
+```
+
+```shell
+python run.py --params=param_list_microbial_otu3 --NB_JOBS=64 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_otu3
+```
+
+#### Compute Anomaly Detection Scores:
+```shell
+python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_otu3_ids --ad_params=param_list_AD_microbial_otu --forecast_saved_models_path=AD_microbial_otu3 --compute_scores=True
+python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_otu3_ids --ad_params=param_list_AD_microbial_otu --forecast_saved_models_path=AD_microbial_otu3 --evaluate_scores=True
+```

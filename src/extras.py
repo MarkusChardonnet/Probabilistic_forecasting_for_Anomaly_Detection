@@ -512,7 +512,7 @@ def plot_loss_and_metric(
                 nr = np.arange(from_epoch, len(df.index))
                 df = df.loc[nr]
             t = df[time_col]
-            print(model_names[m])
+            #print(model_names[m])
             axes.plot(t, df[col].values, color=colors[m], label=model_names[m])
 
         save_path = os.path.join(

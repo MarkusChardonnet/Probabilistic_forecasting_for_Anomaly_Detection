@@ -283,12 +283,17 @@ def compute_scores(
     dl_val = DataLoader(
         dataset=data_val, collate_fn=collate_fn, shuffle=False,
         batch_size=len(val_idx))
+    
+    cond_moments, observed_dates, true_X, abx_labels = get_model_predictions(
+        dl_train, device, forecast_model, output_vars, T, delta_t, dimension)
+    replace_values = get_replace_forecast_values(cond_moments=cond_moments, output_vars=output_vars, 
+                                             device=device)
 
     ad_module = Simple_AD_module(
         output_vars=output_vars,
         nb_MC_samples=nb_MC_samples,
         distribution_class="dirichlet",
-        replace_values=None,
+        replace_values=replace_values,
         class_thres=class_thres,
         seed=seed,
         verbose=verbose)
@@ -381,6 +386,31 @@ def evaluate_scores(
     # val_score = metrics.roc_auc_score(val_abx_labels, val_ad_scores)
 
 
+def get_replace_forecast_values(cond_moments, output_vars, replace_with='mean',
+                                variables = ['var'], device = 'cpu'):
+    
+    dimension = cond_moments.shape[2]
+
+    replace_values = {}
+    for variable in variables:
+        which = np.argmax(np.array(output_vars) == variable)
+        values = cond_moments[:,:,:,which].reshape(-1, dimension)
+
+        condition = ~np.isnan(values)
+        if variable == 'var':
+            condition = np.logical_and(condition, values >= 0)
+
+        rv = np.empty((dimension))
+        rv[:] = np.nan
+        for j in range(dimension):
+            vals = values[:,j]
+            cond = condition[:,j]
+            if replace_with == 'mean':
+                rv[j] = np.mean(vals[cond])
+
+        replace_values[variable] = rv.copy()
+    
+    return replace_values
 
 
 def evaluate(
@@ -723,6 +753,9 @@ def get_forecast_model_param_dict(
         'options': options}
 
     return params_dict, collate_fn
+
+
+
     
 
 

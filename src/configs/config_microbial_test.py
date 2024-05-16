@@ -457,22 +457,7 @@ param_dict_AD_microbial_genus += get_parameter_array(param_dict=param_dict_AD_mi
 
 
 
-# ------------------------------------------------------------------------------
-# AD for otu
-AD_microbial_otu3 = "{}saved_models_microbial_otu3/".format(data_path)
-AD_microbial_otu3_ids = [68]
-param_list_AD_microbial_otu = []
-param_dict_AD_microbial_otu = {
-        "dataset": ['microbial_otu_sig_highab'],
-        'saved_models_path': [AD_microbial_otu3],
-        'load_best': [True],
-        'nb_MC_samples': [10**4],
-        'verbose': [True],
-        'seed': [seed],
-        'validation': [False, True],
-}
-param_list_AD_microbial_otu += get_parameter_array(
-        param_dict=param_dict_AD_microbial_otu)
+
 
 
 

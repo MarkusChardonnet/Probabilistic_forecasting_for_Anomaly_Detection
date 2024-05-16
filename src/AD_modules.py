@@ -621,7 +621,7 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
             scores_valid = dirichlet_scoring(
                 obs=obs, cond_exp=cond_exp, cond_var=cond_var,
                 observed_dates=observed_dates,
-                nb_samples=self.nb_samples, replace_var=None, min_var_val=0.,
+                nb_samples=self.nb_samples, replace_var=self.replace_values['var'], min_var_val=0.,
                 verbose=self.verbose, seed=self.seed)
             scores_valid = scores_valid.transpose(1,0)
         return scores_valid

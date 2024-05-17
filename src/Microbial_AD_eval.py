@@ -29,6 +29,11 @@ import data_utils
 from AD_modules import AD_module, Simple_AD_module
 import AD_modules
 
+try:
+    from telegram_notifications import send_bot_message as SBM
+except Exception:
+    from configs.config import SendBotMessage as SBM
+
 
 # =====================================================================================================================
 # FLAGS
@@ -175,7 +180,9 @@ def compute_scores(
         n_dataset_workers=None,
         nb_MC_samples=10**5,
         verbose=False,
+        epsilon=1e-6,
         seed=333,
+        send=False,
         **options
 ):
     """
@@ -194,6 +201,7 @@ def compute_scores(
         nb_MC_samples: int, number of MC samples for approximating the pvalue
             when using the dirichlet distribution
         verbose: bool, whether to print the progress
+        epsilon: float, small value to avoid division by zero etc.
         seed: int, seed for reproducibility
     """
     global USE_GPU, N_CPUS, N_DATASET_WORKERS
@@ -291,6 +299,7 @@ def compute_scores(
         replace_values=None,
         class_thres=class_thres,
         seed=seed,
+        epsilon=epsilon,
         verbose=verbose)
 
     # train data
@@ -301,7 +310,11 @@ def compute_scores(
     with open('{}train_ad_scores.npy'.format(scores_path), 'wb') as f:
         np.save(f, ad_scores)
         np.save(f, abx_labels)
-    del cond_moments, observed_dates, true_X, abx_labels, ad_scores
+    data = np.concatenate([abx_labels.reshape(-1, 1), ad_scores], axis=1)
+    cols = ['abx'] + ['ad_score_{}'.format(i) for i in range(ad_scores.shape[1])]
+    df = pd.DataFrame(data, columns=cols)
+    csvpath = '{}train_ad_scores.csv'.format(scores_path)
+    df.to_csv(csvpath, index=False)
 
     # test data
     cond_moments, observed_dates, true_X, abx_labels = get_model_predictions(
@@ -311,12 +324,27 @@ def compute_scores(
     with open('{}val_ad_scores.npy'.format(scores_path), 'wb') as f:
         np.save(f, ad_scores)
         np.save(f, abx_labels)
-    del cond_moments, observed_dates, true_X, abx_labels, ad_scores
+    data = np.concatenate([abx_labels.reshape(-1, 1), ad_scores], axis=1)
+    cols = ['abx'] + ['ad_score_{}'.format(i) for i in
+                      range(ad_scores.shape[1])]
+    df = pd.DataFrame(data, columns=cols)
+    csvpath_val = '{}val_ad_scores.csv'.format(scores_path)
+    df.to_csv(csvpath_val, index=False)
+
+    if send:
+        files_to_send = [csvpath, csvpath_val]
+        caption = "scores - {} - id={}".format(which, forecast_model_id)
+        SBM.send_notification(
+            text=None,
+            chat_id=config.CHAT_ID,
+            files=files_to_send,
+            text_for_files=caption
+        )
 
 
 def evaluate_scores(
         forecast_saved_models_path, forecast_model_id=None, load_best=True,
-        validation=False, **options):
+        validation=False, send=False, **options):
     """
     Evaluate the anomaly detection scores
 
@@ -343,39 +371,46 @@ def evaluate_scores(
         val_ad_scores = np.load(f)
         val_abx_labels = np.load(f)
 
-    if not validation:
-        abx_samples = train_ad_scores[train_abx_labels == 1]
-        non_abx_samples = train_ad_scores[train_abx_labels == 0]
-        postfix = 'train'
-    else:
-        abx_samples = val_ad_scores[val_abx_labels == 1]
-        non_abx_samples = val_ad_scores[val_abx_labels == 0]
-        postfix = 'val'
 
-    fig, ax = plt.subplots(4, 2, figsize=(6*2, 4*4))
-    ax[0, 0].hist(np.nanmin(abx_samples, axis=1), label='abx min', bins=50)
-    ax[0, 1].hist(np.nanmin(non_abx_samples, axis=1), label='non-abx min', bins=50)
-    ax[1, 0].hist(np.nanmax(abx_samples, axis=1), label='abx max', bins=50)
-    ax[1, 1].hist(np.nanmax(non_abx_samples, axis=1), label='non-abx max', bins=50)
-    ax[2, 0].hist(np.nanmean(abx_samples, axis=1), label='abx mean', bins=50)
-    ax[2, 1].hist(np.nanmean(non_abx_samples, axis=1), label='non-abx mean', bins=50)
-    ax[3, 0].hist(np.nanmedian(abx_samples, axis=1), label='abx median', bins=50)
-    ax[3, 1].hist(np.nanmedian(non_abx_samples, axis=1), label='non-abx median', bins=50)
-    ax[0, 0].set_title("abx")
-    ax[0, 1].set_title("non-abx")
-    ax[0, 0].set_ylabel("min")
-    ax[1, 0].set_ylabel("max")
-    ax[2, 0].set_ylabel("mean")
-    ax[3, 0].set_ylabel("median")
-    plt.tight_layout()
+    for postfix in ['train', 'val']:
+        if postfix == 'train':
+            abx_samples = train_ad_scores[train_abx_labels == 1]
+            non_abx_samples = train_ad_scores[train_abx_labels == 0]
+        else:
+            abx_samples = val_ad_scores[val_abx_labels == 1]
+            non_abx_samples = val_ad_scores[val_abx_labels == 0]
+            postfix = 'val'
+        fig, ax = plt.subplots(4, 2, figsize=(6*2, 4*4))
+        ax[0, 0].hist(np.nanmin(abx_samples, axis=1), label='abx min', bins=50)
+        ax[0, 1].hist(np.nanmin(non_abx_samples, axis=1), label='non-abx min', bins=50)
+        ax[1, 0].hist(np.nanmax(abx_samples, axis=1), label='abx max', bins=50)
+        ax[1, 1].hist(np.nanmax(non_abx_samples, axis=1), label='non-abx max', bins=50)
+        ax[2, 0].hist(np.nanmean(abx_samples, axis=1), label='abx mean', bins=50)
+        ax[2, 1].hist(np.nanmean(non_abx_samples, axis=1), label='non-abx mean', bins=50)
+        ax[3, 0].hist(np.nanmedian(abx_samples, axis=1), label='abx median', bins=50)
+        ax[3, 1].hist(np.nanmedian(non_abx_samples, axis=1), label='non-abx median', bins=50)
+        ax[0, 0].set_title("abx")
+        ax[0, 1].set_title("non-abx")
+        ax[0, 0].set_ylabel("min")
+        ax[1, 0].set_ylabel("max")
+        ax[2, 0].set_ylabel("mean")
+        ax[3, 0].set_ylabel("median")
+        plt.tight_layout()
 
-    plt.savefig(evaluation_path+'hist_'+postfix+'.pdf', format='pdf')
+        impath = evaluation_path+'hist_'+postfix+'.pdf'
+        plt.savefig(impath, format='pdf')
 
-    # print(np.all(np.isnan(abx_samples), axis=1).sum())
-    # print(np.all(np.isnan(non_abx_samples), axis=1).sum())
+        if send:
+            caption = "scores-histogram - {} - id={}".format(which, forecast_model_id)
+            SBM.send_notification(
+                text=None,
+                chat_id=config.CHAT_ID,
+                files=[impath],
+                text_for_files=caption
+            )
 
-
-
+        # print(np.all(np.isnan(abx_samples), axis=1).sum())
+        # print(np.all(np.isnan(non_abx_samples), axis=1).sum())
 
     # train_score = metrics.roc_auc_score(train_abx_labels, train_ad_scores)
     # val_score = metrics.roc_auc_score(val_abx_labels, val_ad_scores)
@@ -951,7 +986,6 @@ def main(arg):
                         from configs import config
                         data_dict = eval("config."+data_dict)
                     forecast_param["dataset"] = data_dict["model_name"]
-            # evaluate(anomaly_data_dict=anomaly_data_dict, **forecast_param)
             for ad_param in ad_params:
                 print("AD param: ", ad_param)
                 if FLAGS.evaluate:
@@ -964,6 +998,7 @@ def main(arg):
                         **ad_param)
                 if FLAGS.compute_scores:
                     compute_scores(
+                        send=FLAGS.SEND,
                         forecast_saved_models_path=forecast_saved_models_path,
                         forecast_model_id=forecast_model_ids[i],
                         forecast_param=forecast_param,
@@ -972,6 +1007,7 @@ def main(arg):
                         **ad_param)
                 if FLAGS.evaluate_scores:
                     evaluate_scores(
+                        send=FLAGS.SEND,
                         forecast_saved_models_path=forecast_saved_models_path,
                         forecast_model_id=forecast_model_ids[i],
                         **ad_param)

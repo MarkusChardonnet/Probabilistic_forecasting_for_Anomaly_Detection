@@ -39,7 +39,7 @@ def gaussian_scoring_2_moments(obs,
 
 def dirichlet_scoring(
         obs, cond_exp, cond_var, observed_dates,
-        nb_samples=10**5,
+        epsilon=1e-6, nb_samples=10**5,
         min_var_val=1e-5, replace_var=None, verbose=False,
         seed=1):
     # obs : [nb_steps, nb_samples, dimension]
@@ -69,7 +69,7 @@ def dirichlet_scoring(
             if observed_dates[t,s]:
                 if seed is not None:
                     np.random.seed(seed)
-                E = np.maximum(cond_exp[t,s], 1e-10)  # only positive values
+                E = np.maximum(cond_exp[t,s], epsilon)  # only positive values
                 E = E/np.sum(E)  # normalize s.t. sum = 1
                 # TODO: here we could try to find the ind with the best variance prediction
                 factors = (E*(1-E))/cond_var[t,s] - 1
@@ -86,23 +86,23 @@ def dirichlet_scoring(
                 diri = stat.dirichlet(alpha)
                 rvs = diri.rvs(size=nb_samples)
                 pdfs = np.array(
-                    [diri.logpdf(check_dirichlet_input(r)) for r in rvs])
-                obs_pdf = diri.logpdf(check_dirichlet_input(obs[t,s]))
-                pval = np.mean(obs_pdf <= pdfs)
-                scores[t,s] = -np.log(pval + 1e-10)
+                    [diri.logpdf(check_dirichlet_input(r, epsilon)) for r in rvs])
+                obs_pdf = diri.logpdf(check_dirichlet_input(obs[t,s], epsilon))
+                pval = np.mean(obs_pdf > pdfs)
+                scores[t,s] = -np.log(pval + epsilon)
 
     # scores : [nb_steps, nb_samples]
     return scores
 
 
-def check_dirichlet_input(sample):
+def check_dirichlet_input(sample, epsilon=1e-14):
     """
     check if the input sample is a valid dirichlet distribution
     :param sample: np.array, the sample
     """
     if np.any(sample <= 0):
         # print(np.min(sample))
-        sample = np.maximum(sample, 1e-14)
+        sample = np.maximum(sample, epsilon)
     if np.sum(sample) != 1:
         # to avoid rounding errors, which can break the code
         sample = sample.astype(np.double)
@@ -576,6 +576,7 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
                  replace_values = None,
                  class_thres = 0.5,
                  nb_MC_samples = 10**5,
+                 epsilon=1e-6,
                  seed=None,
                  verbose=False,):
         super(Simple_AD_module, self).__init__()
@@ -587,6 +588,7 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
         self.nb_samples = nb_MC_samples
         self.verbose = verbose
         self.seed = seed
+        self.epsilon = epsilon
 
         self.weight = score_factor
 
@@ -595,7 +597,8 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
         elif activation_fct == 'id':
             self.act = torch.nn.Identity()
 
-    def get_individual_scores(self, cond_moments, obs, observed_dates=None):
+    def get_individual_scores(
+            self, cond_moments, obs, observed_dates=None):
 
         assert(('id' in self.output_vars) and (
                 ('var' in self.output_vars) or ('power-2' in self.output_vars)))
@@ -620,7 +623,7 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
             # scores : [nb_steps, nb_samples]
             scores_valid = dirichlet_scoring(
                 obs=obs, cond_exp=cond_exp, cond_var=cond_var,
-                observed_dates=observed_dates,
+                observed_dates=observed_dates, epsilon=self.epsilon,
                 nb_samples=self.nb_samples, replace_var=None, min_var_val=0.,
                 verbose=self.verbose, seed=self.seed)
             scores_valid = scores_valid.transpose(1,0)
@@ -632,7 +635,7 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
 
         scores = self.get_individual_scores(cond_moments, obs, observed_dates)
 
-        # scores : [nb_steps, nb_samples, dimension] or [nb_steps, nb_samples]
+        # scores : [nb_steps, nb_samples, dimension] or [nb_samples, nb_steps]
         return scores
 
     def get_predicted_label(self, obs, cond_moments, observed_dates=None):

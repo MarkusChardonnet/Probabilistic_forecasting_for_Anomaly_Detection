@@ -465,11 +465,11 @@ param_list_AD_microbial_otu = []
 param_dict_AD_microbial_otu = {
         "dataset": ['microbial_otu_sig_highab'],
         'saved_models_path': [AD_microbial_otu3],
-        'load_best': [True],
+        'load_best': [True,],
         'nb_MC_samples': [10**4],
+        'epsilon': [1e-8],
         'verbose': [True],
         'seed': [seed],
-        'validation': [False, True],
 }
 param_list_AD_microbial_otu += get_parameter_array(
         param_dict=param_dict_AD_microbial_otu)

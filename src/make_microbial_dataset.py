@@ -272,6 +272,7 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
         np.save(f, dynamic)
         np.save(f, static)
         np.save(f, abx_observed)
+        np.save(f, hosts)
 
     
     metadata_dict = {"S0": None,
@@ -283,7 +284,17 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
             "model_name": "microbial_genus",
             "nb_paths": nb_host,
             "nb_steps": nb_steps,
-            "period": 1.}
+            "period": 1.,
+            "starting_date": starting_date,
+            "static_features": static_features,
+            "dynamic_features": dynamic_features,
+            "signature_features": signature_features,
+            "microbial_features": microbial_features,
+            "seed": seed,
+            "val_size": val_size,
+            "dataset_name": dataset_name,
+            "init_val_method": init_val_method,
+    }
 
     with open(os.path.join(dataset_path, 'metadata.txt'), 'w') as f:
         json.dump(metadata_dict, f, sort_keys=True)

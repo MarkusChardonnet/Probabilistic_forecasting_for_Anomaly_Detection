@@ -734,6 +734,7 @@ class MicrobialDataset(Dataset):
             dynamic = np.load(f)
             static = np.load(f)
             abx_observed = np.load(f)
+            host_id = np.load(f)
         with open('{}/metadata.txt'.format(path), 'r') as f:
             hyperparam_dict = json.load(f)
 
@@ -748,6 +749,7 @@ class MicrobialDataset(Dataset):
         self.static = static[idx]
         self.signature = signature[idx]
         self.abx_observed = abx_observed[idx]
+        self.host_id = host_id[idx]
 
     def get_metadata(self):
         return self.metadata
@@ -764,7 +766,8 @@ class MicrobialDataset(Dataset):
                 "nb_obs": self.nb_obs[idx], "dt": self.metadata['dt'],
                 "dynamic": self.dynamic[idx], "static": self.static[idx],
                 "signature": self.signature[idx],
-                "abx_observed": self.abx_observed[idx]}
+                "abx_observed": self.abx_observed[idx],
+                "host_id": self.host_id[idx]}
 
 class IrregularDataset(Dataset):
     """
@@ -993,6 +996,7 @@ def MicrobialCollateFnGen(func_names=None):
         dynamic_features = np.concatenate([b['dynamic'] for b in batch], axis=0)
         signature_features = np.concatenate([b['signature'] for b in batch], axis=0)
         abx_observed = np.concatenate([b['abx_observed'] for b in batch], axis=0)
+        host_id = np.concatenate([b['host_id'] for b in batch], axis=0)
 
         masked = False
         mask = None
@@ -1055,7 +1059,8 @@ def MicrobialCollateFnGen(func_names=None):
                'true_mask': mask, 'ad_labels': ad_labels,
                'Z': torch.tensor(np.array(Z), dtype=torch.float32), 'start_Z': start_Z,
                'S': torch.tensor(np.array(S), dtype=torch.float32), 'start_S': start_S,
-               'M': M, 'start_M': start_M, 'abx_observed': abx_observed}
+               'M': M, 'start_M': start_M, 'abx_observed': abx_observed,
+               'host_id': host_id}
         return res
 
     return microbial_collate_fn, mult

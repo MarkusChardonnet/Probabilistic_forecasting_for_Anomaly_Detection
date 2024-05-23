@@ -467,7 +467,7 @@ param_dict_AD_microbial_otu = {
         'saved_models_path': [AD_microbial_otu3],
         'load_best': [True,],
         'nb_MC_samples': [10**4],
-        'epsilon': [1e-8],
+        'epsilon': [1e-8, 1e-6],
         'verbose': [True],
         'seed': [seed],
 }

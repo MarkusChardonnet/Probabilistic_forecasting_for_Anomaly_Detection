@@ -143,6 +143,7 @@ def get_model_predictions(
     path_t_true_X = np.linspace(0., T, int(np.round(T / delta_t)) + 1)
     true_X = b["true_paths"]
     abx_labels = b["abx_observed"]
+    host_id = b["host_id"]
 
     with torch.no_grad():
         res = forecast_model.get_pred(
@@ -166,7 +167,7 @@ def get_model_predictions(
     # cond_moments[0] = np.nan
     observed_dates[0] = False
 
-    return cond_moments, observed_dates, true_X, abx_labels
+    return cond_moments, observed_dates, true_X, abx_labels, host_id
 
 
 def compute_scores(
@@ -219,6 +220,11 @@ def compute_scores(
     else:
         device = torch.device("cpu")
 
+    scores_dict = {
+        "model_id": forecast_model_id, "dataset": dataset,
+        "load_best": load_best,
+        "nb_MC_samples": nb_MC_samples, "seed": seed, "epsilon": epsilon}
+
     # load dataset-metadata
 
     train_idx = np.load(os.path.join(
@@ -237,6 +243,7 @@ def compute_scores(
     dimension = dataset_metadata['dimension']
     T = dataset_metadata['maturity']
     delta_t = dataset_metadata['dt']  # copy metadata
+    starting_date = dataset_metadata['starting_date']
 
     # get additional plotting information
     plot_forecast_predictions = False
@@ -303,30 +310,38 @@ def compute_scores(
         verbose=verbose)
 
     # train data
-    cond_moments, observed_dates, true_X, abx_labels = get_model_predictions(
-        dl_train, device, forecast_model, output_vars, T, delta_t, dimension)
+    cond_moments, observed_dates, true_X, abx_labels, host_id = \
+        get_model_predictions(
+            dl_train, device, forecast_model, output_vars, T, delta_t,
+            dimension)
     obs = true_X.transpose(2, 0, 1)
     ad_scores = ad_module(obs, cond_moments, observed_dates)
     with open('{}train_ad_scores.npy'.format(scores_path), 'wb') as f:
         np.save(f, ad_scores)
         np.save(f, abx_labels)
-    data = np.concatenate([abx_labels.reshape(-1, 1), ad_scores], axis=1)
-    cols = ['abx'] + ['ad_score_{}'.format(i) for i in range(ad_scores.shape[1])]
+        np.save(f, host_id)
+    data = np.concatenate(
+        [host_id.reshape(-1,1), abx_labels.reshape(-1, 1), ad_scores], axis=1)
+    cols = ['host_id', 'abx'] + ['ad_score_day-{}'.format(i+starting_date)
+                                 for i in range(ad_scores.shape[1])]
     df = pd.DataFrame(data, columns=cols)
     csvpath = '{}train_ad_scores.csv'.format(scores_path)
     df.to_csv(csvpath, index=False)
 
     # test data
-    cond_moments, observed_dates, true_X, abx_labels = get_model_predictions(
-        dl_val, device, forecast_model, output_vars, T, delta_t, dimension)
+    cond_moments, observed_dates, true_X, abx_labels, host_id = \
+        get_model_predictions(
+            dl_val, device, forecast_model, output_vars, T, delta_t, dimension)
     obs = true_X.transpose(2, 0, 1)
     ad_scores = ad_module(obs, cond_moments, observed_dates)
     with open('{}val_ad_scores.npy'.format(scores_path), 'wb') as f:
         np.save(f, ad_scores)
         np.save(f, abx_labels)
-    data = np.concatenate([abx_labels.reshape(-1, 1), ad_scores], axis=1)
-    cols = ['abx'] + ['ad_score_{}'.format(i) for i in
-                      range(ad_scores.shape[1])]
+        np.save(f, host_id)
+    data = np.concatenate(
+        [host_id.reshape(-1,1), abx_labels.reshape(-1, 1), ad_scores], axis=1)
+    cols = ['host_id', 'abx'] + ['ad_score_day-{}'.format(i+starting_date)
+                                 for i in range(ad_scores.shape[1])]
     df = pd.DataFrame(data, columns=cols)
     csvpath_val = '{}val_ad_scores.csv'.format(scores_path)
     df.to_csv(csvpath_val, index=False)
@@ -335,7 +350,7 @@ def compute_scores(
         files_to_send = [csvpath, csvpath_val]
         caption = "scores - {} - id={}".format(which, forecast_model_id)
         SBM.send_notification(
-            text=None,
+            text="description: {}".format(scores_dict),
             chat_id=config.CHAT_ID,
             files=files_to_send,
             text_for_files=caption

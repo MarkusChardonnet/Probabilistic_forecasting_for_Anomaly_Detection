@@ -96,9 +96,11 @@ Important flags:
 #### Generate Dataset:
 ```shell
 python make_microbial_dataset.py --dataset_config=config_otu_sig_highab
+python make_microbial_dataset.py --dataset_config=config_genus_sig_highab
 ```
 
 #### Training PD-NJODE:
+on OTU dataset:
 ```shell
 python run.py --params=param_list_microbial_otu2 --NB_JOBS=64 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_otu2
 python run.py --plot_paths=plot_paths_microbial_otu2
@@ -108,8 +110,22 @@ python run.py --plot_paths=plot_paths_microbial_otu2
 python run.py --params=param_list_microbial_otu3 --NB_JOBS=64 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_otu3
 ```
 
-#### Compute Anomaly Detection Scores:
+on Genus dataset:
 ```shell
-python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_otu3_ids --ad_params=param_list_AD_microbial_otu --forecast_saved_models_path=AD_microbial_otu3 --compute_scores=True
-python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_otu3_ids --ad_params=param_list_AD_microbial_otu --forecast_saved_models_path=AD_microbial_otu3 --evaluate_scores=True
+python run.py --params=param_list_microbial_genus3 --NB_JOBS=64 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_genus3
 ```
+
+
+#### Compute Anomaly Detection Scores:
+on OTU dataset:
+```shell
+python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_otu3_ids --ad_params=param_list_AD_microbial_otu --forecast_saved_models_path=AD_microbial_otu3 --compute_scores=True --evaluate_scores=True
+```
+
+on Genus dataset:
+```shell
+python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_genus3_ids --ad_params=param_list_AD_microbial_genus --forecast_saved_models_path=AD_microbial_genus3 --compute_scores=True --evaluate_scores=True
+```
+
+
+

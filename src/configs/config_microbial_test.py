@@ -457,6 +457,10 @@ param_dict_AD_microbial_genus += get_parameter_array(param_dict=param_dict_AD_mi
 
 
 
+# ==============================================================================
+# FLORIAN
+# ==============================================================================
+
 # ------------------------------------------------------------------------------
 # AD for otu
 AD_microbial_otu3 = "{}saved_models_microbial_otu3/".format(data_path)
@@ -475,7 +479,22 @@ param_list_AD_microbial_otu += get_parameter_array(
         param_dict=param_dict_AD_microbial_otu)
 
 
-
+# ------------------------------------------------------------------------------
+# AD for genus
+AD_microbial_genus3 = "{}saved_models_microbial_genus3/".format(data_path)
+AD_microbial_genus3_ids = []
+param_list_AD_microbial_genus = []
+param_dict_AD_microbial_genus = {
+        "dataset": ['microbial_genus_sig_highab'],
+        'saved_models_path': [AD_microbial_genus3],
+        'load_best': [True,],
+        'nb_MC_samples': [10**4],
+        'epsilon': [1e-8, 1e-6],
+        'verbose': [True],
+        'seed': [seed],
+}
+param_list_AD_microbial_genus += get_parameter_array(
+        param_dict=param_dict_AD_microbial_genus)
 
 
 

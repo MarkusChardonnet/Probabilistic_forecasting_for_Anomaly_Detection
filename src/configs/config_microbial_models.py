@@ -407,7 +407,9 @@ param_list_microbial_otu += get_parameter_array(param_dict=param_dict_microbial_
 
 
 
-
+# ==============================================================================
+# FLORIAN
+# ==============================================================================
 
 # ------------------------------------------------------------------------------
 # testing on otu:
@@ -561,8 +563,80 @@ overview_dict_microbial_otu3 = dict(
     sortby=["val_loss_min"],
 )
 
+# ------------------------------------------------------------------------------
+# do same for genus
 
+microbial_genus_models_path3 = "{}saved_models_microbial_genus3/".format(data_path)
+param_list_microbial_genus3 = []
 
+for add_pred, which_loss in [
+        [["var"], "variance"], [[], "moment_2"], [[], "easy_bis"],
+        [[], "noisy_obs"], [["var"], "variance_bis"],
+]:
+        param_dict_microbial_genus_sig_rnn = {
+                'dataset': ["microbial_genus_sig_highab"],
+                'dataset_split': ["no_abx", "all"],
+                'epochs': [epochs],
+                'batch_size': [batch_size],
+                'save_every': [save_every],
+                'learning_rate': [learning_rate],
+                'seed': [seed],
+                'hidden_size': [hidden_size],
+                'bias': [bias],
+                'dropout_rate': [dropout_rate],
+                'ode_nn': [ode_nn, ode_nn1],
+                'readout_nn': [readout_nn],
+                'enc_nn': [enc_nn],
+                'use_rnn': [True, False],
+                'input_sig': [True, False],
+                'residual_enc_dec': [True, False],
+                'func_appl_X': [["power-2"]],              # [["power-2", "power-3", "power-4"]]
+                'add_pred': [add_pred],
+                'test': [test],
+                'solver': [solver],
+                'solver_delta_t_factor': [solver_delta_t_factor],
+                'weight': [0.],
+                'weight_evolve': [{'type': 'linear', 'target': 1, 'reach': None}],
+                'plot': [True],
+                'which_loss': [which_loss],
+                'which_eval_loss': ['val_variance'],
+                'evaluate': [False],
+                'eval_metrics': [eval_metrics],
+                'paths_to_plot': [(0,)],
+                'plot_variance': [True],
+                'std_factor': [std_factor],
+                'plot_moments': [plot_moments],
+                'saved_models_path': [microbial_genus_models_path3],
+                'use_cond_exp': [True],
+                'input_current_t': [input_current_t],
+                'periodic_current_t': [True],
+                'scale_dt': [scale_dt],
+                'enc_input_t': [enc_input_t],
+                'add_readout_activation': [add_readout_activation], # ('softmax',['id']) ('sum2one',['id'])
+                'add_dynamic_cov': [True],
+                'pre-train': [10000],
+                'zero_weight_init': [False],
+            }
+        param_list_microbial_genus3 += get_parameter_array(
+                param_dict=param_dict_microbial_genus_sig_rnn)
+
+overview_dict_microbial_genus3 = dict(
+    ids_from=1, ids_to=len(param_list_microbial_genus3),
+    path=microbial_genus_models_path3,
+    params_extract_desc=('dataset', 'dataset_split',
+                         'ode_nn', 'enc_nn', 'readout_nn',
+                         'dropout_rate', 'hidden_size', 'batch_size',
+                         'which_loss', 'which_eval_loss', 'add_pred',
+                         'solver_delta_t_factor',
+                         'residual_enc_dec', 'use_rnn',
+                         'input_sig', 'level', ),
+    val_test_params_extract=(
+        ("max", "epoch", "epoch", "epochs_trained"),
+        ("min", "eval_loss", "eval_loss", "eval_loss_min"),
+        ("min", "val_loss", "val_loss", "val_loss_min"),
+    ),
+    sortby=["val_loss_min"],
+)
 
 
 

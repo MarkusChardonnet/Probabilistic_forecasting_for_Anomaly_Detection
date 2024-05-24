@@ -184,6 +184,8 @@ def compute_scores(
         epsilon=1e-6,
         seed=333,
         send=False,
+        use_replace_values=False,
+        dirichlet_use_coord=None,
         **options
 ):
     """
@@ -204,6 +206,9 @@ def compute_scores(
         verbose: bool, whether to print the progress
         epsilon: float, small value to avoid division by zero etc.
         seed: int, seed for reproducibility
+        use_replace_values: bool, whether to use replace values for variance
+        dirichlet_use_coord: int, which coordinate to use for the dirichlet
+            distribution as factor, if None: median of all coordinates is used
     """
     global USE_GPU, N_CPUS, N_DATASET_WORKERS
     if use_gpu is not None:
@@ -223,7 +228,10 @@ def compute_scores(
     scores_dict = {
         "model_id": forecast_model_id, "dataset": dataset,
         "load_best": load_best,
-        "nb_MC_samples": nb_MC_samples, "seed": seed, "epsilon": epsilon}
+        "nb_MC_samples": nb_MC_samples, "seed": seed, "epsilon": epsilon,
+        "use_replace_values": use_replace_values,
+        "dirichlet_use_coord": dirichlet_use_coord
+    }
 
     # load dataset-metadata
 
@@ -299,21 +307,29 @@ def compute_scores(
         dataset=data_val, collate_fn=collate_fn, shuffle=False,
         batch_size=len(val_idx))
 
-    ad_module = Simple_AD_module(
-        output_vars=output_vars,
-        nb_MC_samples=nb_MC_samples,
-        distribution_class="dirichlet",
-        replace_values=None,
-        class_thres=class_thres,
-        seed=seed,
-        epsilon=epsilon,
-        verbose=verbose)
-
-    # train data
     cond_moments, observed_dates, true_X, abx_labels, host_id = \
         get_model_predictions(
             dl_train, device, forecast_model, output_vars, T, delta_t,
             dimension)
+    if use_replace_values:
+        replace_values = get_replace_forecast_values(
+            cond_moments=cond_moments, output_vars=output_vars, device=device)
+        replace_values = replace_values['var']
+    else:
+        replace_values = None
+
+    ad_module = Simple_AD_module(
+        output_vars=output_vars,
+        nb_MC_samples=nb_MC_samples,
+        distribution_class="dirichlet",
+        replace_values=replace_values,
+        class_thres=class_thres,
+        seed=seed,
+        epsilon=epsilon,
+        dirichlet_use_coord=dirichlet_use_coord,
+        verbose=verbose)
+
+    # train data
     obs = true_X.transpose(2, 0, 1)
     ad_scores = ad_module(obs, cond_moments, observed_dates)
     with open('{}train_ad_scores.npy'.format(scores_path), 'wb') as f:
@@ -431,6 +447,31 @@ def evaluate_scores(
     # val_score = metrics.roc_auc_score(val_abx_labels, val_ad_scores)
 
 
+def get_replace_forecast_values(cond_moments, output_vars, replace_with='mean',
+                                variables = ['var'], device = 'cpu'):
+    
+    dimension = cond_moments.shape[2]
+
+    replace_values = {}
+    for variable in variables:
+        which = np.argmax(np.array(output_vars) == variable)
+        values = cond_moments[:,:,:,which].reshape(-1, dimension)
+
+        condition = ~np.isnan(values)
+        if variable == 'var':
+            condition = np.logical_and(condition, values >= 0)
+
+        rv = np.empty((dimension))
+        rv[:] = np.nan
+        for j in range(dimension):
+            vals = values[:,j]
+            cond = condition[:,j]
+            if replace_with == 'mean':
+                rv[j] = np.mean(vals[cond])
+
+        replace_values[variable] = rv.copy()
+    
+    return replace_values
 
 
 def evaluate(
@@ -773,6 +814,9 @@ def get_forecast_model_param_dict(
         'options': options}
 
     return params_dict, collate_fn
+
+
+
     
 
 

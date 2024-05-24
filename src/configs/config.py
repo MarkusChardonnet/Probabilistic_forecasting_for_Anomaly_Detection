@@ -11,6 +11,7 @@ from configs.config_NJODE1 import *
 from configs.config_microbial_test import *
 from configs.config_microbial_dataset import *
 from configs.config_microbial_models import *
+from configs.config_microbial_AD import *
 
 import numpy as np
 import socket

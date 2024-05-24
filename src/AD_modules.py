@@ -41,7 +41,7 @@ def dirichlet_scoring(
         obs, cond_exp, cond_var, observed_dates,
         epsilon=1e-6, nb_samples=10**5,
         min_var_val=1e-5, replace_var=None, verbose=False,
-        seed=1):
+        seed=1, coord=None):
     # obs : [nb_steps, nb_samples, dimension]
     # cond_exp : [nb_steps, nb_samples, dimension, 1]
     # cond_var : [nb_steps, nb_samples, dimension, 1]
@@ -73,7 +73,10 @@ def dirichlet_scoring(
                 E = E/np.sum(E)  # normalize s.t. sum = 1
                 # TODO: here we could try to find the ind with the best variance prediction
                 factors = (E*(1-E))/cond_var[t,s] - 1
-                factor = np.median(factors[(factors > 0) & (cond_var[t,s] > 0)])
+                if coord is not None:
+                    factor = factors[coord]
+                else:
+                    factor = np.median(factors[(factors > 0) & (cond_var[t,s] > 0)])
                 # use_ind = 0
                 # factor = -1
                 # while factor <= 0:
@@ -569,14 +572,15 @@ class AD_module(torch.nn.Module): # AD_module_1D, AD_module_ND
 class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
     def __init__(self, 
                  output_vars,
-                 scoring_metric = 'p-value',
-                 distribution_class = 'gaussian',
+                 scoring_metric='p-value',
+                 distribution_class='gaussian',
                  score_factor=1.,
-                 activation_fct = 'sigmoid',
-                 replace_values = None,
-                 class_thres = 0.5,
-                 nb_MC_samples = 10**5,
+                 activation_fct='sigmoid',
+                 replace_values=None,
+                 class_thres=0.5,
+                 nb_MC_samples=10**5,
                  epsilon=1e-6,
+                 dirichlet_use_coord=None,
                  seed=None,
                  verbose=False,):
         super(Simple_AD_module, self).__init__()
@@ -589,7 +593,7 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
         self.verbose = verbose
         self.seed = seed
         self.epsilon = epsilon
-
+        self.dirichlet_use_coord = dirichlet_use_coord
         self.weight = score_factor
 
         if activation_fct == 'sigmoid':
@@ -623,8 +627,9 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
             # scores : [nb_steps, nb_samples]
             scores_valid = dirichlet_scoring(
                 obs=obs, cond_exp=cond_exp, cond_var=cond_var,
-                observed_dates=observed_dates, epsilon=self.epsilon,
-                nb_samples=self.nb_samples, replace_var=None, min_var_val=0.,
+                observed_dates=observed_dates,
+                nb_samples=self.nb_samples, replace_var=self.replace_values,
+                min_var_val=0., coord=self.dirichlet_use_coord,
                 verbose=self.verbose, seed=self.seed)
             scores_valid = scores_valid.transpose(1,0)
         return scores_valid

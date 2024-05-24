@@ -223,11 +223,11 @@ param_dict_microbial_genus_res = {
 param_list_microbial_genus += get_parameter_array(param_dict=param_dict_microbial_genus_res)
 
 
-
 microbial_otu_models_path = "{}saved_models_microbial_otu/".format(data_path)
 param_list_microbial_otu = []
 # with rnn and signature
 param_dict_microbial_otu_sig_rnn = {
+        'resume_training': [True],
         'dataset': datasets_otu,
         'dataset_split': dataset_splits,
         'epochs': [epochs],
@@ -272,6 +272,7 @@ param_dict_microbial_otu_sig_rnn = {
 param_list_microbial_otu += get_parameter_array(param_dict=param_dict_microbial_otu_sig_rnn)
 # with rnn
 param_dict_microbial_otu_rnn = {
+        'resume_training': [True],
         'dataset': datasets_otu,
         'dataset_id': dataset_splits,
         'epochs': [epochs],
@@ -316,6 +317,7 @@ param_dict_microbial_otu_rnn = {
 param_list_microbial_otu += get_parameter_array(param_dict=param_dict_microbial_otu_rnn)
 # with signature and residual connection
 param_dict_microbial_otu_sig_res = {
+        'resume_training': [True],
         'dataset': datasets_otu,
         'dataset_id': dataset_splits,
         'epochs': [epochs],
@@ -361,6 +363,7 @@ param_dict_microbial_otu_sig_res = {
 param_list_microbial_otu += get_parameter_array(param_dict=param_dict_microbial_otu_sig_res)
 # with residual connection
 param_dict_microbial_otu_res = {
+        'resume_training': [True],
         'dataset': datasets_otu,
         'dataset_id': dataset_splits,
         'epochs': [epochs],
@@ -405,6 +408,436 @@ param_dict_microbial_otu_res = {
     }
 param_list_microbial_otu += get_parameter_array(param_dict=param_dict_microbial_otu_res)
 
+# OTU
+
+# dataset: microbial_otu
+# dataset split: all
+# compare types of models
+plot_metrics_otu_all = {
+    # 'model_ids':(1,9,17,25),
+    'model_ids':(17,25),
+    'model_names':(# 'With signature and RNN',
+                   # 'With RNN',
+                   'With signature and residual connections',
+                   'With residual connections'),
+    'file_name':"loss_evol-otu-all-{}.png",
+    'cols':('train_loss', 'eval_loss', 'val_loss'),
+    'names':('train_loss', 'eval_loss', 'val_loss'),
+    'saved_models_path':microbial_otu_models_path,
+}
+# dataset: microbial_otu
+# dataset split: no_abx
+# compare types of models
+plot_metrics_otu_no_abx = {
+    # 'model_ids':(2,10,18,26),
+    'model_ids':(18,26),
+    'model_names':(# 'With signature and RNN',
+                   # 'With RNN',
+                   'With signature and residual connections',
+                   'With residual connections'),
+    'file_name':"loss_evol-otu-no_abx-{}.png",
+    'cols':('train_loss', 'eval_loss', 'val_loss'),
+    'names':('train_loss', 'eval_loss', 'val_loss'),
+    'saved_models_path':microbial_otu_models_path,
+}
+
+# dataset: microbial_otu_sig_div
+# dataset split: all
+# compare types of models
+plot_metrics_otu_sig_div_all = {
+    # 'model_ids':(3,11,19,27),
+    'model_ids':(19,27),
+    'model_names':(# 'With signature and RNN',
+                   # 'With RNN',
+                   'With signature and residual connections',
+                   'With residual connections'),
+    'file_name':"loss_evol-otu_sig_div-all-{}.png",
+    'cols':('train_loss', 'eval_loss', 'val_loss'),
+    'names':('train_loss', 'eval_loss', 'val_loss'),
+    'saved_models_path':microbial_otu_models_path,
+}
+# dataset: microbial_otu_sig_div
+# dataset split: no_abx
+# compare types of models
+plot_metrics_otu_sig_div_no_abx = {
+    # 'model_ids':(4,12,20,28),
+    'model_ids':(20,28),
+    'model_names':(# 'With signature and RNN',
+                   # 'With RNN',
+                   'With signature and residual connections',
+                   'With residual connections'),
+    'file_name':"loss_evol-otu_sig_div-no_abx-{}.png",
+    'cols':('train_loss', 'eval_loss', 'val_loss'),
+    'names':('train_loss', 'eval_loss', 'val_loss'),
+    'saved_models_path':microbial_otu_models_path,
+}
+
+# dataset: microbial_otu_sig_highab
+# dataset split: all
+# compare types of models
+plot_metrics_otu_sig_highab_all = {
+    # 'model_ids':(5,13,21,29),
+    'model_ids':(21,29),
+    'model_names':(# 'With signature and RNN',
+                   # 'With RNN',
+                   'With signature and residual connections',
+                   'With residual connections'),
+    'file_name':"loss_evol-otu_sig_highab-all-{}.png",
+    'cols':('train_loss', 'eval_loss', 'val_loss'),
+    'names':('train_loss', 'eval_loss', 'val_loss'),
+    'saved_models_path':microbial_otu_models_path,
+}
+# dataset: microbial_otu_sig_highab
+# dataset split: no_abx
+# compare types of models
+plot_metrics_otu_sig_highab_no_abx = {
+    # 'model_ids':(6,14,22,30),
+    'model_ids':(22,30),
+    'model_names':(# 'With signature and RNN',
+                   # 'With RNN',
+                   'With signature and residual connections',
+                   'With residual connections'),
+    'file_name':"loss_evol-otu_sig_highab-no_abx-{}.png",
+    'cols':('train_loss', 'eval_loss', 'val_loss'),
+    'names':('train_loss', 'eval_loss', 'val_loss'),
+    'saved_models_path':microbial_otu_models_path,
+}
+
+# dataset: microbial_otu_sig_nonzero
+# dataset split: all
+# compare types of models
+plot_metrics_otu_sig_nonzero_all = {
+    # 'model_ids':(7,15,23,31),
+    'model_ids':(23,31),
+    'model_names':(# 'With signature and RNN',
+                   # 'With RNN',
+                   'With signature and residual connections',
+                   'With residual connections'),
+    'file_name':"loss_evol-otu_sig_nonzero-all-{}.png",
+    'cols':('train_loss', 'eval_loss', 'val_loss'),
+    'names':('train_loss', 'eval_loss', 'val_loss'),
+    'saved_models_path':microbial_otu_models_path,
+}
+# dataset: microbial_otu_sig_nonzero
+# dataset split: no_abx
+# compare types of models
+plot_metrics_otu_sig_nonzero_no_abx = {
+    # 'model_ids':(8,16,24,32),
+    'model_ids':(24,32),
+    'model_names':(# 'With signature and RNN',
+                   # 'With RNN',
+                   'With signature and residual connections',
+                   'With residual connections'),
+    'file_name':"loss_evol-otu_sig_nonzero-no_abx-{}.png",
+    'cols':('train_loss', 'eval_loss', 'val_loss'),
+    'names':('train_loss', 'eval_loss', 'val_loss'),
+    'saved_models_path':microbial_otu_models_path,
+}
+
+# dataset: microbial_otu_sig_nonzero
+# dataset split: all
+# compare types of models
+plot_metrics_otu_model_sig_res_all = {
+    'model_ids':(17,19,21,23),
+    'model_names':('Same features for signature',
+                   'Diversity features for signature',
+                   'High abundance features for signature',
+                   'Nonzero features for signature'),
+    'file_name':"loss_evol-otu-model_sig_res-all-{}.png",
+    'cols':('train_loss', 'eval_loss', 'val_loss'),
+    'names':('train_loss', 'eval_loss', 'val_loss'),
+    'saved_models_path':microbial_otu_models_path,
+}
+# dataset: microbial_otu_sig_nonzero
+# dataset split: no_abx
+# compare types of models
+plot_metrics_otu_model_sig_res_no_abx = {
+    'model_ids':(18,20,22,24),
+    'model_names':('Same features for signature',
+                   'Diversity features for signature',
+                   'High abundance features for signature',
+                   'Nonzero features for signature'),
+    'file_name':"loss_evol-otu-model_sig_res-no_abx-{}.png",
+    'cols':('train_loss', 'eval_loss', 'val_loss'),
+    'names':('train_loss', 'eval_loss', 'val_loss'),
+    'saved_models_path':microbial_otu_models_path,
+}
+
+# GENUS
+
+# dataset: microbial_genus
+# dataset split: all
+# compare types of models
+plot_metrics_genus_all = {
+    'model_ids':(1,9,17,25),
+    # 'model_ids':(17,25),
+    'model_names':('With signature and RNN',
+                   'With RNN',
+                   'With signature and residual connections',
+                   'With residual connections'),
+    'file_name':"loss_evol-genus-all-{}.png",
+    'cols':('train_loss', 'eval_loss', 'val_loss'),
+    'names':('train_loss', 'eval_loss', 'val_loss'),
+    'saved_models_path':microbial_genus_models_path,
+}
+# dataset: microbial_genus
+# dataset split: no_abx
+# compare types of models
+plot_metrics_genus_no_abx = {
+    'model_ids':(2,10,18,26),
+    # 'model_ids':(18,26),
+    'model_names':('With signature and RNN',
+                   'With RNN',
+                   'With signature and residual connections',
+                   'With residual connections'),
+    'file_name':"loss_evol-genus-no_abx-{}.png",
+    'cols':('train_loss', 'eval_loss', 'val_loss'),
+    'names':('train_loss', 'eval_loss', 'val_loss'),
+    'saved_models_path':microbial_genus_models_path,
+}
+
+# dataset: microbial_genus_sig_div
+# dataset split: all
+# compare types of models
+plot_metrics_genus_sig_div_all = {
+    'model_ids':(3,11,19,27),
+    # 'model_ids':(19,27),
+    'model_names':('With signature and RNN',
+                   'With RNN',
+                   'With signature and residual connections',
+                   'With residual connections'),
+    'file_name':"loss_evol-genus_sig_div-all-{}.png",
+    'cols':('train_loss', 'eval_loss', 'val_loss'),
+    'names':('train_loss', 'eval_loss', 'val_loss'),
+    'saved_models_path':microbial_genus_models_path,
+}
+# dataset: microbial_genus_sig_div
+# dataset split: no_abx
+# compare types of models
+plot_metrics_genus_sig_div_no_abx = {
+    'model_ids':(4,12,20,28),
+    # 'model_ids':(20,28),
+    'model_names':('With signature and RNN',
+                   'With RNN',
+                   'With signature and residual connections',
+                   'With residual connections'),
+    'file_name':"loss_evol-genus_sig_div-no_abx-{}.png",
+    'cols':('train_loss', 'eval_loss', 'val_loss'),
+    'names':('train_loss', 'eval_loss', 'val_loss'),
+    'saved_models_path':microbial_genus_models_path,
+}
+
+# dataset: microbial_genus_sig_highab
+# dataset split: all
+# compare types of models
+plot_metrics_genus_sig_highab_all = {
+    'model_ids':(5,13,21,29),
+    # 'model_ids':(21,29),
+    'model_names':('With signature and RNN',
+                   'With RNN',
+                   'With signature and residual connections',
+                   'With residual connections'),
+    'file_name':"loss_evol-genus_sig_highab-all-{}.png",
+    'cols':('train_loss', 'eval_loss', 'val_loss'),
+    'names':('train_loss', 'eval_loss', 'val_loss'),
+    'saved_models_path':microbial_genus_models_path,
+}
+# dataset: microbial_genus_sig_highab
+# dataset split: no_abx
+# compare types of models
+plot_metrics_genus_sig_highab_no_abx = {
+    'model_ids':(6,14,22,30),
+    # 'model_ids':(22,30),
+    'model_names':('With signature and RNN',
+                   'With RNN',
+                   'With signature and residual connections',
+                   'With residual connections'),
+    'file_name':"loss_evol-genus_sig_highab-no_abx-{}.png",
+    'cols':('train_loss', 'eval_loss', 'val_loss'),
+    'names':('train_loss', 'eval_loss', 'val_loss'),
+    'saved_models_path':microbial_genus_models_path,
+}
+
+# dataset: microbial_genus_sig_nonzero
+# dataset split: all
+# compare types of models
+plot_metrics_genus_sig_nonzero_all = {
+    'model_ids':(7,15,23,31),
+    # 'model_ids':(23,31),
+    'model_names':('With signature and RNN',
+                   'With RNN',
+                   'With signature and residual connections',
+                   'With residual connections'),
+    'file_name':"loss_evol-genus_sig_nonzero-all-{}.png",
+    'cols':('train_loss', 'eval_loss', 'val_loss'),
+    'names':('train_loss', 'eval_loss', 'val_loss'),
+    'saved_models_path':microbial_genus_models_path,
+}
+# dataset: microbial_genus_sig_nonzero
+# dataset split: no_abx
+# compare types of models
+plot_metrics_genus_sig_nonzero_no_abx = {
+    'model_ids':(8,16,24,32),
+    # 'model_ids':(24,32),
+    'model_names':('With signature and RNN',
+                   'With RNN',
+                   'With signature and residual connections',
+                   'With residual connections'),
+    'file_name':"loss_evol-genus_sig_nonzero-no_abx-{}.png",
+    'cols':('train_loss', 'eval_loss', 'val_loss'),
+    'names':('train_loss', 'eval_loss', 'val_loss'),
+    'saved_models_path':microbial_genus_models_path,
+}
+
+# dataset: microbial_genus_sig_nonzero
+# dataset split: all
+# compare types of models
+plot_metrics_genus_model_sig_res_all = {
+    'model_ids':(17,19,21,23),
+    'model_names':('Same features for signature',
+                   'Diversity features for signature',
+                   'High abundance features for signature',
+                   'Nonzero features for signature'),
+    'file_name':"loss_evol-genus-model_sig_res-all-{}.png",
+    'cols':('train_loss', 'eval_loss', 'val_loss'),
+    'names':('train_loss', 'eval_loss', 'val_loss'),
+    'saved_models_path':microbial_genus_models_path,
+}
+# dataset: microbial_genus_sig_nonzero
+# dataset split: no_abx
+# compare types of models
+plot_metrics_genus_model_sig_res_no_abx = {
+    'model_ids':(18,20,22,24),
+    'model_names':('Same features for signature',
+                   'Diversity features for signature',
+                   'High abundance features for signature',
+                   'Nonzero features for signature'),
+    'file_name':"loss_evol-genus-model_sig_res-no_abx-{}.png",
+    'cols':('train_loss', 'eval_loss', 'val_loss'),
+    'names':('train_loss', 'eval_loss', 'val_loss'),
+    'saved_models_path':microbial_genus_models_path,
+}
+
+param_list_microbial_otu_nn = []
+nns = [((100, 'tanh'), (100, 'relu')),
+       ((300, 'tanh'), (300, 'relu')),
+       ((500, 'tanh'), (500, 'relu')),
+       ((800, 'tanh'), (800, 'relu')),
+       ((300, 'tanh'), (300, 'relu'), (300, 'relu')),]
+for nn in nns:
+    param_list_microbial_otu_nn_1 = {
+            'resume_training': [True],
+            'dataset': ["microbial_otu_sig_highab"],
+            'dataset_id': dataset_splits,
+            'epochs': [epochs],
+            'batch_size': [batch_size],
+            'save_every': [save_every],
+            'learning_rate': [learning_rate],
+            'seed': [seed],
+            'hidden_size': [hidden_size],
+            'bias': [bias],
+            'dropout_rate': [dropout_rate],
+            'ode_nn': [nn],
+            'readout_nn': [nn],
+            'enc_nn': [nn],
+            'use_rnn': [False],
+            'input_sig': [True, False],
+            'residual_enc_dec': [True],
+            'func_appl_X': [[]],              # [["power-2", "power-3", "power-4"]]
+            'add_pred': [[]],
+            'test': [test],
+            'solver': [solver],
+            'solver_delta_t_factor': [solver_delta_t_factor],
+            'weight': [0.5],
+            'plot': [True],
+            'which_loss': ['easy'],
+            'which_val_loss': ['standard'],
+            'evaluate': [False],
+            'eval_metrics': [eval_metrics],
+            'paths_to_plot': [paths_to_plot],
+            'plot_variance': [False],
+            'std_factor': [std_factor],
+            'plot_moments': [plot_moments],
+            'saved_models_path': [microbial_otu_models_path],
+            'use_cond_exp': [True],
+            'input_current_t': [input_current_t],
+            'periodic_current_t': [True],
+            'scale_dt': [scale_dt],
+            'enc_input_t': [enc_input_t],
+            'add_readout_activation': [add_readout_activation], # ('softmax',['id']) ('sum2one',['id'])
+            'add_dynamic_cov': [True],
+            'pre-train': [0],
+            'zero_weight_init': [True],
+        }
+    param_list_microbial_otu_nn += get_parameter_array(param_dict=param_list_microbial_otu_nn_1)
+
+# dataset: microbial_otu_sig_highab
+# dataset split: all
+# model type : sig + res
+# compare nn sizes
+plot_metrics_otu_nnsizes_sig_res_all = {
+    'model_ids':(53,57,61,65,69),
+    'model_names':("((100, 'tanh'), (100, 'relu'))",
+                    "((300, 'tanh'), (300, 'relu'))",
+                    "((500, 'tanh'), (500, 'relu'))",
+                    "((800, 'tanh'), (800, 'relu'))",
+                    "((300, 'tanh'), (300, 'relu'), (300, 'relu'))"),
+    'file_name':"loss_evol-otu-nnsizes-sig_res-all-{}.png",
+    'cols':('train_loss', 'eval_loss', 'val_loss'),
+    'names':('train_loss', 'eval_loss', 'val_loss'),
+    'saved_models_path':microbial_otu_models_path,
+}
+
+# dataset: microbial_otu_sig_highab
+# dataset split: no_abx
+# model type : sig + res
+# compare nn sizes
+plot_metrics_otu_nnsizes_sig_res_no_abx = {
+    'model_ids':(55,59,63,67,71),
+    'model_names':("((100, 'tanh'), (100, 'relu'))",
+                    "((300, 'tanh'), (300, 'relu'))",
+                    "((500, 'tanh'), (500, 'relu'))",
+                    "((800, 'tanh'), (800, 'relu'))",
+                    "((300, 'tanh'), (300, 'relu'), (300, 'relu'))"),
+    'file_name':"loss_evol-otu-nnsizes-sig_res-no_abx-{}.png",
+    'cols':('train_loss', 'eval_loss', 'val_loss'),
+    'names':('train_loss', 'eval_loss', 'val_loss'),
+    'saved_models_path':microbial_otu_models_path,
+}
+
+# dataset: microbial_otu_sig_highab
+# dataset split: all
+# model type : res
+# compare nn sizes
+plot_metrics_otu_nnsizes_res_all = {
+    'model_ids':(54,58,62,66,70),
+    'model_names':("((100, 'tanh'), (100, 'relu'))",
+                    "((300, 'tanh'), (300, 'relu'))",
+                    "((500, 'tanh'), (500, 'relu'))",
+                    "((800, 'tanh'), (800, 'relu'))",
+                    "((300, 'tanh'), (300, 'relu'), (300, 'relu'))"),
+    'file_name':"loss_evol-otu-nnsizes-res-all-{}.png",
+    'cols':('train_loss', 'eval_loss', 'val_loss'),
+    'names':('train_loss', 'eval_loss', 'val_loss'),
+    'saved_models_path':microbial_otu_models_path,
+}
+
+# dataset: microbial_otu_sig_highab
+# dataset split: no_abx
+# model type : res
+# compare nn sizes
+plot_metrics_otu_nnsizes_res_no_abx = {
+    'model_ids':(56,60,64,68,72),
+    'model_names':("((100, 'tanh'), (100, 'relu'))",
+                    "((300, 'tanh'), (300, 'relu'))",
+                    "((500, 'tanh'), (500, 'relu'))",
+                    "((800, 'tanh'), (800, 'relu'))",
+                    "((300, 'tanh'), (300, 'relu'), (300, 'relu'))"),
+    'file_name':"loss_evol-otu-nnsizes-res-no_abx-{}.png",
+    'cols':('train_loss', 'eval_loss', 'val_loss'),
+    'names':('train_loss', 'eval_loss', 'val_loss'),
+    'saved_models_path':microbial_otu_models_path,
+}
 
 
 # ==============================================================================

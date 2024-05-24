@@ -73,7 +73,7 @@ def dirichlet_scoring(
                 E = E/np.sum(E)  # normalize s.t. sum = 1
                 # TODO: here we could try to find the ind with the best variance prediction
                 factors = (E*(1-E))/cond_var[t,s] - 1
-                if coord is not None:
+                if coord is not None and factors[coord] > 0:
                     factor = factors[coord]
                 else:
                     factor = np.median(factors[(factors > 0) & (cond_var[t,s] > 0)])
@@ -85,6 +85,7 @@ def dirichlet_scoring(
                 #     if use_ind == dimension-1:
                 #         factor = 1
                 #         break
+                # print(factor, E[coord], cond_var[t,s,coord])
                 alpha = E * factor
                 diri = stat.dirichlet(alpha)
                 rvs = diri.rvs(size=nb_samples)

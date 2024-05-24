@@ -329,7 +329,7 @@ def compute_loss_ad_variance_bis(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, e
 
         # fitting true conditional variance (with respect to conditional expectation and expectation squared)
         inner += weights[4] * torch.sum((Y_obs_bj[:,idx_var] - (Y_obs_bj[:,idx_id].detach() - X_obs[:,idx_id]) ** 2) ** 2, dim=1)
-        inner += weights[5] * torch.sum((Y_obs_bj[:,idx_var] - (Y_obs_bj[:,idx_power2] - Y_obs_bj[:,idx_id].detach() ** 2)) ** 2, dim=1)
+        inner += weights[5] * torch.sum((Y_obs_bj[:,idx_var] - (Y_obs_bj[:,idx_power2].detach() - Y_obs_bj[:,idx_id].detach() ** 2)) ** 2, dim=1)
 
         # enforcing conditional variance positiveness
         inner += weights[6] * torch.sum(F.relu(- Y_obs_bj[:,idx_var]) ** 2, dim=1)

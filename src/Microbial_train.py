@@ -986,6 +986,8 @@ def plot_one_path_with_pred(
         for j in range(dim):
             if dim > max_dim_per_plot and j % max_dim_per_plot == 0:
                 fig, axs = plt.subplots(min(max_dim_per_plot, dim-j))
+                if min(max_dim_per_plot, dim-j) == 1:
+                    axs = [axs]
                 counter = 1
             else:
                 counter += 1

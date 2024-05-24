@@ -93,13 +93,13 @@ Important flags:
 
 
 ## Training commands (Florian)
-#### Generate Dataset:
+### Generate Dataset:
 ```shell
 python make_microbial_dataset.py --dataset_config=config_otu_sig_highab
 python make_microbial_dataset.py --dataset_config=config_genus_sig_highab
 ```
 
-#### Training PD-NJODE:
+### Training PD-NJODE:
 on OTU dataset:
 ```shell
 python run.py --params=param_list_microbial_otu2 --NB_JOBS=64 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_otu2
@@ -116,7 +116,7 @@ python run.py --params=param_list_microbial_genus3 --NB_JOBS=64 --NB_CPUS=1 --SE
 ```
 
 
-#### Compute Anomaly Detection Scores:
+### Compute Anomaly Detection Scores:
 on OTU dataset:
 ```shell
 python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_otu3_ids --ad_params=param_list_AD_microbial_otu --forecast_saved_models_path=AD_microbial_otu3 --compute_scores=True --evaluate_scores=True

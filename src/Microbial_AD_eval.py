@@ -22,6 +22,7 @@ from torch.backends import cudnn
 import gc
 import math
 from sklearn import metrics
+import seaborn as sns
 
 from configs import config
 import models
@@ -373,6 +374,74 @@ def compute_scores(
         )
 
 
+def _plot_n_save_histograms(abx_samples, non_abx_samples, split, path_to_save):
+        fig, ax = plt.subplots(4, 2, figsize=(6*2, 4*4))
+        ax[0, 0].hist(np.nanmin(abx_samples, axis=1), label='abx min', bins=50)
+        ax[0, 1].hist(np.nanmin(non_abx_samples, axis=1), label='non-abx min', bins=50)
+        ax[1, 0].hist(np.nanmax(abx_samples, axis=1), label='abx max', bins=50)
+        ax[1, 1].hist(np.nanmax(non_abx_samples, axis=1), label='non-abx max', bins=50)
+        ax[2, 0].hist(np.nanmean(abx_samples, axis=1), label='abx mean', bins=50)
+        ax[2, 1].hist(np.nanmean(non_abx_samples, axis=1), label='non-abx mean', bins=50)
+        ax[3, 0].hist(np.nanmedian(abx_samples, axis=1), label='abx median', bins=50)
+        ax[3, 1].hist(np.nanmedian(non_abx_samples, axis=1), label='non-abx median', bins=50)
+        ax[0, 0].set_title("abx")
+        ax[0, 1].set_title("non-abx")
+        ax[0, 0].set_ylabel("min")
+        ax[1, 0].set_ylabel("max")
+        ax[2, 0].set_ylabel("mean")
+        ax[3, 0].set_ylabel("median")
+        plt.tight_layout()
+
+        impath = f"{path_to_save}hist_{split}.pdf"
+        plt.savefig(impath, format='pdf')
+        return impath
+
+
+def _transform_scores(scores_wide: pd.DataFrame, days_per_month=30.437) -> pd.DataFrame:
+    # transform df from wide to long
+    scores = scores_wide.melt(
+        id_vars=["host_id", "abx"], var_name="day", value_name="score"
+    )
+    scores["day"] = scores["day"].str.extract(r"ad_score_day-(\d+)")[0].astype(int)
+    scores.sort_values(["abx", "host_id", "day"], inplace=True)
+
+    # bin by month
+    scores["month_bin"] = (scores["day"] / days_per_month).round().astype(int)
+    return scores
+
+
+def _plot_score_over_age(df: pd.DataFrame, flag: str, path_to_save: str) -> str:
+    gs = matplotlib.gridspec.GridSpec(2, 1, height_ratios=[1, 0.5])
+    plt.figure(figsize=(12, 8), dpi=400)
+    ax1 = plt.subplot(gs[0])
+    ax2 = plt.subplot(gs[1], sharex=ax1)
+    axs = [ax1, ax2]
+
+    x_axis = "month_bin"
+    y_axis = "score"
+
+    # score distribution over months
+    sns.boxplot(
+        x=x_axis,
+        y=y_axis,
+        data=df,
+        ax=axs[0],
+        color="skyblue",
+    )
+    axs[0].set_title(f"Score over age: {flag}")
+    axs[0].set_xlabel("")
+
+    # number of samples over months
+    grouped_counts = df.groupby(x_axis)[y_axis].count().reset_index(name="counts")
+    sns.barplot(x=x_axis, y="counts", data=grouped_counts, color="peachpuff", ax=axs[1])
+    axs[1].set_ylabel(f"# samples w {y_axis}")
+    axs[1].set_xlabel(f"age in {x_axis}")
+    plt.tight_layout()
+    path_to_plot = f"{path_to_save}score_over_age_{flag}.pdf"
+    plt.savefig(path_to_plot)
+    return path_to_plot
+
+
 def evaluate_scores(
         forecast_saved_models_path, forecast_model_id=None, load_best=True,
         validation=False, send=False, **options):
@@ -402,39 +471,46 @@ def evaluate_scores(
             x for x in ad_scores.columns
             if x.startswith("ad_score_day-")
         ]
-        # split into abx and non-abx
-        abx_samples = ad_scores.loc[ad_scores["abx"], score_cols].values
-        non_abx_samples = ad_scores.loc[~ad_scores["abx"], score_cols].values
 
         # plot histograms
-        fig, ax = plt.subplots(4, 2, figsize=(6*2, 4*4))
-        ax[0, 0].hist(np.nanmin(abx_samples, axis=1), label='abx min', bins=50)
-        ax[0, 1].hist(np.nanmin(non_abx_samples, axis=1), label='non-abx min', bins=50)
-        ax[1, 0].hist(np.nanmax(abx_samples, axis=1), label='abx max', bins=50)
-        ax[1, 1].hist(np.nanmax(non_abx_samples, axis=1), label='non-abx max', bins=50)
-        ax[2, 0].hist(np.nanmean(abx_samples, axis=1), label='abx mean', bins=50)
-        ax[2, 1].hist(np.nanmean(non_abx_samples, axis=1), label='non-abx mean', bins=50)
-        ax[3, 0].hist(np.nanmedian(abx_samples, axis=1), label='abx median', bins=50)
-        ax[3, 1].hist(np.nanmedian(non_abx_samples, axis=1), label='non-abx median', bins=50)
-        ax[0, 0].set_title("abx")
-        ax[0, 1].set_title("non-abx")
-        ax[0, 0].set_ylabel("min")
-        ax[1, 0].set_ylabel("max")
-        ax[2, 0].set_ylabel("mean")
-        ax[3, 0].set_ylabel("median")
-        plt.tight_layout()
+        impath_hist = _plot_n_save_histograms(
+            abx_samples=ad_scores.loc[ad_scores["abx"], score_cols].values,
+            non_abx_samples=ad_scores.loc[~ad_scores["abx"], score_cols].values,
+            split=split,
+            path_to_save=evaluation_path,
+        )
 
-        impath = evaluation_path+'hist_'+split+'.pdf'
-        plt.savefig(impath, format='pdf')
-
+        # plot scores over age
+        ad_scores_flat = _transform_scores(ad_scores)
+        # abx
+        impath_age_abx = _plot_score_over_age(
+            ad_scores_flat[ad_scores_flat["abx"]], f"{split}_abx", evaluation_path
+        )
+        # no abx
+        impath_age_noabx = _plot_score_over_age(
+            ad_scores_flat[~ad_scores_flat["abx"]], f"{split}_noabx", evaluation_path
+        )
+        
+        # send to telegram
         if send:
+            # histograms
             caption = "scores-histogram - {} - id={}".format(which, forecast_model_id)
             SBM.send_notification(
                 text=None,
                 chat_id=config.CHAT_ID,
-                files=[impath],
+                files=[impath_hist],
                 text_for_files=caption
             )
+            # scores over age
+            dic_img_age = {"abx": impath_age_abx, "noabx":impath_age_noabx}
+            for k, v in dic_img_age.items():
+                caption = "scores-over-age {} - {} - id={}".format(k, which, forecast_model_id)
+                SBM.send_notification(
+                    text=None,
+                    chat_id=config.CHAT_ID,
+                    files=[v],
+                    text_for_files=caption
+                )
 
         # print(np.all(np.isnan(abx_samples), axis=1).sum())
         # print(np.all(np.isnan(non_abx_samples), axis=1).sum())

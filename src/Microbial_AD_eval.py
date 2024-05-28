@@ -395,22 +395,18 @@ def evaluate_scores(
     evaluation_path = '{}evaluation_{}/'.format(ad_path, which)
     makedirs(evaluation_path)
 
-    with open('{}train_ad_scores.npy'.format(scores_path), 'rb') as f:
-        train_ad_scores = np.load(f)
-        train_abx_labels = np.load(f)
-    with open('{}val_ad_scores.npy'.format(scores_path), 'rb') as f:
-        val_ad_scores = np.load(f)
-        val_abx_labels = np.load(f)
+    for split in ['train', 'val']:
+        # load scores
+        ad_scores = pd.read_csv(f"{scores_path}{split}_ad_scores.csv")
+        score_cols = [
+            x for x in ad_scores.columns
+            if x.startswith("ad_score_day-")
+        ]
+        # split into abx and non-abx
+        abx_samples = ad_scores.loc[ad_scores["abx"], score_cols].values
+        non_abx_samples = ad_scores.loc[~ad_scores["abx"], score_cols].values
 
-
-    for postfix in ['train', 'val']:
-        if postfix == 'train':
-            abx_samples = train_ad_scores[train_abx_labels == 1]
-            non_abx_samples = train_ad_scores[train_abx_labels == 0]
-        else:
-            abx_samples = val_ad_scores[val_abx_labels == 1]
-            non_abx_samples = val_ad_scores[val_abx_labels == 0]
-            postfix = 'val'
+        # plot histograms
         fig, ax = plt.subplots(4, 2, figsize=(6*2, 4*4))
         ax[0, 0].hist(np.nanmin(abx_samples, axis=1), label='abx min', bins=50)
         ax[0, 1].hist(np.nanmin(non_abx_samples, axis=1), label='non-abx min', bins=50)
@@ -428,7 +424,7 @@ def evaluate_scores(
         ax[3, 0].set_ylabel("median")
         plt.tight_layout()
 
-        impath = evaluation_path+'hist_'+postfix+'.pdf'
+        impath = evaluation_path+'hist_'+split+'.pdf'
         plt.savefig(impath, format='pdf')
 
         if send:

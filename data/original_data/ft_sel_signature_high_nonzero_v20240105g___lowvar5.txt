@@ -1,5 +1,7 @@
+g__low_var
 g__Bifidobacterium
 g__Bacteroides
+g__other_rare
 g__Streptococcus
 g__Blautia
 g__Veillonella

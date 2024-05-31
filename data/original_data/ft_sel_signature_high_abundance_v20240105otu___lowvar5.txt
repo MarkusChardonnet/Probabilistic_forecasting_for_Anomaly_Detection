@@ -5,4 +5,6 @@ otu__CP018937_2409138_2410677
 otu__CP023192_2201356_2202890
 otu__CP023819_1043647_1045165
 otu__CP026548_579189_580706
+otu__other_rare
+otu__low_var
 div_alpha_faith_pd

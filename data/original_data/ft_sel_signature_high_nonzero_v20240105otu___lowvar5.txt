@@ -1,3 +1,5 @@
+otu__other_rare
+otu__low_var
 otu__CP023192_2201356_2202890
 otu__CP031477_743696_745215
 otu__AB506165_1_1522

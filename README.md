@@ -99,6 +99,15 @@ python make_microbial_dataset.py --dataset_config=config_otu_sig_highab
 python make_microbial_dataset.py --dataset_config=config_genus_sig_highab
 ```
 
+lower dim datasets, reducing the features with low variance:
+```shell
+python make_microbial_dataset.py --dataset_config=config_otu_sig_highab_lowvar5
+python make_microbial_dataset.py --dataset_config=config_genus_sig_highab_lowvar5
+python make_microbial_dataset.py --dataset_config=config_otu_sig_highab_lowvar94q
+python make_microbial_dataset.py --dataset_config=config_genus_sig_highab_lowvar94q
+```
+
+
 ### Training PD-NJODE:
 on OTU dataset:
 ```shell
@@ -115,6 +124,11 @@ on Genus dataset:
 python run.py --params=param_list_microbial_genus3 --NB_JOBS=64 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_genus3
 ```
 
+lower dim datasets, reducing the features with low variance:
+```shell
+python run.py --params=param_list_microbial_lowvar --NB_JOBS=64 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_lowvar
+```
+
 
 ### Compute Anomaly Detection Scores:
 on OTU dataset:
@@ -127,6 +141,8 @@ on Genus dataset:
 ```shell
 python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_genus3_ids --ad_params=param_list_AD_microbial_genus --forecast_saved_models_path=AD_microbial_genus3 --compute_scores=True --evaluate_scores=True
 ```
+
+
 
 
 

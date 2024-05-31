@@ -109,3 +109,67 @@ config_otu_sig_div = {
     'init_val_method': ('group_feat_mean','delivery_mode'),
     'which_split': ['all', 'no_abx'],
 }
+
+
+# ------------------------------------------------------------------------------
+# lower dim datasets, reducing the features with low variance
+
+# otu
+config_otu_sig_highab_lowvar5 = {
+    'dataset': 'ft_vat19_anomaly_v20240105_otu_lowvar5.tsv',
+    'dataset_name': 'microbial_otu_sig_highab_lowvar5',
+    'microbial_features': 'otu_',
+    'signature_features': 'ft_sel_signature_high_abundance_v20240105otu___lowvar5.txt',
+    'static_features': [],
+    'dynamic_features': ["delivery_mode", "diet_milk", "diet_weaning"], # "sex", "geo_location_name"
+    'val_size': 0.2,
+    'seed': 398,
+    'starting_date': 42,
+    'init_val_method': ('group_feat_mean','delivery_mode'),
+    'which_split': ['all', 'no_abx'],
+}
+
+config_otu_sig_highab_lowvar94q = {
+    'dataset': 'ft_vat19_anomaly_v20240105_otu_lowvar94q.tsv',
+    'dataset_name': 'microbial_otu_sig_highab_lowvar94q',
+    'microbial_features': 'otu_',
+    'signature_features': 'ft_sel_signature_high_abundance_v20240105otu___lowvar94q.txt',
+    'static_features': [],
+    'dynamic_features': ["delivery_mode", "diet_milk", "diet_weaning"], # "sex", "geo_location_name"
+    'val_size': 0.2,
+    'seed': 398,
+    'starting_date': 42,
+    'init_val_method': ('group_feat_mean','delivery_mode'),
+    'which_split': ['all', 'no_abx'],
+}
+
+# genus
+config_genus_sig_highab_lowvar5 = {
+    'dataset': 'ft_vat19_anomaly_v20240105_genus_lowvar5.tsv',
+    'dataset_name': 'microbial_genus_sig_highab_lowvar5',
+    'microbial_features': 'g_',
+    'signature_features': 'ft_sel_signature_high_abundance_v20240105g___lowvar5.txt',
+    'static_features': [],
+    'dynamic_features': ["delivery_mode", "diet_milk", "diet_weaning"], # "sex", "geo_location_name"
+    'val_size': 0.2,
+    'seed': 398,
+    'starting_date': 42,
+    'init_val_method': ('group_feat_mean','delivery_mode'),
+    'which_split': ['all', 'no_abx'],
+}
+
+config_genus_sig_highab_lowvar94q = {
+    'dataset': 'ft_vat19_anomaly_v20240105_genus_lowvar94q.tsv',
+    'dataset_name': 'microbial_genus_sig_highab_lowvar94q',
+    'microbial_features': 'g_',
+    'signature_features': 'ft_sel_signature_high_abundance_v20240105g___lowvar94q.txt',
+    'static_features': [],
+    'dynamic_features': ["delivery_mode", "diet_milk", "diet_weaning"], # "sex", "geo_location_name"
+    'val_size': 0.2,
+    'seed': 398,
+    'starting_date': 42,
+    'init_val_method': ('group_feat_mean','delivery_mode'),
+    'which_split': ['all', 'no_abx'],
+}
+
+

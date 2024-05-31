@@ -1,0 +1,5 @@
+otu__low_var
+otu__other_rare
+otu__CP023192_2201356_2202890
+otu__CP012870_431955_433510
+div_alpha_faith_pd

@@ -1,0 +1,13 @@
+g__Bifidobacterium
+g__Bacteroides
+g__Streptococcus
+g__Blautia
+g__Veillonella
+g__Haemophilus
+g__Ruminococcus_gnavus_group
+g__Anaerostipes
+g__Clostridium_sensu_stricto_1
+g__Escherichia_Shigella
+g__Faecalibacterium
+g__Erysipelatoclostridium
+div_alpha_faith_pd

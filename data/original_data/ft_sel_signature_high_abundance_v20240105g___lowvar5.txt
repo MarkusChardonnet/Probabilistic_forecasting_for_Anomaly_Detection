@@ -1,0 +1,6 @@
+g__Bacteroides
+g__Bifidobacterium
+g__Blautia
+g__Escherichia_Shigella
+g__Faecalibacterium
+div_alpha_faith_pd

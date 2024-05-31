@@ -43,14 +43,14 @@ param_list_AD_microbial_otu1 = get_parameter_array(
 # ------------------------------------------------------------------------------
 # AD for genus
 AD_microbial_genus3 = "{}saved_models_microbial_genus3/".format(data_path)
-AD_microbial_genus3_ids = []
+AD_microbial_genus3_ids = [135, 152, 92, 51, 17, 123]
 param_list_AD_microbial_genus = []
 param_dict_AD_microbial_genus = {
         "dataset": ['microbial_genus_sig_highab'],
         'saved_models_path': [AD_microbial_genus3],
         'load_best': [True,],
         'nb_MC_samples': [10**4],
-        'epsilon': [1e-8, 1e-6],
+        'epsilon': [1e-6],
         'verbose': [True],
         'seed': [seed],
 }

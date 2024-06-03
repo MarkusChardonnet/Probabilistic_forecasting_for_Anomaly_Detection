@@ -606,7 +606,7 @@ def train(
     if 'pre-train' in options and isinstance(options['pre-train'], int):
         pre_train = True
         pre_train_eps = options['pre-train']
-    if pre_train:
+    if pre_train and model.epoch <= 1:
         model.train()
         for ep in range(pre_train_eps):
             optimizer.zero_grad()

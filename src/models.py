@@ -884,6 +884,7 @@ class NJODE(torch.nn.Module):
         
         if 'add_readout_activation' in options1 and output_vars is not None:
             self.add_readout_act = True
+            self.readout_act = torch.nn.Identity()
             if options1['add_readout_activation'][0] == 'elu':
                 self.readout_act = torch.nn.ELU()
             if options1['add_readout_activation'][0] == 'identity':

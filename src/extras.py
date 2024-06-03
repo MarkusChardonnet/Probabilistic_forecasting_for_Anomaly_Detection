@@ -325,6 +325,10 @@ def get_training_overview(
 
         if val_test_params_extract:
             for l in val_test_params_extract:
+                if len(l[1].split("--")) > 1:
+                    split = l[1].split("--")
+                    if split[0] == "sum":
+                        df_metric[l[1]] = df_metric[split[1:]].sum(axis=1)
                 if l[0] == 'max':
                     f = np.nanmax
                 elif l[0] == 'min':

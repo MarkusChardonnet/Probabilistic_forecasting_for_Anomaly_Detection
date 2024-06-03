@@ -346,6 +346,69 @@ def compute_loss_ad_variance_bis(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, e
     outer += torch.sum(inner / n_obs_ot)
     return outer / batch_size
 
+
+def compute_loss_ad_variance_bis2(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size,
+                                 eps=1e-10,
+                                 weight=0.5, M_obs=None, output_vars=None):
+    assert (
+                'id' in output_vars and 'power-2' in output_vars and 'var' in output_vars)
+    dim = int(Y_obs.shape[1] / len(output_vars))
+    idx_id = np.argmax(np.array(output_vars) == 'id')
+    idx_id = np.arange(idx_id * dim, (idx_id + 1) * dim)
+    idx_power2 = np.argmax(np.array(output_vars) == 'power-2')
+    idx_power2 = np.arange(idx_power2 * dim, (idx_power2 + 1) * dim)
+    idx_var = np.argmax(np.array(output_vars) == 'var')
+    idx_var = np.arange(idx_var * dim, (idx_var + 1) * dim)
+    idx_tot = np.concatenate([idx_id, idx_power2], axis=0)
+
+    weights = torch.tensor([1,
+                            1,
+                            0.1,
+                            0.1,
+                            0.1,
+                            0.05,
+                            1,
+                            1, ])
+    weights[4:6] *= weight
+
+    outer = 0
+
+    if M_obs is None:
+
+        # fitting true conditional expectation
+        inner = weights[0] * torch.sum(
+            (X_obs[:, idx_id] - Y_obs[:, idx_id]) ** 2, dim=1)
+        inner += weights[1] * torch.sum(
+            (Y_obs_bj[:, idx_id] - X_obs[:, idx_id]) ** 2, dim=1)
+
+        # fitting true conditional expectation squared
+        inner += weights[2] * torch.sum(
+            (X_obs[:, idx_power2] - Y_obs[:, idx_power2]) ** 2, dim=1)
+        inner += weights[3] * torch.sum(
+            (Y_obs_bj[:, idx_power2] - X_obs[:, idx_power2]) ** 2, dim=1)
+
+        # fitting true conditional variance (with respect to conditional expectation and expectation squared)
+        inner += weights[4] * torch.sum((Y_obs_bj[:, idx_var] - (
+                    Y_obs_bj[:, idx_id].detach() - X_obs[:, idx_id]) ** 2) ** 2,
+                                        dim=1)
+        inner += weights[5] * torch.sum((Y_obs_bj[:, idx_var] - (
+                    Y_obs_bj[:, idx_power2].detach() - Y_obs_bj[:,
+                                                       idx_id].detach() ** 2)) ** 2,
+                                        dim=1)
+
+        # enforcing conditional variance positiveness
+        inner += weights[6] * torch.sum(F.relu(- Y_obs_bj[:, idx_var]) ** 2,
+                                        dim=1)
+
+        # enforcing zero conditional variance at observations
+        # inner += weights[7] * torch.sum(Y_obs[:, idx_var] ** 2, dim=1)
+    else:
+        NotImplementedError
+
+    outer += torch.sum(inner / n_obs_ot)
+    return outer / batch_size
+
+
 def compute_loss_val_variance(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=1e-10,
                    weight=0.5, M_obs=None, output_vars=None):
     assert('id' in output_vars and 'power-2' in output_vars)
@@ -415,6 +478,7 @@ LOSS_FUN_DICT = {
     'moment_2': compute_loss_ad,
     'variance': compute_loss_ad_variance,
     'variance_bis': compute_loss_ad_variance_bis,
+    'variance_bis2': compute_loss_ad_variance_bis2,
     'val_variance': compute_loss_val_variance,
 }
 
@@ -884,17 +948,18 @@ class NJODE(torch.nn.Module):
         
         if 'add_readout_activation' in options1 and output_vars is not None:
             self.add_readout_act = True
-            self.readout_act = torch.nn.Identity()
             if options1['add_readout_activation'][0] == 'elu':
                 self.readout_act = torch.nn.ELU()
-            if options1['add_readout_activation'][0] == 'identity':
+            elif options1['add_readout_activation'][0] == 'identity':
                 self.readout_act = torch.nn.Identity()
-            if options1['add_readout_activation'][0] == 'softmax':
+            elif options1['add_readout_activation'][0] == 'softmax':
                 self.readout_act = torch.nn.Softmax(dim=1)
-            if options1['add_readout_activation'][0] == 'sum2one':
+            elif options1['add_readout_activation'][0] == 'sum2one':
                 def sum2one(x):
                     return x / torch.sum(x, dim=1).reshape(-1,1).repeat(1,x.size(1))
                 self.readout_act = sum2one
+            else:
+                self.readout_act = torch.nn.Identity()
             dim = int(output_size / len(output_vars))
             readout_act_idx = []
             if list(set(output_vars) & set(options1['add_readout_activation'][1])) == 0:

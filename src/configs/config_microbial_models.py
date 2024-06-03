@@ -1146,7 +1146,7 @@ overview_dict_microbial_lowvar = dict(
         ("min", "eval_loss", "eval_loss", "eval_loss_min"),
         ("min", "val_loss", "val_loss", "val_loss_min"),
     ),
-    sortby=["val_loss_min"],
+    sortby=["dataset", "val_loss_min"],
 )
 
 

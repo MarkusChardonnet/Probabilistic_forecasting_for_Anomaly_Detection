@@ -1210,7 +1210,7 @@ for add_pred, which_loss in [
 
 overview_dict_microbial_lowvar1 = dict(
     ids_from=1, ids_to=len(param_list_microbial_lowvar1),
-    path=microbial_models_path_lowvar,
+    path=microbial_models_path_lowvar1,
     params_extract_desc=('dataset', 'dataset_split',
                          'ode_nn', 'enc_nn', 'readout_nn',
                          'dropout_rate', 'hidden_size', 'batch_size',

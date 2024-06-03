@@ -127,6 +127,8 @@ python run.py --params=param_list_microbial_genus3 --NB_JOBS=64 --NB_CPUS=1 --SE
 lower dim datasets, reducing the features with low variance:
 ```shell
 python run.py --params=param_list_microbial_lowvar --NB_JOBS=64 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_lowvar
+python run.py --params=param_list_microbial_lowvar1 --NB_JOBS=64 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_lowvar1
+
 ```
 
 

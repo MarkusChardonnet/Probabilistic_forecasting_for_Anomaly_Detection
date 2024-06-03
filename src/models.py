@@ -962,7 +962,7 @@ class NJODE(torch.nn.Module):
                 self.readout_act = torch.nn.Identity()
             dim = int(output_size / len(output_vars))
             readout_act_idx = []
-            if list(set(output_vars) & set(options1['add_readout_activation'][1])) == 0:
+            if len(set(output_vars) & set(options1['add_readout_activation'][1])) == 0:
                 self.add_readout_act = False
             for var in options1['add_readout_activation'][1]:
                 if var in output_vars:

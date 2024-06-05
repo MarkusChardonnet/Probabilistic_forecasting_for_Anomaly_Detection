@@ -1182,7 +1182,7 @@ for add_pred, which_loss in [
                 'add_pred': [add_pred],
                 'test': [test],
                 'solver': [solver],
-                'solver_delta_t_factor': [3., 7.],
+                'solver_delta_t_factor': [1/3., 1/7.],
                 'weight': [0.],
                 'weight_evolve': [{'type': 'linear', 'target': 1, 'reach': None}],
                 'plot': [True],

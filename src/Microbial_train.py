@@ -201,43 +201,44 @@ def train(
             'ode_input_scaling_func'    None or str in {'id', 'tanh'}, the
                             function used to scale inputs to the neuralODE.
                             default: tanh
-                -> 'GRU_ODE_Bayes' has the following extra options with the
-                    names 'GRU_ODE_Bayes'+<option_name>, for the following list
-                    of possible choices for <options_name>:
-                    '-mixing'   float, default: 0.0001, weight of the 2nd loss
-                                term of GRU-ODE-Bayes
-                    '-solver'   one of {"euler", "midpoint", "dopri5"}, default:
-                                "euler"
-                    '-impute'   bool, default: False,
-                                whether to impute the last parameter
-                                estimation of the p_model for the next ode_step
-                                as input. the p_model maps (like the
-                                readout_map) the hidden state to the
-                                parameter estimation of the normal distribution.
-                    '-logvar'   bool, default: True, wether to use logarithmic
-                                (co)variace -> hardcodinng positivity constraint
-                    '-full_gru_ode'     bool, default: True,
-                                        whether to use the full GRU cell
-                                        or a smaller version, see GRU-ODE-Bayes
-                    '-p_hidden'         int, default: hidden_size, size of the
-                                        inner hidden layer of the p_model
-                    '-prep_hidden'      int, default: hidden_size, in the
-                                        observational cell (i.e. jumps) a prior
-                                        matrix multiplication transforms the
-                                        input to have the size
-                                        prep_hidden * input_size
-                    '-cov_hidden'       int, default: hidden_size, size of the
-                                        inner hidden layer of the covariate_map.
-                                        the covariate_map is used as a mapping
-                                        to get the initial h (for controlled
-                                        ODE-RNN this is done by the encoder)
+            -> 'GRU_ODE_Bayes' has the following extra options with the
+                names 'GRU_ODE_Bayes'+<option_name>, for the following list
+                of possible choices for <options_name>:
+                '-mixing'   float, default: 0.0001, weight of the 2nd loss
+                            term of GRU-ODE-Bayes
+                '-solver'   one of {"euler", "midpoint", "dopri5"}, default:
+                            "euler"
+                '-impute'   bool, default: False,
+                            whether to impute the last parameter
+                            estimation of the p_model for the next ode_step
+                            as input. the p_model maps (like the
+                            readout_map) the hidden state to the
+                            parameter estimation of the normal distribution.
+                '-logvar'   bool, default: True, wether to use logarithmic
+                            (co)variace -> hardcodinng positivity constraint
+                '-full_gru_ode'     bool, default: True,
+                                    whether to use the full GRU cell
+                                    or a smaller version, see GRU-ODE-Bayes
+                '-p_hidden'         int, default: hidden_size, size of the
+                                    inner hidden layer of the p_model
+                '-prep_hidden'      int, default: hidden_size, in the
+                                    observational cell (i.e. jumps) a prior
+                                    matrix multiplication transforms the
+                                    input to have the size
+                                    prep_hidden * input_size
+                '-cov_hidden'       int, default: hidden_size, size of the
+                                    inner hidden layer of the covariate_map.
+                                    the covariate_map is used as a mapping
+                                    to get the initial h (for controlled
+                                    ODE-RNN this is done by the encoder)
             'add_pred'      
             'train_data_perc'
             'fixed_data_perc'
             'scale_dt'
             'weight_evolve'
-            'solver_delta_t_factor'
-            'articial_train_encdec 
+            'solver_delta_t_factor' inverse factor for the delta_t of the solver
+                            use 1/a to scale by a
+            'articial_train_encdec
     """
 
     global ANOMALY_DETECTION, USE_GPU, SEND, N_CPUS, N_DATASET_WORKERS

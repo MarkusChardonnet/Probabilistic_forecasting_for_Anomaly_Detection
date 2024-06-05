@@ -1150,7 +1150,7 @@ overview_dict_microbial_lowvar = dict(
 )
 
 # --------------
-# larger time steps; loss without variance=0 constraint; smaller networks
+# other time steps; loss without variance=0 constraint; smaller networks
 microbial_models_path_lowvar1 = "{}saved_models_microbial_lowvar1/".format(data_path)
 param_list_microbial_lowvar1 = []
 
@@ -1175,9 +1175,9 @@ for add_pred, which_loss in [
                 'ode_nn': [((100, 'tanh'),)],  # ode_nn, ode_nn1
                 'readout_nn': [((100, 'tanh'),)],
                 'enc_nn': [((100, 'tanh'),)],
-                'use_rnn': [True, False],
-                'input_sig': [True, False],
-                'residual_enc_dec': [True, False],
+                'use_rnn': [False],
+                'input_sig': [False],
+                'residual_enc_dec': [True],
                 'func_appl_X': [["power-2"]],              # [["power-2", "power-3", "power-4"]]
                 'add_pred': [add_pred],
                 'test': [test],
@@ -1200,7 +1200,7 @@ for add_pred, which_loss in [
                 'periodic_current_t': [True],
                 'scale_dt': [scale_dt],
                 'enc_input_t': [enc_input_t],
-                'add_readout_activation': [('sum2one',['id']),], # add_readout_activation # ('softmax',['id']) ('sum2one',['id'])
+                'add_readout_activation': [('sum2one',['id']), (None, [])], # add_readout_activation # ('softmax',['id']) ('sum2one',['id'])
                 'add_dynamic_cov': [True],
                 'pre-train': [10000],
                 'zero_weight_init': [False],

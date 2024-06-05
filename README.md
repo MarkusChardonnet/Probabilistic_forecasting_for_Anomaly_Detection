@@ -144,6 +144,10 @@ on Genus dataset:
 python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_genus3_ids --ad_params=param_list_AD_microbial_genus --forecast_saved_models_path=AD_microbial_genus3 --compute_scores=True --evaluate_scores=True
 ```
 
+lower dim datasets, reducing the features with low variance:
+```shell
+python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_lowvar_ids --ad_params=param_list_AD_microbial_lowvar --forecast_saved_models_path=AD_microbial_lowvar --compute_scores=True --evaluate_scores=True
+```
 
 
 

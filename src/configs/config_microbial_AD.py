@@ -64,8 +64,8 @@ param_dict_AD_microbial_lowvar = {
         'verbose': [True],
         'seed': [seed],
 }
-param_list_AD_microbial_genus += get_parameter_array(
-        param_dict=param_dict_AD_microbial_genus)
+param_list_AD_microbial_lowvar += get_parameter_array(
+        param_dict=param_dict_AD_microbial_lowvar)
 
 
 

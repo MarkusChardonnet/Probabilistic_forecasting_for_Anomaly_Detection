@@ -1148,6 +1148,10 @@ overview_dict_microbial_lowvar = dict(
     ),
     sortby=["dataset", "val_loss_min"],
 )
+# -> best performing:
+#       - no_abx, residual_enc_dec=True, use_rnn=False, input_sig=False
+#       - add_readout_activation no clear indication
+
 
 # --------------
 # other time steps; loss without variance=0 constraint; smaller networks
@@ -1163,7 +1167,7 @@ for add_pred, which_loss in [
                             "microbial_otu_sig_highab_lowvar94q",
                             "microbial_genus_sig_highab_lowvar5",
                             "microbial_genus_sig_highab_lowvar94q"],
-                'dataset_split': ["no_abx", "all"],
+                'dataset_split': ["no_abx",],
                 'epochs': [epochs],
                 'batch_size': [batch_size],
                 'save_every': [save_every],

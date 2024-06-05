@@ -928,18 +928,10 @@ def main(arg):
                     forecast_param["dataset"] = data_dict["model_name"]
             for ad_param in ad_params:
                 print("AD param: ", ad_param)
-                del ad_param["dataset"]
-                del ad_param["saved_models_path"]
-                if FLAGS.evaluate:
-                    evaluate(
-                        forecast_param=forecast_param,
-                        forecast_model_id=forecast_model_ids[i],
-                        forecast_saved_models_path=forecast_saved_models_path,
-                        n_dataset_workers=FLAGS.N_DATASET_WORKERS,
-                        use_gpu=FLAGS.USE_GPU, nb_cpus=FLAGS.NB_CPUS,
-                        saved_models_path=forecast_saved_models_path,
-                        dataset=forecast_param["dataset"],
-                        **ad_param)
+                if 'dataset' in ad_param:
+                    del ad_param["dataset"]
+                if 'saved_models_path' in ad_param:
+                    del ad_param["saved_models_path"]
                 if FLAGS.compute_scores:
                     compute_scores(
                         send=FLAGS.SEND,

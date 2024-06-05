@@ -882,7 +882,7 @@ def get_forecast_model_param_dict(
         'seed': seed, 'sigf_size': dimension_sig_feat,
         'weight': weight, 'weight_decay': weight_decay,
         'optimal_eval_loss': opt_eval_loss, 
-        't_period': t_period, 'output_vars': output_vars, 'delta_t': delta_t,
+        't_period': t_period, 'output_vars': output_vars, 'delta_t': model_delta_t,
         'options': options}
 
     return params_dict, collate_fn
@@ -1114,11 +1114,12 @@ def main(arg):
                 else:
                     data_dict = forecast_param["data_dict"]
                     if isinstance(data_dict, str):
-                        from configs import config
                         data_dict = eval("config."+data_dict)
                     forecast_param["dataset"] = data_dict["model_name"]
             for ad_param in ad_params:
                 print("AD param: ", ad_param)
+                del ad_param["dataset"]
+                del ad_param["saved_models_path"]
                 if FLAGS.evaluate:
                     evaluate(
                         forecast_param=forecast_param,
@@ -1126,6 +1127,8 @@ def main(arg):
                         forecast_saved_models_path=forecast_saved_models_path,
                         n_dataset_workers=FLAGS.N_DATASET_WORKERS,
                         use_gpu=FLAGS.USE_GPU, nb_cpus=FLAGS.NB_CPUS,
+                        saved_models_path=forecast_saved_models_path,
+                        dataset=forecast_param["dataset"],
                         **ad_param)
                 if FLAGS.compute_scores:
                     compute_scores(
@@ -1135,12 +1138,16 @@ def main(arg):
                         forecast_param=forecast_param,
                         n_dataset_workers=FLAGS.N_DATASET_WORKERS,
                         use_gpu=FLAGS.USE_GPU, nb_cpus=FLAGS.NB_CPUS,
+                        saved_models_path=forecast_saved_models_path,
+                        dataset=forecast_param["dataset"],
                         **ad_param)
                 if FLAGS.evaluate_scores:
                     evaluate_scores(
                         send=FLAGS.SEND,
                         forecast_saved_models_path=forecast_saved_models_path,
                         forecast_model_id=forecast_model_ids[i],
+                        saved_models_path=forecast_saved_models_path,
+                        dataset=forecast_param["dataset"],
                         **ad_param)
 
 

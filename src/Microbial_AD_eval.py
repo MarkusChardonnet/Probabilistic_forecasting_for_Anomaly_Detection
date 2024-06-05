@@ -546,197 +546,7 @@ def get_replace_forecast_values(cond_moments, output_vars, replace_with='mean',
     return replace_values
 
 
-def evaluate(
-        saved_models_path,
-        forecast_saved_models_path,
-        forecast_model_id=None, 
-        dataset='microbial_genus',
-        dataset_id=0,
-        forecast_param = None,
-        plot=True, 
-        paths_to_plot=(0,),
-        use_gpu=None,
-        nb_cpus=None,
-        n_dataset_workers=None,
-        **options
-):
 
-    global USE_GPU, N_CPUS, N_DATASET_WORKERS
-    if use_gpu is not None:
-        USE_GPU = use_gpu
-    if nb_cpus is not None:
-        N_CPUS = nb_cpus
-    if n_dataset_workers is not None:
-        N_DATASET_WORKERS = n_dataset_workers
-
-    if USE_GPU and torch.cuda.is_available():
-        gpu_num = 0
-        device = torch.device("cuda:{}".format(gpu_num))
-        torch.cuda.set_device(gpu_num)
-    else:
-        device = torch.device("cpu")
-
-    # load dataset-metadata
-    
-    eval_ad_idx = np.load(os.path.join(
-        train_data_path, dataset, str(dataset_id), 'train_idx.npy'
-        ), allow_pickle=True)
-
-    data_eval_ad = data_utils.MicrobialDataset(
-        dataset_name=dataset, idx=eval_ad_idx)
-
-    dataset_metadata = data_eval_ad.get_metadata()
-    dimension = dataset_metadata['dimension']
-    T = dataset_metadata['maturity']
-    delta_t = dataset_metadata['dt']  # copy metadata
-    
-    # get additional plotting information
-    plot_forecast_predictions = False
-    if 'plot_forecast_predictions' in options:
-        plot_forecast_predictions = options['plot_forecast_predictions']
-    std_factor = 1  # factor with which the std is multiplied
-    if 'plot_variance' in options:
-        plot_variance = options['plot_variance']
-    if 'std_factor' in options:
-        std_factor = options['std_factor']
-    class_thres = 0.5
-    autom_thres = None
-    if 'class_thres' in options:
-        class_thres = options['class_thres']
-        if 'autom_thres' in options:
-            autom_thres = options['autom_thres']
-
-    # get all needed paths
-    forecast_model_path = '{}id-{}/'.format(forecast_saved_models_path, forecast_model_id)
-    forecast_model_path_save_best = '{}best_checkpoint/'.format(forecast_model_path)
-    forecast_model_path_save_last = '{}last_checkpoint/'.format(forecast_model_path)
-    
-    model_path = '{}id-{}/'.format(saved_models_path, 0) # to change
-    model_path_save_last = '{}last_checkpoint/'.format(model_path)
-    model_path_save_best = '{}best_checkpoint/'.format(model_path)
-
-    # get params_dict
-    forecast_params_dict, collate_fn = get_forecast_model_param_dict(
-        **forecast_param
-    )
-    output_vars = forecast_params_dict['output_vars']
-
-    forecast_model = models.NJODE(**forecast_params_dict)  # get NJODE model class from
-    forecast_model.to(device)
-
-    forecast_optimizer = torch.optim.Adam(forecast_model.parameters(), lr=0.001, weight_decay=0.0005)
-    models.get_ckpt_model(forecast_model_path_save_last, forecast_model, forecast_optimizer, device)
-    forecast_model.eval()
-    del forecast_optimizer
-
-    dl = DataLoader(
-        dataset=data_eval_ad, collate_fn=collate_fn, shuffle=True, 
-        batch_size=len(eval_ad_idx))
-
-    eval_ad_path = '../data'
-    folders = ['anomaly_detection', dataset, str(dataset_id)]
-    for f in folders:
-        eval_ad_path = os.path.join(eval_ad_path, f)
-        if not os.path.exists(eval_ad_path):
-            os.mkdir(eval_ad_path)
-
-    makedirs(eval_ad_path)
-    eval_plot_path = eval_ad_path + 'plots/'
-    eval_metrics_path = eval_ad_path + 'metrics/'
-    if not os.path.exists(eval_plot_path):
-        os.mkdir(eval_plot_path)
-    if not os.path.exists(eval_metrics_path):
-        os.mkdir(eval_metrics_path)
-
-    # replace_values = get_replace_forecast_values(model=forecast_model, data_dict=forecast_param['data_dict'], 
-    #                                          collate_fn=collate_fn, steps_ahead=steps_ahead, device=device)
-    # torch.cuda.empty_cache()
-
-    ad_module = Simple_AD_module(output_vars=output_vars,
-                            replace_values=None, 
-                            class_thres=class_thres)
-
-    b = next(iter(dl))
-                
-    times = b["times"]
-    time_ptr = b["time_ptr"]
-    X = b["X"].to(device)
-    Z = b["Z"].to(device)
-    start_X = b["start_X"].to(device)
-    start_Z = b["start_Z"].to(device)
-    obs_idx = b["obs_idx"]
-    n_obs_ot = b["n_obs_ot"].to(device)
-    observed_dates = np.transpose(b['observed_dates'], (1,0)).astype(np.bool)
-    path_t_true_X = np.linspace(0., T, int(np.round(T / delta_t)) + 1)
-    true_X = b["true_paths"]
-
-    with torch.no_grad():
-        """_, _, path_t, _, path_y = forecast_model( 
-            times=times, time_ptr=time_ptr, X=torch.cat((X,Z),dim=1), obs_idx=obs_idx, delta_t=None, 
-            T=T, start_X=torch.cat((start_X,start_Z),dim=1),
-            n_obs_ot=n_obs_ot, get_loss=False, return_path=True)"""
-        res = forecast_model.get_pred(
-            times=times, time_ptr=time_ptr, X=torch.cat((X,Z),dim=1), obs_idx=obs_idx, delta_t=None,
-            T=T, start_X=torch.cat((start_X,start_Z),dim=1))
-        path_y_pred = res['pred'].detach().cpu().numpy()
-        path_t_pred = res['pred_t']
-        torch.cuda.empty_cache()
-
-    y_preds = []
-    t_preds = []
-    for j,t in enumerate(path_t_pred):
-        if j <= 1 or np.abs(t-t_preds[-1]) > 1e-10:
-            y_preds.append(path_y_pred[j])  
-            t_preds.append(path_t_pred[j])  
-    path_y_pred = np.array(y_preds)
-    path_t_pred = np.array(t_preds)
-
-    nb_steps = path_t_true_X.shape[0]
-    nb_moments = len(output_vars)
-
-    cond_moments = path_y_pred.reshape(nb_steps, dl.batch_size, dimension, nb_moments)
-    # cond_moments[0] = np.nan
-    observed_dates[0] = False
-    cond_moments[~observed_dates] = np.nan
-
-    """cond_moments = np.empty((nb_steps, dl.batch_size, dimension, nb_moments))
-    cond_moments[:,:,:,:] = np.nan
-
-    for t in range(1,nb_steps):
-        ids = np.where(observed_dates[t] == 1)[0]
-        for i in ids:
-            cond_moments[t,i] = path_y_pred[t,i].reshape(dimension, nb_moments)
-
-    test=cond_moments[observed_dates[1:]]"""
-    
-    obs = torch.tensor(true_X, dtype=torch.float32).permute(2,0,1)
-    cond_moments = torch.tensor(cond_moments, dtype=torch.float32)
-    # ad_scores= ad_module(obs, cond_moments, observed_dates)
-    # ad_scores = ad_scores.detach().cpu().numpy()
-    predicted_ad_labels, _ = ad_module.get_predicted_label(obs, cond_moments) #, observed_dates)
-    predicted_ad_labels = predicted_ad_labels.detach().cpu().numpy()
-
-    """    print(np.sum(observed_dates))
-    print(np.where(predicted_ad_labels[observed_dates] == 0))
-    print(np.sum(predicted_ad_labels[observed_dates] == 0))
-    print(np.where(predicted_ad_labels[observed_dates] == 1))
-    print(np.sum(predicted_ad_labels[observed_dates] == 1))"""
-
-    del path_t_pred, path_y_pred, cond_moments
-
-
-    if plot:
-        batch = next(iter(dl))
-
-        plot_filename = 'path-{}.png'
-        print("Plotting ..")
-        plot_one_path_with_pred(device, forecast_model, ad_module, batch, delta_t, T,
-            paths_to_plot=paths_to_plot, save_path=eval_plot_path, filename=plot_filename,
-            plot_variance=plot_variance, std_factor=std_factor,
-            output_vars=output_vars, plot_forecast_predictions=plot_forecast_predictions)
-        torch.cuda.empty_cache()
-
-    return 0
 
 
 def compute_metrics(ad_labels, ad_scores, mask, autom_thres = None, filename = '',
@@ -873,16 +683,16 @@ def get_forecast_model_param_dict(
     
     opt_eval_loss = np.nan
     params_dict = {  # create a dictionary of the wanted parameters
-        'input_size': input_size,
+        'input_size': input_size, 'epochs': epochs,
         'hidden_size': hidden_size, 'output_size': output_size, 'bias': bias,
         'ode_nn': ode_nn, 'readout_nn': readout_nn, 'enc_nn': enc_nn,
-        'use_rnn': use_rnn,
+        'use_rnn': use_rnn, 'zero_weight_init': zero_weight_init,
         'dropout_rate': dropout_rate, 'batch_size': batch_size,
-        'solver': solver, 'dataset': dataset, 'dataset_id': dataset_id,
-        'seed': seed, 'sigf_size': dimension_sig_feat,
-        'weight': weight, 'weight_decay': weight_decay,
-        'optimal_eval_loss': opt_eval_loss, 
-        't_period': t_period, 'output_vars': output_vars, 'delta_t': model_delta_t,
+        'solver': solver, 'dataset': dataset, 'seed': seed,
+        'weight': weight, 'weight_evolve': weight_evolve,
+        't_period': t_period, 'delta_t': model_delta_t,
+        'output_vars': output_vars, 'input_vars': input_vars,
+        'sigf_size': dimension_sig_feat,
         'options': options}
 
     return params_dict, collate_fn

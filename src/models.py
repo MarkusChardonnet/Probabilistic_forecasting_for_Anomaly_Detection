@@ -1087,8 +1087,6 @@ class NJODE(torch.nn.Module):
                 n_obs_ot, steps=1, get_loss=True, 
                 M=None, start_M=None, which_loss=None, dim_to=None):
         """
-        the forward run of this module class, used when calling the module
-        instance without a method
         :param times: np.array, of observation times
         :param time_ptr: list, start indices of X and obs_idx for a given
                 observation time, first element is 0, this pointer tells how
@@ -1752,118 +1750,6 @@ class NJODE(torch.nn.Module):
         else:
             return eval_loss
 
-    def evaluate_LOB(
-            self, times, time_ptr, X, obs_idx, delta_t, T, start_X,
-            n_obs_ot, return_paths=False, predict_times=None,
-            true_predict_vals=None, true_predict_labels=None, true_samples=None,
-            normalizing_mean=0., normalizing_std=1., eval_predict_steps=None,
-            thresholds=None, predict_labels=None,
-            coord_to_compare=(0,), class_report=False):
-        """
-        evaluate the model at its current training state for the LOB dataset
-
-        :param times: see forward
-        :param time_ptr: see forward
-        :param X: see forward
-        :param obs_idx: see forward
-        :param delta_t: see forward
-        :param T: see forward
-        :param start_X: see forward
-        :param n_obs_ot: see forward
-        :param return_paths: bool, whether to return also the paths
-        :param predict_times: np.array with the times at which each sample
-                should be predicted
-        :param true_predict_vals: np.array with the true values that should be
-                predicted at the predict_times
-        :param true_predict_labels: np.array, the correct labels at
-                predict_times
-        :param true_samples: np.array, the true samples, needed to compute
-                predicted labels
-        :param normalizing_mean: float, the mean with which the price data was
-                normalized
-        :param normalizing_std: float, the std with which the price data was
-                normalized
-        :param eval_predict_steps: list of int, the amount of steps ahead at
-                which to predict
-        :param thresholds: list of float, the labelling thresholds for each
-                entry of eval_predict_steps
-        :param predict_labels: as true_predict_labels, but as torch.tensor with
-                classes in {0,1,2}
-        :param coord_to_compare: list or None, the coordinates on which the
-                output and input are compared, applied to the inner dimension of
-                the time series, e.g. use [0] to compare on the midprice only
-        :param class_report: bool, whether to print the classification report
-        :return: eval-loss, if wanted paths t, y for true and pred
-        """
-        self.eval()
-
-        bs = start_X.shape[0]
-        dim = start_X.shape[1]
-        if coord_to_compare is None:
-            coord_to_compare = np.arange(dim)
-
-        _, _, path_t, path_h, path_y, cl_out = self.forward(
-            times, time_ptr, X, obs_idx, delta_t, T, start_X, n_obs_ot,
-            return_path=True, get_loss=False, until_T=True, M=None,
-            start_M=None, dim_to=None, predict_labels=predict_labels,
-            return_classifier_out=True)
-
-        path_y = path_y.detach().numpy()
-        predicted_vals = np.zeros_like(true_predict_vals)
-        for i in range(bs):
-            t = predict_times[i][0]
-            t_ind = np.argmin(np.abs(path_t - t))
-            predicted_vals[i, :, 0] = path_y[t_ind, i, :]
-
-        eval_loss = np.nanmean(
-            (predicted_vals[:, coord_to_compare, 0] -
-             true_predict_vals[:, coord_to_compare, 0])**2,
-            axis=(0,1))
-
-        ref_eval_loss = np.nanmean(
-            (true_samples[:, coord_to_compare, -1] -
-             true_predict_vals[:, coord_to_compare, 0])**2,
-            axis=(0,1))
-
-        f1_scores = None
-        predicted_labels = None
-        if true_samples is not None and true_predict_labels is not None:
-            predicted_labels = np.zeros(bs)
-            if cl_out is not None:
-                class_probs = self.SM(cl_out).detach().numpy()
-                classes = np.argmax(class_probs, axis=1) - 1
-                f1_scores = sklearn.metrics.f1_score(
-                    true_predict_labels[:, 0], classes,
-                    average="weighted")
-                predicted_labels = classes
-            else:
-                # TODO: this computes the labels incorrectly, since the shift by
-                #  X_0 is missing -> results should not be trusted, better to
-                #  use classifier
-                m_minus = np.mean(
-                    true_samples[:, 0, -eval_predict_steps[0]:] *
-                    normalizing_std + normalizing_mean, axis=1)
-                m_plus = predicted_vals[:, 0, 0]*normalizing_std + \
-                         normalizing_mean
-                pctc = (m_plus - m_minus) / m_minus
-                predicted_labels[pctc > thresholds[0]] = 1
-                predicted_labels[pctc < -thresholds[0]] = -1
-                f1_scores = sklearn.metrics.f1_score(
-                    true_predict_labels[:, 0], predicted_labels,
-                    average="weighted")
-            if class_report:
-                print("eval-mse: {:.5f}".format(eval_loss))
-                print("f1-score: {:.5f}".format(f1_scores))
-                print("classification report \n",
-                      sklearn.metrics.classification_report(
-                          true_predict_labels[:, 0], predicted_labels,))
-
-        if return_paths:
-            return eval_loss, ref_eval_loss, f1_scores, path_t, path_y, \
-                   predicted_vals[:, :, 0], predicted_labels
-        else:
-            return eval_loss, f1_scores
-
     def get_pred(self, times, time_ptr, X, obs_idx, delta_t, T, start_X,
                  S, start_S, M=None, start_M=None):
         """
@@ -1887,11 +1773,4 @@ class NJODE(torch.nn.Module):
             start_M=start_M, S=S, start_S=start_S)
         return {'pred': path_y, 'pred_t': path_t}
 
-    def forward_classifier(self, x, y):
-        # after last observation has been processed, apply classifier if wanted
-        cl_out = None
-        cl_loss = None
-        if self.classifier is not None:
-            cl_out = self.classifier(x)
-            cl_loss = self.CEL(input=self.SM(cl_out), target=y)
-        return cl_loss, cl_out
+

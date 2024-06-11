@@ -407,37 +407,143 @@ def _transform_scores(scores_wide: pd.DataFrame, days_per_month=30.437) -> pd.Da
 
     # bin by month
     scores["month_bin"] = (scores["day"] / days_per_month).round().astype(int)
+    scores["month5_bin"] = (scores["day"] / days_per_month * 2).round() / 2
     return scores
 
 
-def _plot_score_over_age(df: pd.DataFrame, flag: str, path_to_save: str) -> str:
+def _create_subplot(x_axis, y_axis, data, title, ylabel, xlabel, n=None):
     gs = matplotlib.gridspec.GridSpec(2, 1, height_ratios=[1, 0.5])
-    plt.figure(figsize=(12, 8), dpi=400)
+    fig = plt.figure(figsize=(12, 8), dpi=400)
     ax1 = plt.subplot(gs[0])
     ax2 = plt.subplot(gs[1], sharex=ax1)
     axs = [ax1, ax2]
 
+    sns.boxplot(x=x_axis, y=y_axis, data=data, ax=axs[0], color="skyblue")
+    axs[0].set_title(title)
+    axs[0].set_xlabel("")
+
+    if n is not None:
+        axs[0].axvline(3, color="darkred")
+
+    grouped_counts = data.groupby(x_axis)[y_axis].count().reset_index(name="counts")
+    sns.barplot(x=x_axis, y="counts", data=grouped_counts, color="peachpuff", ax=axs[1])
+
+    if n is not None:
+        axs[1].axvline(3, color="darkred")
+
+    axs[1].set_ylabel(ylabel)
+    axs[1].set_xlabel(xlabel)
+
+    plt.tight_layout()
+    return fig, axs
+
+
+def _plot_score_over_age(df: pd.DataFrame, flag: str, path_to_save: str) -> str:
     x_axis = "month_bin"
     y_axis = "score"
 
-    # score distribution over months
-    sns.boxplot(
-        x=x_axis,
-        y=y_axis,
-        data=df,
-        ax=axs[0],
-        color="skyblue",
-    )
-    axs[0].set_title(f"Score over age: {flag}")
-    axs[0].set_xlabel("")
+    title = flag
+    ylabel = f"# samples w {y_axis}"
+    xlabel = f"age in {x_axis}"
 
-    # number of samples over months
-    grouped_counts = df.groupby(x_axis)[y_axis].count().reset_index(name="counts")
-    sns.barplot(x=x_axis, y="counts", data=grouped_counts, color="peachpuff", ax=axs[1])
-    axs[1].set_ylabel(f"# samples w {y_axis}")
-    axs[1].set_xlabel(f"age in {x_axis}")
-    plt.tight_layout()
+    fig, _ = _create_subplot(x_axis, y_axis, df, title, ylabel, xlabel)
+
     path_to_plot = f"{path_to_save}score_over_age_{flag}.pdf"
+    plt.savefig(path_to_plot)
+    return path_to_plot
+
+
+def _get_abx_info(path_to_abx_ts: str) -> pd.DataFrame:
+    abx_df = pd.read_csv(path_to_abx_ts, sep="\t", index_col=0)
+    abx_df = abx_df["abx_start_age_months"].reset_index()
+    abx_df.sort_values(["host_id", "abx_start_age_months"], inplace=True)
+    abx_df["abx_any_cumcount"] = abx_df.groupby("host_id").cumcount() + 1
+    return abx_df
+
+
+def _select_samples_around_nth_abx_exposure(md_df, abx_df, n=1):
+    """
+    Get observed samples around n-th abx exposure (n=1 is first abx exposure,
+    n=2 is second etc.)
+
+    Args:
+        md_df (pd.DataFrame): Contains relevant metadata per host.
+        abx_df (pd.DataFrame): Contains start month of abx exposure per host.
+        n (int, optional): n-th antibiotics exposure to evaluate. Defaults to 1.
+
+    Returns:
+        pd.DataFrame: Dataframe with observed samples around n-th abx exposure.
+    """
+    # indexing starts at zero
+    n = n - 1
+    # calculate age at n-th abx exposure for all hosts
+    abx_nth_age = abx_df.groupby("host_id").nth(n)
+    abx_nth_age = abx_nth_age.rename(columns={"abx_start_age_months": "age_nth_abx"})
+
+    # add this column to all_samples
+    all_samples = pd.merge(md_df, abx_nth_age, on="host_id", how="left")
+
+    # calculate time of samples since n-th abx exposure
+    all_samples = all_samples.assign(
+        diff_age_nth_abx=all_samples["month5_bin"] - all_samples["age_nth_abx"]
+    )
+    # round to full months for simplicity. note: added 0.01 since lots of 0.5
+    # would otw be rounded down leading to uneven sample distribution
+    all_samples["diff_age_nth_abx"] = all_samples["diff_age_nth_abx"] + 0.01
+    all_samples["diff_age_nth_abx"] = all_samples["diff_age_nth_abx"].round(0)
+
+    # select only samples before and after nth abx exposure
+    abx_nth_samples = all_samples.loc[
+        np.logical_and(
+            ~all_samples["diff_age_nth_abx"].isna(),
+            all_samples["abx_any_cumcount"] <= (n + 1),
+        ),
+        :,
+    ]
+
+    # only select samples that are up to 3 months prior to n-th abx exposure and
+    # 12 months after
+    abx_nth_samples = abx_nth_samples.loc[
+        np.logical_and(
+            abx_nth_samples["diff_age_nth_abx"] >= -3.0,
+            abx_nth_samples["diff_age_nth_abx"] <= 12.0,
+        ),
+        :,
+    ]
+    # fix -0.0 artifact
+    abx_nth_samples["diff_age_nth_abx"] = abx_nth_samples["diff_age_nth_abx"].replace(
+        {-0.0: 0.0}
+    )
+    # remove samples with no observed features
+    abx_nth_samples = abx_nth_samples.dropna(subset=["score"])
+
+    return abx_nth_samples
+
+
+def _get_ordinal_suffix(n):
+    return (
+        "st"
+        if n % 10 == 1 and n != 11
+        else "nd"
+        if n % 10 == 2 and n != 12
+        else "rd"
+        if n % 10 == 3 and n != 13
+        else "th"
+    )
+
+
+def _plot_score_after_nth_abx_exposure(
+    data: pd.DataFrame, x_axis: str, y_axis: str, n: int, path_to_save: str, flag: str
+) -> str:
+    suff = _get_ordinal_suffix(n)
+
+    title = f"Score before/after {n}{suff} abx exposure"
+    ylabel = f"# samples w {y_axis}"
+    xlabel = f"Months since {n}{suff} abx exposure"
+
+    fig, _ = _create_subplot(x_axis, y_axis, data, title, ylabel, xlabel, n)
+
+    path_to_plot = f"{path_to_save}score_after_abx{n}{suff}_{flag}.pdf"
     plt.savefig(path_to_plot)
     return path_to_plot
 
@@ -464,6 +570,11 @@ def evaluate_scores(
     evaluation_path = '{}evaluation_{}/'.format(ad_path, which)
     makedirs(evaluation_path)
 
+    # TODO: retrieve path_to_abx_ts from saved model config instead of
+    # TODO: hardcoding
+    path_to_abx_ts = "data/original_data/ts_vat19_abx_v20240105.tsv"
+    abx_df = _get_abx_info(path_to_abx_ts)
+
     for split in ['train', 'val']:
         # load scores
         ad_scores = pd.read_csv(f"{scores_path}{split}_ad_scores.csv")
@@ -483,14 +594,31 @@ def evaluate_scores(
         # plot scores over age
         ad_scores_flat = _transform_scores(ad_scores)
         # abx
+        abx_scores_flat = ad_scores_flat[ad_scores_flat["abx"]].copy()
         impath_age_abx = _plot_score_over_age(
-            ad_scores_flat[ad_scores_flat["abx"]], f"{split}_abx", evaluation_path
+            abx_scores_flat, f"{split}_abx", evaluation_path
         )
         # no abx
         impath_age_noabx = _plot_score_over_age(
             ad_scores_flat[~ad_scores_flat["abx"]], f"{split}_noabx", evaluation_path
         )
-        
+
+        # plot scores after n-th abx exposure (performed only for abx samples)
+        impath_nth_abx_score = {}
+        for n in [1, 2]:
+            scores_abx_nth_samples = _select_samples_around_nth_abx_exposure(
+                abx_scores_flat, abx_df, n=n
+            )
+            n_path = _plot_score_after_nth_abx_exposure(
+                scores_abx_nth_samples,
+                x_axis="diff_age_nth_abx",
+                y_axis="score",
+                n=n,
+                path_to_save=evaluation_path,
+                flag=split,
+            )
+            impath_nth_abx_score[n] = n_path
+
         # send to telegram
         if send:
             # histograms
@@ -510,6 +638,14 @@ def evaluate_scores(
                     chat_id=config.CHAT_ID,
                     files=[v],
                     text_for_files=caption
+                )
+            # scores after n-th abx exposure
+            for k, v in impath_nth_abx_score.items():
+                caption = "scores-after-{}th-abx-exposure - {} - id={}".format(
+                    k, which, forecast_model_id
+                )
+                SBM.send_notification(
+                    text=None, chat_id=config.CHAT_ID, files=[v], text_for_files=caption
                 )
 
         # print(np.all(np.isnan(abx_samples), axis=1).sum())

@@ -550,7 +550,7 @@ def _plot_score_after_nth_abx_exposure(
 
 def evaluate_scores(
         forecast_saved_models_path, forecast_model_id=None, load_best=True,
-        validation=False, send=False, **options):
+        validation=False, send=False, dataset=None, **options):
     """
     Evaluate the anomaly detection scores
 
@@ -562,6 +562,14 @@ def evaluate_scores(
         validation: bool, whether to evaluate the validation (if True) set or
             the training set
     """
+    # get dataset metadata
+    train_idx = np.load(os.path.join(
+        train_data_path, dataset, "all", 'train_idx.npy'
+    ), allow_pickle=True)
+    data_train = data_utils.MicrobialDataset(
+        dataset_name=dataset, idx=train_idx)
+    dataset_metadata = data_train.get_metadata()
+
     forecast_model_path = '{}id-{}/'.format(
         forecast_saved_models_path, forecast_model_id)
     ad_path = '{}anomaly_detection/'.format(forecast_model_path)
@@ -570,9 +578,9 @@ def evaluate_scores(
     evaluation_path = '{}evaluation_{}/'.format(ad_path, which)
     makedirs(evaluation_path)
 
-    # TODO: retrieve path_to_abx_ts from saved model config instead of
-    # TODO: hardcoding
-    path_to_abx_ts = "data/original_data/ts_vat19_abx_v20240105.tsv"
+    raw_dataset_name = dataset_metadata["dataset"]
+    version = raw_dataset_name.split("_")[3]
+    path_to_abx_ts = f"data/original_data/ts_vat19_abx_{version}.tsv"
     abx_df = _get_abx_info(path_to_abx_ts)
 
     for split in ['train', 'val']:

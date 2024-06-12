@@ -293,6 +293,7 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
             "seed": seed,
             "val_size": val_size,
             "dataset_name": dataset_name,
+            "dataset": dataset,
             "init_val_method": init_val_method,
     }
 

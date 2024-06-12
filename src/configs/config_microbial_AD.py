@@ -68,6 +68,21 @@ param_list_AD_microbial_lowvar += get_parameter_array(
         param_dict=param_dict_AD_microbial_lowvar)
 
 
+# AD for lowvar1
+AD_microbial_lowvar1 = "{}saved_models_microbial_lowvar1/".format(data_path)
+AD_microbial_lowvar1_ids = [44, 47, 38, 29]
+param_list_AD_microbial_lowvar1 = []
+param_dict_AD_microbial_lowvar1 = {
+        'load_best': [True,],
+        'nb_MC_samples': [10**4],
+        'epsilon': [1e-6],
+        'verbose': [True],
+        'seed': [seed],
+}
+param_list_AD_microbial_lowvar1 += get_parameter_array(
+        param_dict=param_dict_AD_microbial_lowvar1)
+
+
 
 
 

@@ -1306,7 +1306,7 @@ overview_dict_microbial_lowvar2 = dict(
                          'which_loss', 'which_eval_loss', 'add_pred',
                          'solver_delta_t_factor', 'add_readout_activation',
                          'residual_enc_dec', 'use_rnn',
-                         'input_sig', 'level', ),
+                         'input_sig', 'level', 'lr_scheduler',),
     val_test_params_extract=(
         ("max", "epoch", "epoch", "epochs_trained"),
         ("min", "eval_loss", "eval_loss", "eval_loss_min"),

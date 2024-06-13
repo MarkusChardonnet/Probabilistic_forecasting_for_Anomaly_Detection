@@ -128,6 +128,7 @@ lower dim datasets, reducing the features with low variance:
 ```shell
 python run.py --params=param_list_microbial_lowvar --NB_JOBS=64 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_lowvar
 python run.py --params=param_list_microbial_lowvar1 --NB_JOBS=64 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_lowvar1
+python run.py --params=param_list_microbial_lowvar2 --NB_JOBS=64 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_lowvar2
 
 ```
 
@@ -148,6 +149,7 @@ lower dim datasets, reducing the features with low variance:
 ```shell
 python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_lowvar_ids --ad_params=param_list_AD_microbial_lowvar --forecast_saved_models_path=AD_microbial_lowvar --compute_scores=True --evaluate_scores=True
 python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_lowvar1_ids --ad_params=param_list_AD_microbial_lowvar1 --forecast_saved_models_path=AD_microbial_lowvar1 --compute_scores=True --evaluate_scores=True
+python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_lowvar2_ids --ad_params=param_list_AD_microbial_lowvar2 --forecast_saved_models_path=AD_microbial_lowvar2 --compute_scores=True --evaluate_scores=True
 ```
 
 

@@ -492,7 +492,7 @@ def train(
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-5)
     if lr_scheduler is not None:
         scheduler = torch.optim.lr_scheduler.StepLR(
-            optimizer, step_size=lr_scheduler["step"],
+            optimizer, step_size=lr_scheduler["step_size"],
             gamma=lr_scheduler["gamma"])
     else:
         scheduler = None

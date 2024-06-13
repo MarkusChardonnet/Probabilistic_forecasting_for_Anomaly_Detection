@@ -404,6 +404,9 @@ def train(
     plot_train = False
     if 'plot_train' in options:
         plot_train = True
+    lr_scheduler = None
+    if 'lr_scheduler' in options:
+        lr_scheduler = options['lr_scheduler']
 
     # get params_dict
     params_dict = {  # create a dictionary of the wanted parameters
@@ -487,6 +490,12 @@ def train(
                          "Please check docstring for correct use.")
     model.to(device)  # pass model to CPU/GPU
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-5)
+    if lr_scheduler is not None:
+        scheduler = torch.optim.lr_scheduler.StepLR(
+            optimizer, step_size=lr_scheduler["step"],
+            gamma=lr_scheduler["gamma"])
+    else:
+        scheduler = None
 
     gradient_clip = None
     if 'gradient_clip' in options:
@@ -651,8 +660,8 @@ def train(
                 nn.utils.clip_grad_value_(
                     model.parameters(), clip_value=gradient_clip)
             optimizer.step()  # update weights by ADAM optimizer
-            for param in model.parameters():
-                param.grad = None
+            if scheduler is not None:
+                scheduler.step()
             if ANOMALY_DETECTION:
                 print(r"current loss: {}".format(loss.detach().cpu().numpy()))
             del hT, times, time_ptr, X, Z, start_X, start_Z, obs_idx, n_obs_ot

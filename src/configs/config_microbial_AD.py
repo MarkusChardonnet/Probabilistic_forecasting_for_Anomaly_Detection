@@ -98,6 +98,19 @@ param_dict_AD_microbial_lowvar2 = {
 param_list_AD_microbial_lowvar2 += get_parameter_array(
         param_dict=param_dict_AD_microbial_lowvar2)
 
+AD_microbial_lowvar2_ids_1 = [19,]
+param_list_AD_microbial_lowvar2_1 = []
+param_dict_AD_microbial_lowvar2_1 = {
+        'load_best': [False,],
+        'nb_MC_samples': [10**4],
+        'epsilon': [1e-6],
+        'verbose': [True],
+        'seed': [seed],
+}
+param_list_AD_microbial_lowvar2_1 += get_parameter_array(
+        param_dict=param_dict_AD_microbial_lowvar2_1)
+
+
 
 
 

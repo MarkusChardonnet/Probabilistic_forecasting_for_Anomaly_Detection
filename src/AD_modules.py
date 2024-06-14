@@ -7,12 +7,12 @@ import tqdm
 import scipy.stats as stat
 
 
-def gaussian_scoring_2_moments(obs, 
-                               cond_exp,
-                               cond_var, 
-                               scoring_metric = 'p-value', 
-                               min_var_val = 1e-4,
-                               replace_var = None):
+def gaussian_scoring(obs, 
+                    cond_exp,
+                    cond_var, 
+                    scoring_metric = 'p-value', 
+                    min_var_val = 1e-4,
+                    replace_var = None):
     # obs : [nb_steps, nb_samples, dimension]
     # cond_exp : [nb_steps, nb_samples, dimension, steps_ahead]
     # cond_var : [nb_steps, nb_samples, dimension, steps_ahead]
@@ -34,6 +34,49 @@ def gaussian_scoring_2_moments(obs,
         p_vals = 2*scipy.stats.norm.sf(z_scores) # computes survival function, 2 factor for two sided
         scores = - np.log(p_vals + 1e-10)
     # scores : [nb_steps, nb_samples, dimension, steps_ahead]
+    return scores
+
+
+def beta_scoring(obs, 
+                    cond_exp,
+                    cond_var, 
+                    scoring_metric = 'p-value', 
+                    min_var_val = 1e-4,
+                    replace_var = None):
+    # obs : [nb_steps, nb_samples, dimension]
+    # cond_exp : [nb_steps, nb_samples, dimension, steps_ahead]
+    # cond_var : [nb_steps, nb_samples, dimension, steps_ahead]
+    nb_samples = cond_exp.shape[1]
+    dimension = cond_exp.shape[2]
+    nb_steps_ahead = cond_exp.shape[3]
+    if np.any(cond_var < 0):
+        # print('WARNING: some predicted cond. variances below 0 -> clip')
+        if replace_var is not None:
+            for d in range(dimension):
+                for s in range(nb_steps_ahead):
+                    condition = ~np.isnan(cond_var[:,:,d,s])
+                    condition = np.logical_and(condition, cond_var[:,:,d,s] <= 0)
+                    cond_var[:,:,d,s][condition] = replace_var[d,s]
+        else:
+            cond_var = np.maximum(min_var_val, cond_var)
+    # compute alpha beta from moments
+    terms = cond_exp * (1-cond_exp) / cond_var - 1
+    alphas = cond_exp * terms
+    betas = (1-cond_exp) * terms
+    # reshape vars
+    reshaped_alphas = alphas.reshape(-1)
+    reshaped_betas = betas.reshape(-1)
+    reshaped_obs = np.tile(np.expand_dims(obs,axis=3),(1,1,1,nb_steps_ahead)).reshape(-1)
+    # compute survival / accumulation function -> p-value
+    if scoring_metric == 'p-value':
+        # compute the CDF and SF values
+        cdf_values = scipy.stats.beta.cdf(reshaped_obs, reshaped_alphas, reshaped_betas)
+        sf_values = scipy.stats.beta.sf(reshaped_obs, reshaped_alphas, reshaped_betas)
+        # compute the two-sided p-values
+        p_vals = 2 * np.minimum(cdf_values, sf_values)
+        # infer score
+        scores = - np.log(p_vals + 1e-10)
+    scores = scores.reshape(-1,nb_samples,dimension,nb_steps_ahead)
     return scores
 
 
@@ -238,7 +281,7 @@ class AD_module(torch.nn.Module): # AD_module_1D, AD_module_ND
             elif 'power-2' in self.output_vars:
                 which = np.argmax(np.array(self.output_vars) == 'power-2')
                 cond_var = cond_moments[:,:,:,which,:].cpu().numpy()
-            scores_valid = gaussian_scoring_2_moments(obs=obs.numpy(), cond_exp=cond_exp, cond_var=cond_var, 
+            scores_valid = gaussian_scoring(obs=obs.numpy(), cond_exp=cond_exp, cond_var=cond_var, 
                                                       scoring_metric=self.scoring_metric, replace_var=self.replace_values['var'])
             scores_valid = torch.tensor(scores_valid, dtype=torch.float32)
 
@@ -621,9 +664,10 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
             cond_exp = np.expand_dims(cond_exp, 3)
             cond_var = np.expand_dims(cond_var, 3)
             # scores : [nb_steps, nb_samples, dimension]
-            scores_valid = gaussian_scoring_2_moments(
+            scores_valid = gaussian_scoring(
                 obs=obs, cond_exp=cond_exp, cond_var=cond_var,
                 scoring_metric=self.scoring_metric, replace_var=None)
+            scores_valid = scores_valid.transpose(1,0,2,3)
         elif self.distribution_class == 'dirichlet':
             # scores : [nb_steps, nb_samples]
             scores_valid = dirichlet_scoring(
@@ -633,6 +677,14 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
                 min_var_val=0., coord=self.dirichlet_use_coord,
                 verbose=self.verbose, seed=self.seed)
             scores_valid = scores_valid.transpose(1,0)
+        elif self.distribution_class == 'beta':
+            cond_exp = np.expand_dims(cond_exp, 3)
+            cond_var = np.expand_dims(cond_var, 3)
+            # scores : [nb_steps, nb_samples, dimension]
+            scores_valid = beta_scoring(
+                obs=obs, cond_exp=cond_exp, cond_var=cond_var,
+                scoring_metric=self.scoring_metric, replace_var=None)
+            scores_valid = scores_valid.transpose(1,0,2,3)
         return scores_valid
 
     def forward(self, obs, cond_moments, observed_dates=None):
@@ -653,3 +705,6 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
         labels[scores > self.threshold] = 1
 
         return labels, scores
+    
+
+# class DimAcc_AD_module(torch.nn.Module):

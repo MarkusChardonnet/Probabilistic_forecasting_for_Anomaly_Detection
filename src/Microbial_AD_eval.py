@@ -322,7 +322,7 @@ def compute_scores(
     ad_module = Simple_AD_module(
         output_vars=output_vars,
         nb_MC_samples=nb_MC_samples,
-        distribution_class="dirichlet",
+        distribution_class="beta",
         replace_values=replace_values,
         class_thres=class_thres,
         seed=seed,

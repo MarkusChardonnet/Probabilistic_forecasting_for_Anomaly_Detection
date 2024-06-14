@@ -580,7 +580,7 @@ def evaluate_scores(
 
     raw_dataset_name = dataset_metadata["dataset"]
     version = raw_dataset_name.split("_")[3]
-    path_to_abx_ts = f"data/original_data/ts_vat19_abx_{version}.tsv"
+    path_to_abx_ts = f"{config.original_data_path}ts_vat19_abx_{version}.tsv"
     abx_df = _get_abx_info(path_to_abx_ts)
 
     for split in ['train', 'val']:

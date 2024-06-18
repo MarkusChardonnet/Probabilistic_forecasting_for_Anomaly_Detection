@@ -49,6 +49,7 @@ def beta_scoring(obs,
     nb_samples = cond_exp.shape[1]
     dimension = cond_exp.shape[2]
     nb_steps_ahead = cond_exp.shape[3]
+    # replace negative variance values
     if np.any(cond_var < 0):
         # print('WARNING: some predicted cond. variances below 0 -> clip')
         if replace_var is not None:
@@ -59,8 +60,13 @@ def beta_scoring(obs,
                     cond_var[:,:,d,s][condition] = replace_var[d,s]
         else:
             cond_var = np.maximum(min_var_val, cond_var)
+    # clip expectation into admissible range [0,1]
+    cond_exp = np.clip(cond_exp, 1e-5, 1-1e-5)
     # compute alpha beta from moments
-    terms = cond_exp * (1-cond_exp) / cond_var - 1
+    idx = cond_var <= cond_exp * (1-cond_exp) - 1e-6
+    terms = np.zeros_like(cond_exp)
+    terms[idx] = cond_exp[idx] * (1-cond_exp[idx]) / cond_var[idx] - 1
+    terms[~idx] = (cond_exp[~idx] * (1-cond_exp[~idx])) / (cond_exp[~idx] * (1-cond_exp[~idx]) - 1e-6) - 1
     alphas = cond_exp * terms
     betas = (1-cond_exp) * terms
     # reshape vars

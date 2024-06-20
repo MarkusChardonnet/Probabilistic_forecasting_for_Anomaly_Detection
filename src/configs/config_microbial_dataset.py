@@ -173,3 +173,35 @@ config_genus_sig_highab_lowvar94q = {
 }
 
 
+# ------------------------------------------------------------------------------
+config_div_alpha_faith_pd_1 = {
+    'dataset': 'ft_vat19_anomaly_v20240105_genus_lowvar94q.tsv',
+    'dataset_name': 'div_alpha_faith_pd',
+    'microbial_features': ['div_alpha_faith_pd'],
+    'signature_features': None,
+    'static_features': [],
+    'dynamic_features': ["delivery_mode", "diet_milk", "diet_weaning"], # "sex", "geo_location_name"
+    'val_size': 0.2,
+    'seed': 398,
+    'starting_date': 42,
+    'init_val_method': ('group_feat_mean','delivery_mode'),
+    'which_split': ['all', 'no_abx'],
+}
+
+config_div_alpha_faith_pd_2 = {
+    'dataset': 'ft_vat19_anomaly_v20240105_genus_lowvar94q.tsv',
+    'dataset_name': 'div_alpha_faith_pd',
+    'microbial_features': ['div_alpha_faith_pd'],
+    'signature_features': None,
+    'static_features': [],
+    'dynamic_features': ["delivery_mode", "diet_milk", "diet_weaning"], # "sex", "geo_location_name"
+    'val_size': 0.2,
+    'seed': 398,
+    'starting_date': 0,
+    'init_val_method': None,
+    'which_split': ['all', 'no_abx'],
+}
+
+#TODO: maybe try a dataset with different diversity metric or with static instead of dynamic features
+
+

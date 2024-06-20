@@ -38,21 +38,16 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
     abx_feature_prefix = 'abx_'
 
     if isinstance(microbial_features, str):
-        l = len(microbial_features)
         microbial_feature_prefix = microbial_features
         microbial_features = []
         for feature in features:
             print(feature)
-            if len(feature) < l:
-                continue
-            if feature[:l] == microbial_feature_prefix:
-                microbial_features.append(feature)
-            elif feature[:l] == microbial_feature_prefix:
+            if feature.startswith(microbial_feature_prefix):
                 microbial_features.append(feature)
 
     abx_features = []
     for feature in features:
-        if len(feature) > len(abx_feature_prefix) and feature[:l] == abx_feature_prefix:
+        if feature.startswith(abx_feature_prefix):
             abx_features.append(feature)
 
 

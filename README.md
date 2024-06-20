@@ -107,6 +107,11 @@ python make_microbial_dataset.py --dataset_config=config_otu_sig_highab_lowvar94
 python make_microbial_dataset.py --dataset_config=config_genus_sig_highab_lowvar94q
 ```
 
+alpha diversity metric datasets:
+```shell
+python make_microbial_dataset.py --dataset_config=config_div_alpha_faith_pd_1
+python make_microbial_dataset.py --dataset_config=config_div_alpha_faith_pd_2
+```
 
 ### Training PD-NJODE:
 on OTU dataset:
@@ -129,7 +134,11 @@ lower dim datasets, reducing the features with low variance:
 python run.py --params=param_list_microbial_lowvar --NB_JOBS=64 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_lowvar
 python run.py --params=param_list_microbial_lowvar1 --NB_JOBS=64 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_lowvar1
 python run.py --params=param_list_microbial_lowvar2 --NB_JOBS=64 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_lowvar2
+```
 
+alpha diversity metric datasets:
+```shell
+python run.py --params=param_list_microbial_alpha_div --NB_JOBS=64 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_alpha_div
 ```
 
 
@@ -160,6 +169,7 @@ python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_lowvar2_ids --ad_p
 - [x] reducing learning rate during training as @Jakob_Heiss suggested
 - [ ] using a different projection approach for NJODE
 - [x] or no projection at all
+- [ ] model the alpha diversity metric
 
 - 
 

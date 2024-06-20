@@ -1332,8 +1332,8 @@ for add_pred, which_loss in [
         [[], "noisy_obs"],
 ]:
         param_dict_microbial_sig_rnn_alpha_div = {
-                'dataset': ['div_alpha_faith_pd_1',
-                            'div_alpha_faith_pd_2'],
+                'dataset': ['microbial_div_alpha_faith_pd_1',
+                            'microbial_div_alpha_faith_pd_2'],
                 'dataset_split': ["no_abx", "all"],
                 'epochs': [epochs],
                 'batch_size': [batch_size],

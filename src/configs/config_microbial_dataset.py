@@ -176,7 +176,7 @@ config_genus_sig_highab_lowvar94q = {
 # ------------------------------------------------------------------------------
 config_div_alpha_faith_pd_1 = {
     'dataset': 'ft_vat19_anomaly_v20240105_genus_lowvar94q.tsv',
-    'dataset_name': 'div_alpha_faith_pd_1',
+    'dataset_name': 'microbial_div_alpha_faith_pd_1',
     'microbial_features': ['div_alpha_faith_pd'],
     'signature_features': None,
     'static_features': [],
@@ -190,7 +190,7 @@ config_div_alpha_faith_pd_1 = {
 
 config_div_alpha_faith_pd_2 = {
     'dataset': 'ft_vat19_anomaly_v20240105_genus_lowvar94q.tsv',
-    'dataset_name': 'div_alpha_faith_pd_2',
+    'dataset_name': 'microbial_div_alpha_faith_pd_2',
     'microbial_features': ['div_alpha_faith_pd'],
     'signature_features': None,
     'static_features': [],

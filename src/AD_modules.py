@@ -32,7 +32,7 @@ def gaussian_scoring_2_moments(obs,
     z_scores = np.abs((np.tile(np.expand_dims(obs,axis=3),(1,1,1,nb_steps_ahead)) - cond_exp)) / cond_std
     if scoring_metric == 'p-value':
         p_vals = 2*scipy.stats.norm.sf(z_scores) # computes survival function, 2 factor for two sided
-        scores = - np.log(p_vals + 1e-10)
+        scores = -np.log(p_vals + 1e-10)
     # scores : [nb_steps, nb_samples, dimension, steps_ahead]
     return scores
 
@@ -620,10 +620,22 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
         if self.distribution_class == 'gaussian':
             cond_exp = np.expand_dims(cond_exp, 3)
             cond_var = np.expand_dims(cond_var, 3)
-            # scores : [nb_steps, nb_samples, dimension]
+            # scores : [nb_steps, nb_samples, dimension, steps_ahead=1]
             scores_valid = gaussian_scoring_2_moments(
                 obs=obs, cond_exp=cond_exp, cond_var=cond_var,
                 scoring_metric=self.scoring_metric, replace_var=None)
+        elif self.distribution_class == 'normal':
+            cond_exp = np.expand_dims(cond_exp, 3)
+            cond_var = np.expand_dims(cond_var, 3)
+            if self.replace_values is not None:
+                self.replace_values = np.expand_dims(self.replace_values, 1)
+            # scores : [nb_steps, nb_samples, dimension, steps_ahead]
+            scores_valid = gaussian_scoring_2_moments(
+                obs=obs, cond_exp=cond_exp, cond_var=cond_var,
+                scoring_metric=self.scoring_metric, replace_var=self.replace_values)
+            assert scores_valid.shape[2] == 1 and scores_valid.shape[3] == 1
+            # scores : [nb_samples, nb_steps]
+            scores_valid = scores_valid.squeeze(3).squeeze(2).transpose(1,0)
         elif self.distribution_class == 'dirichlet':
             # scores : [nb_steps, nb_samples]
             scores_valid = dirichlet_scoring(
@@ -633,6 +645,8 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
                 min_var_val=0., coord=self.dirichlet_use_coord,
                 verbose=self.verbose, seed=self.seed)
             scores_valid = scores_valid.transpose(1,0)
+        else:
+            raise ValueError('distribution_class not supported')
         return scores_valid
 
     def forward(self, obs, cond_moments, observed_dates=None):

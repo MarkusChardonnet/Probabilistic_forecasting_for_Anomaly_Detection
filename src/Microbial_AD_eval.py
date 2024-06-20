@@ -175,6 +175,7 @@ def compute_scores(
         forecast_saved_models_path,
         forecast_model_id=None,
         dataset='microbial_genus',
+        scoring_distribution='dirichlet',
         forecast_param=None,
         load_best=True,
         use_gpu=None,
@@ -228,6 +229,7 @@ def compute_scores(
 
     scores_dict = {
         "model_id": forecast_model_id, "dataset": dataset,
+        "scoring_distribution": scoring_distribution,
         "load_best": load_best,
         "nb_MC_samples": nb_MC_samples, "seed": seed, "epsilon": epsilon,
         "use_replace_values": use_replace_values,
@@ -319,16 +321,29 @@ def compute_scores(
     else:
         replace_values = None
 
-    ad_module = Simple_AD_module(
-        output_vars=output_vars,
-        nb_MC_samples=nb_MC_samples,
-        distribution_class="dirichlet",
-        replace_values=replace_values,
-        class_thres=class_thres,
-        seed=seed,
-        epsilon=epsilon,
-        dirichlet_use_coord=dirichlet_use_coord,
-        verbose=verbose)
+    if scoring_distribution == 'dirichlet':
+        ad_module = Simple_AD_module(
+            output_vars=output_vars,
+            nb_MC_samples=nb_MC_samples,
+            distribution_class="dirichlet",
+            replace_values=replace_values,
+            class_thres=class_thres,
+            seed=seed,
+            epsilon=epsilon,
+            dirichlet_use_coord=dirichlet_use_coord,
+            verbose=verbose)
+    elif scoring_distribution == 'normal':
+        ad_module = Simple_AD_module(
+            output_vars=output_vars,
+            nb_MC_samples=nb_MC_samples,
+            distribution_class="normal",
+            replace_values=replace_values,
+            class_thres=class_thres,
+            seed=seed,
+            epsilon=epsilon,
+            verbose=verbose)
+    else:
+        raise ValueError("scoring_distribution not implemented")
 
     # train data
     obs = true_X.transpose(2, 0, 1)

@@ -713,4 +713,126 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
         return labels, scores
     
 
-# class DimAcc_AD_module(torch.nn.Module):
+class DimAcc_AD_module(torch.nn.Module):
+    def __init__(self, 
+                 output_vars,
+                 dimension,
+                 scoring_metric='p-value',
+                 distribution_class='gaussian',
+                 activation_fct='sigmoid',
+                 activation_weights='sigmoid',
+                 replace_values=None,
+                 class_thres=0.5,
+                 nb_MC_samples=10**5,
+                 dirichlet_use_coord=None,
+                 seed=None,
+                 verbose=False,):
+        super(DimAcc_AD_module, self).__init__()
+        self.output_vars = output_vars
+        self.scoring_metric = scoring_metric
+        self.distribution_class = distribution_class
+        self.replace_values = replace_values
+        self.threshold = class_thres
+        # self.nb_samples = nb_MC_samples
+        # self.verbose = verbose
+        # self.seed = seed
+        # self.dirichlet_use_coord = dirichlet_use_coord
+        self.dimension = dimension
+
+        if activation_fct == 'sigmoid':
+            self.act = torch.nn.Sigmoid()
+        elif activation_fct == 'id':
+            self.act = torch.nn.Identity()
+
+        if activation_weights == 'sigmoid':
+            self.act_weights = torch.nn.Sigmoid()
+        elif activation_weights == 'identity':
+            self.act_weights = torch.nn.Identity()
+
+        ran = (-10.,-3.)
+        self.score_weights = torch.nn.Parameter(torch.FloatTensor(dimension).uniform_(ran[0], ran[1]))
+        self.act_intercept = torch.nn.Parameter(torch.FloatTensor(1).uniform_(ran[0], ran[1]))
+
+    def get_individual_scores(
+            self, cond_moments, obs, observed_dates=None):
+
+        assert(('id' in self.output_vars) and (
+                ('var' in self.output_vars) or ('power-2' in self.output_vars)))
+        which = np.argmax(np.array(self.output_vars) == 'id')
+        cond_exp = cond_moments[:,:,:,which]
+        if 'var' in self.output_vars:
+            which = np.argmax(np.array(self.output_vars) == 'var')
+            cond_var = cond_moments[:, :, :, which]
+        elif 'power-2' in self.output_vars:
+            which = np.argmax(np.array(self.output_vars) == 'power-2')
+            cond_exp_2 = cond_moments[:,:,:,which]
+            cond_var = cond_exp_2 - cond_exp ** 2
+
+        if self.distribution_class == 'gaussian':
+            cond_exp = np.expand_dims(cond_exp, 3)
+            cond_var = np.expand_dims(cond_var, 3)
+            # scores : [nb_steps, nb_samples, dimension]
+            scores_valid = gaussian_scoring(
+                obs=obs, cond_exp=cond_exp, cond_var=cond_var,
+                scoring_metric=self.scoring_metric, replace_var=None)
+            scores_valid = scores_valid.squeeze(axis=3).transpose(1,0,2)
+        # elif self.distribution_class == 'dirichlet':
+        #     # scores : [nb_steps, nb_samples]
+        #     scores_valid = dirichlet_scoring(
+        #         obs=obs, cond_exp=cond_exp, cond_var=cond_var,
+        #         observed_dates=observed_dates,
+        #         nb_samples=self.nb_samples, replace_var=self.replace_values,
+        #         min_var_val=0., coord=self.dirichlet_use_coord,
+        #         verbose=self.verbose, seed=self.seed)
+        #     scores_valid = scores_valid.transpose(1,0)
+        elif self.distribution_class == 'beta':
+            cond_exp = np.expand_dims(cond_exp, 3)
+            cond_var = np.expand_dims(cond_var, 3)
+            # scores : [nb_steps, nb_samples, dimension]
+            scores_valid = beta_scoring(
+                obs=obs, cond_exp=cond_exp, cond_var=cond_var,
+                scoring_metric=self.scoring_metric, replace_var=None)
+            scores_valid = scores_valid.squeeze(axis=3).transpose(1,0,2)
+
+        scores_valid = torch.tensor(scores_valid, dtype=torch.float32)
+        return scores_valid
+    
+    def get_weights(self):
+        return self.act_weights(self.score_weights)
+    
+    def loss(self, ad_scores, ad_labels):
+        criterion = nn.CrossEntropyLoss()
+
+        loss = criterion(ad_scores, ad_labels)
+
+        loss_regularizer = True
+        if loss_regularizer:
+            loss += torch.sum(self.get_weights() ** 2)
+
+        return loss
+
+    def forward(self, obs, cond_moments, observed_dates=None):
+        # obs : [nb_steps, nb_samples, dimension]
+        # cond_moments : [nb_steps, nb_samples, dimension, nb_moments]
+
+        nb_steps = cond_moments.shape[0]
+        nb_samples = cond_moments.shape[1]
+
+        weights = self.get_weights()
+        scores = self.get_individual_scores(cond_moments, obs, observed_dates)
+        
+        scores = torch.matmul(scores.reshape(-1, self.dimension), weights.view(-1,1))
+        scores = scores.reshape(nb_samples, nb_steps)
+        scores = self.act(scores - self.act_intercept)
+
+        # scores : [nb_samples, nb_steps]
+        return scores.detach().cpu().numpy()
+
+    def get_predicted_label(self, obs, cond_moments, observed_dates=None):
+        
+        scores = self(obs, cond_moments, observed_dates)
+
+        labels = torch.zeros_like(scores)
+        labels[scores > self.threshold] = 1
+
+        return labels, scores

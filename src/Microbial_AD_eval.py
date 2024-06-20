@@ -27,7 +27,7 @@ import seaborn as sns
 from configs import config
 import models
 import data_utils
-from AD_modules import AD_module, Simple_AD_module
+from AD_modules import AD_module, Simple_AD_module, DimAcc_AD_module
 import AD_modules
 
 try:
@@ -319,16 +319,25 @@ def compute_scores(
     else:
         replace_values = None
 
-    ad_module = Simple_AD_module(
+    # ad_module = Simple_AD_module(
+    #     output_vars=output_vars,
+    #     nb_MC_samples=nb_MC_samples,
+    #     distribution_class="beta",
+    #     replace_values=replace_values,
+    #     class_thres=class_thres,
+    #     seed=seed,
+    #     epsilon=epsilon,
+    #     dirichlet_use_coord=dirichlet_use_coord,
+    #     verbose=verbose)
+
+    ad_module = DimAcc_AD_module(
         output_vars=output_vars,
+        dimension=dimension,
         nb_MC_samples=nb_MC_samples,
         distribution_class="beta",
         replace_values=replace_values,
         class_thres=class_thres,
-        seed=seed,
-        epsilon=epsilon,
-        dirichlet_use_coord=dirichlet_use_coord,
-        verbose=verbose)
+        )
 
     # train data
     obs = true_X.transpose(2, 0, 1)

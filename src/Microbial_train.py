@@ -999,8 +999,10 @@ def plot_one_path_with_pred(
                 if min(max_dim_per_plot, dim-j) == 1:
                     axs = [axs]
                 counter = 1
-            else:
+            elif dim > max_dim_per_plot:
                 counter += 1
+            else:
+                counter = 1
             # get the true_X at observed dates
             path_t_obs = []
             path_X_obs = []
@@ -1072,8 +1074,10 @@ def plot_one_path_with_pred(
                         if dim > max_dim_per_plot and j % max_dim_per_plot == 0:
                             fig, axs = plt.subplots(min(max_dim_per_plot, dim-j))
                             counter = 1
-                        else:
+                        elif dim > max_dim_per_plot:
                             counter += 1
+                        else:
+                            counter = 1
                         path_t_obs = []
                         path_X_m_obs = []
                         for k, od in enumerate(observed_dates[i]):

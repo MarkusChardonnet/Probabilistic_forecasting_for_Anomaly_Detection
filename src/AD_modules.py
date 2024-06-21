@@ -5,10 +5,12 @@ import os
 import torch.nn as nn
 import tqdm
 import scipy.stats as stat
+import sklearn.linear_model as lm
 
 
 def gaussian_scoring(
-        obs, cond_exp, cond_var, 
+        obs, cond_exp, cond_var,
+        observed_dates=None,
         scoring_metric = 'p-value', 
         min_var_val = 1e-4,
         replace_var = None):
@@ -33,11 +35,14 @@ def gaussian_scoring(
         p_vals = 2*scipy.stats.norm.sf(z_scores) # computes survival function, 2 factor for two sided
         scores = -np.log(p_vals + 1e-10)
     # scores : [nb_steps, nb_samples, dimension, steps_ahead]
+    if observed_dates is not None:
+        scores[~observed_dates] = np.nan
     return scores
 
 
 def beta_scoring(
-        obs, cond_exp, cond_var, 
+        obs, cond_exp, cond_var,
+        observed_dates=None,
         scoring_metric = 'p-value', 
         min_var_val = 1e-4,
         replace_var = None):
@@ -81,6 +86,8 @@ def beta_scoring(
         # infer score
         scores = - np.log(p_vals + 1e-10)
     scores = scores.reshape(-1,nb_samples,dimension,nb_steps_ahead)
+    if observed_dates is not None:
+        scores[~observed_dates] = np.nan
     return scores
 
 
@@ -395,228 +402,6 @@ class AD_module(torch.nn.Module): # AD_module_1D, AD_module_ND
         self.weights.weight = torch.nn.Parameter(ls_weights)
 
 
-
-'''
-class AD_module(torch.nn.Module): # AD_module_1D, AD_module_ND
-    def __init__(self, steps_ahead,
-                 scoring_metric = 'p-value',
-                 distribution_class = 'gaussian',
-                 smoothing = 0,
-                 smooth_padding = 0,
-                 activation_fct = 'sigmoid',
-                 class_thres = 0.5,
-                 ):
-        super(AD_module, self).__init__()
-        self.scoring_metric = scoring_metric
-        self.distribution_class = distribution_class
-        self.steps_ahead = steps_ahead
-        self.steps_weighting = torch.nn.Linear(in_features=self.steps_ahead, out_features=1, bias=False)
-        self.smoothing = smoothing
-        self.smooth_padding = smooth_padding
-        self.threshold = class_thres
-        self.smoothing_weights = torch.nn.Conv1d(in_channels=1, out_channels=1, kernel_size=2*self.smoothing+1, 
-                                                     bias=False, padding=smooth_padding)
-        if activation_fct == 'sigmoid':
-            self.activation = torch.nn.Sigmoid()
-
-    def forward(self, obs, cond_moments,
-                    washout_border = 'automatic'):
-        # obs : [nb_steps, nb_samples, dimension]
-        # times : [nb_samples]
-        # cond_moments : [nb_steps, nb_samples, dimension, nb_moments, steps_ahead]
-        nb_steps = obs.size()[0]
-        nb_samples = obs.size()[1]
-        dimension = obs.size()[2]
-        valid_first = 0
-        if washout_border == 'automatic':
-            isvalid = torch.all(~torch.isnan(cond_moments).reshape(nb_steps,-1), dim=1)
-            obs_valid = obs[isvalid]
-            cond_moments_valid = cond_moments[isvalid]
-            valid_enum = torch.arange(nb_steps)
-            valid_enum[~isvalid] = nb_steps
-            valid_first = torch.argmin(valid_enum)
-
-        if self.distribution_class == 'gaussian':
-            cond_exp = cond_moments_valid[:,:,:,0,:]
-            cond_exp_2 = cond_moments_valid[:,:,:,1,:]
-            scores_valid = gaussian_scoring_2_moments(obs_valid.numpy(), cond_exp.numpy(), cond_exp_2.numpy(), self.scoring_metric)
-            scores_valid = torch.tensor(scores_valid, dtype=torch.float32)
-
-        scores_valid = torch.squeeze(self.steps_weighting(scores_valid),dim=3)
-        scores = torch.zeros_like(obs)
-        scores[isvalid] = scores_valid
-
-        mask = isvalid
-
-        scores = scores.permute(1,2,0).reshape(-1,1,nb_steps)
-        aggregated_scores = self.smoothing_weights(scores).reshape(nb_samples,dimension,-1)
-        aggregated_scores = aggregated_scores.permute(2,0,1)
-        scores = torch.zeros_like(obs)
-        scores[self.smoothing:-self.smoothing] = aggregated_scores
-        conv_mask = torch.ones(nb_steps, dtype=torch.bool)
-        conv_mask[:self.smoothing - self.smooth_padding + valid_first] = 0
-        conv_mask[self.smooth_padding - self.smoothing:] = 0
-        mask = torch.bitwise_and(mask, conv_mask)
-
-        scores = self.activation(scores)
-        # scores : [nb_steps, nb_samples, dimension]
-        # mask : [nb_steps, nb_samples, dimension]
-        return scores, mask
-    
-'''
-
-
-'''
-class AD_module(torch.nn.Module): # AD_module_1D, AD_module_ND
-    def __init__(self, 
-                 output_vars,
-                 steps_ahead,
-                 scoring_metric = 'p-value',
-                 distribution_class = 'gaussian',
-                 smoothing = 0,
-                 smooth_padding = 0,
-                 activation_fct = 'sigmoid',
-                 replace_values = None,
-                 class_thres = 0.5,
-                 ):
-        super(AD_module, self).__init__()
-        self.output_vars = output_vars
-        self.scoring_metric = scoring_metric
-        self.distribution_class = distribution_class
-        self.replace_values = replace_values
-        self.steps_ahead = steps_ahead
-        self.nb_steps = len(steps_ahead)
-        self.threshold = class_thres
-        self.steps_weighting = torch.nn.Linear(in_features=self.nb_steps, out_features=1, bias=False)
-        self.smoothing = smoothing
-        self.smooth_padding = smooth_padding
-
-        self.weights = torch.nn.Conv1d(in_channels=self.nb_steps, out_channels=1, kernel_size=2*self.smoothing+1, 
-                                                     bias=False, padding=smooth_padding)
-        if activation_fct == 'sigmoid':
-            self.activation = torch.nn.Sigmoid()
-        if activation_fct == 'id':
-            self.activation = torch.nn.Identity()
-
-    def get_washout_mask(self, cond_moments, washout_border = 'automatic'):
-        nb_steps = cond_moments.size()[0]
-        if washout_border == 'automatic':
-            mask = torch.all(~torch.isnan(cond_moments).reshape(nb_steps,-1), dim=1)
-        return mask
-    
-    def get_operation_mask(self, mask, nb_steps):
-        valid_enum = torch.arange(nb_steps)
-        valid_enum[~mask] = nb_steps
-        valid_first = torch.argmin(valid_enum)
-        conv_mask = torch.ones(nb_steps, dtype=torch.bool)
-        conv_mask[:self.smoothing - self.smooth_padding + valid_first] = 0
-        conv_mask[self.smooth_padding - self.smoothing:] = 0
-        mask = torch.bitwise_and(mask, conv_mask)
-
-        return mask
-
-    def get_individual_scores(self, cond_moments, obs):
-        if self.distribution_class == 'gaussian':
-            assert(('id' in self.output_vars) and (('var' in self.output_vars) or ('power-2' in self.output_vars)))
-            which = np.argmax(np.array(self.output_vars) == 'id')
-            cond_exp = cond_moments[:,:,:,which,:].cpu().numpy()
-            if 'var' in self.output_vars:
-                which = np.argmax(np.array(self.output_vars) == 'var')
-                cond_exp_2 = cond_moments[:,:,:,which,:].cpu().numpy()
-                cond_var = cond_exp_2 - cond_exp ** 2
-            elif 'power-2' in self.output_vars:
-                which = np.argmax(np.array(self.output_vars) == 'power-2')
-                cond_var = cond_moments[:,:,:,which,:].cpu().numpy()
-            scores_valid = gaussian_scoring_2_moments(obs=obs.numpy(), cond_exp=cond_exp, cond_var=cond_var, 
-                                                      scoring_metric=self.scoring_metric, replace_var=self.replace_values['var'])
-            scores_valid = torch.tensor(scores_valid, dtype=torch.float32)
-
-        return scores_valid
-    
-    def get_weights(self):
-        return self.weights.weight
-
-    def forward(self, obs, cond_moments,
-                    washout_border = 'automatic'):
-        # obs : [nb_steps, nb_samples, dimension]
-        # cond_moments : [nb_steps, nb_samples, dimension, nb_moments, steps_ahead]
-        nb_steps = obs.size()[0]
-        nb_samples = obs.size()[1]
-        dimension = obs.size()[2]
-
-        # eventually put this into another method called get_washout_mask
-        mask = self.get_washout_mask(cond_moments, washout_border)
-        obs_valid = obs[mask]
-        cond_moments_valid = cond_moments[mask]
-
-        scores_valid = self.get_individual_scores(cond_moments_valid, obs_valid)
-
-        scores = torch.zeros((nb_steps, nb_samples, dimension, self.nb_steps))
-        scores[mask] = scores_valid
-
-        scores = scores.permute(1,2,3,0).reshape(-1,self.nb_steps,nb_steps)
-        aggregated_scores = self.weights(scores).reshape(nb_samples,dimension,-1).permute(2,0,1)
-        scores = torch.zeros_like(obs)
-        scores[self.smoothing:-self.smoothing] = aggregated_scores
-
-        # eventually put this into another method called get_operation_mask
-        mask = self.get_operation_mask(mask, nb_steps)
-
-        scores = self.activation(scores)
-        # scores : [nb_steps, nb_samples, dimension]
-        # mask : [nb_steps, nb_samples, dimension]
-        return scores, mask
-
-    def get_predicted_label(self, obs, cond_moments,
-                    washout_border = 'automatic'):
-        
-        scores, mask = self(obs, cond_moments, washout_border)
-
-        # scores = scores.detach().cpu().numpy()
-        labels = torch.zeros_like(scores)
-        masked_scores = scores[mask]
-        masked_labels = labels[mask]
-        masked_labels[masked_scores > self.threshold] = 1
-        labels[mask] = masked_labels
-
-        print(self.threshold)
-
-        return labels, scores
-
-    def linear_solver(self, obs, labels, cond_moments, washout_border='automatic'):
-        # obs : [nb_steps, nb_samples, dimension]
-        # labels : [nb_steps, nb_samples, dimension]
-        # cond_moments : [nb_steps, nb_samples, dimension, nb_moments, steps_ahead]
-        assert(isinstance(self.activation,torch.nn.Identity))
-
-        nb_steps = obs.size()[0]
-        nb_samples = obs.size()[1]
-        dimension = obs.size()[2]
-        
-        mask = self.get_washout_mask(cond_moments, washout_border)
-        obs_valid = obs[mask]
-        cond_moments_valid = cond_moments[mask]
-
-        scores_valid = self.get_individual_scores(cond_moments_valid, obs_valid)
-
-        scores = torch.zeros((nb_steps, nb_samples, dimension, self.nb_steps))
-        scores[mask] = scores_valid
-
-        op_mask = self.get_operation_mask(mask, nb_steps)
-        
-        labels = labels[op_mask].permute(1,2,0)
-        scores = scores[mask].permute(1,2,0,3)
-
-        unfold_scores = scores.unfold(dimension=2, size=2*self.smoothing+1, step=1).reshape(-1, (2 * self.smoothing + 1) * self.nb_steps)
-        unfold_labels = labels.reshape(-1).unsqueeze(1)
-
-        ls_weights = torch.linalg.lstsq(unfold_scores,unfold_labels).solution
-        ls_weights = ls_weights.reshape(2 * self.smoothing + 1, self.nb_steps).permute(1,0).unsqueeze(0)
-
-        self.weights.weight = torch.nn.Parameter(ls_weights)
-
-'''
-
 class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
     def __init__(self, 
                  output_vars,
@@ -670,6 +455,7 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
             # scores : [nb_steps, nb_samples, dimension, steps_ahead=1]
             scores_valid = gaussian_scoring(
                 obs=obs, cond_exp=cond_exp, cond_var=cond_var,
+                observed_dates=observed_dates,
                 scoring_metric=self.scoring_metric, replace_var=None)
             # scores : [nb_samples, nb_steps, dimension, steps_ahead=1]
             scores_valid = scores_valid.transpose(1,0,2,3)
@@ -681,6 +467,7 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
             # scores : [nb_steps, nb_samples, dimension, steps_ahead]
             scores_valid = gaussian_scoring(
                 obs=obs, cond_exp=cond_exp, cond_var=cond_var,
+                observed_dates=observed_dates,
                 scoring_metric=self.scoring_metric, replace_var=self.replace_values)
             assert scores_valid.shape[2] == 1 and scores_valid.shape[3] == 1
             # scores : [nb_samples, nb_steps]
@@ -700,6 +487,7 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
             # scores : [nb_steps, nb_samples, dimension, steps_ahead=1]
             scores_valid = beta_scoring(
                 obs=obs, cond_exp=cond_exp, cond_var=cond_var,
+                observed_dates=observed_dates,
                 scoring_metric=self.scoring_metric, replace_var=None)
             # scores : [nb_samples, nb_steps, dimension, steps_ahead=1]
             scores_valid = scores_valid.transpose(1, 0, 2, 3)
@@ -737,10 +525,17 @@ class DimAcc_AD_module(torch.nn.Module):
                  activation_weights='sigmoid',
                  replace_values=None,
                  class_thres=0.5,
-                 nb_MC_samples=10**5,
-                 dirichlet_use_coord=None,
-                 seed=None,
-                 verbose=False,):
+                 aggregation_method='mean',
+                 train_labels=None,
+                 **kwargs,):
+        """
+        Args:
+            aggregation_method: one of
+                - 'mean': mean of the scores
+                - 'logistic': logistic regression
+            train_labels: label for the training data to fit the logistic
+                regression
+        """
         super(DimAcc_AD_module, self).__init__()
         self.output_vars = output_vars
         self.scoring_metric = scoring_metric
@@ -752,6 +547,9 @@ class DimAcc_AD_module(torch.nn.Module):
         # self.seed = seed
         # self.dirichlet_use_coord = dirichlet_use_coord
         self.dimension = dimension
+        self.aggregation_method = aggregation_method
+        self.train_labels = train_labels
+        self.logreg = None
 
         if activation_fct == 'sigmoid':
             self.act = torch.nn.Sigmoid()
@@ -788,24 +586,19 @@ class DimAcc_AD_module(torch.nn.Module):
             # scores : [nb_steps, nb_samples, dimension]
             scores_valid = gaussian_scoring(
                 obs=obs, cond_exp=cond_exp, cond_var=cond_var,
+                observed_dates=observed_dates,
                 scoring_metric=self.scoring_metric, replace_var=None)
+            # scores : [nb_samples, nb_steps, dimension]
             scores_valid = scores_valid.squeeze(axis=3).transpose(1,0,2)
-        # elif self.distribution_class == 'dirichlet':
-        #     # scores : [nb_steps, nb_samples]
-        #     scores_valid = dirichlet_scoring(
-        #         obs=obs, cond_exp=cond_exp, cond_var=cond_var,
-        #         observed_dates=observed_dates,
-        #         nb_samples=self.nb_samples, replace_var=self.replace_values,
-        #         min_var_val=0., coord=self.dirichlet_use_coord,
-        #         verbose=self.verbose, seed=self.seed)
-        #     scores_valid = scores_valid.transpose(1,0)
         elif self.distribution_class == 'beta':
             cond_exp = np.expand_dims(cond_exp, 3)
             cond_var = np.expand_dims(cond_var, 3)
             # scores : [nb_steps, nb_samples, dimension]
             scores_valid = beta_scoring(
                 obs=obs, cond_exp=cond_exp, cond_var=cond_var,
+                observed_dates=observed_dates,
                 scoring_metric=self.scoring_metric, replace_var=None)
+            # scores : [nb_samples, nb_steps, dimension]
             scores_valid = scores_valid.squeeze(axis=3).transpose(1,0,2)
 
         scores_valid = torch.tensor(scores_valid, dtype=torch.float32)
@@ -828,19 +621,38 @@ class DimAcc_AD_module(torch.nn.Module):
     def forward(self, obs, cond_moments, observed_dates=None):
         # obs : [nb_steps, nb_samples, dimension]
         # cond_moments : [nb_steps, nb_samples, dimension, nb_moments]
-
         nb_steps = cond_moments.shape[0]
-        nb_samples = cond_moments.shape[1]
 
-        weights = self.get_weights()
+        # scores : [nb_samples, nb_steps, dimension]
         scores = self.get_individual_scores(cond_moments, obs, observed_dates)
-        
-        scores = torch.matmul(scores.reshape(-1, self.dimension), weights.view(-1,1))
-        scores = scores.reshape(nb_samples, nb_steps)
-        scores = self.act(scores - self.act_intercept)
+
+        if self.aggregation_method == 'mean':
+            scores = torch.mean(scores, dim=2)
+            scores = scores.detach().cpu().numpy()
+        elif self.aggregation_method == 'logistic':
+            scores = scores.detach().cpu().numpy()
+            X = scores.reshape(-1, self.dimension)
+            which = ~np.isnan(X).any(axis=1)
+            y = self.train_labels.reshape(-1, 1).repeat(
+                nb_steps, axis=1).reshape(-1)
+
+            if self.logreg is None:
+                self.logreg = lm.LogisticRegression()
+                self.logreg.fit(X=X[which], y=y[which])
+
+            scores = self.logreg.predict_proba(X)[:,1].reshape(-1, nb_steps)
+        else:
+            raise ValueError('aggregation_method not supported')
+
+        # nb_steps = cond_moments.shape[0]
+        # nb_samples = cond_moments.shape[1]
+        # weights = self.get_weights()
+        # scores = torch.matmul(scores.reshape(-1, self.dimension), weights.view(-1,1))
+        # scores = scores.reshape(nb_samples, nb_steps)
+        # scores = self.act(scores - self.act_intercept)
 
         # scores : [nb_samples, nb_steps]
-        return scores.detach().cpu().numpy()
+        return scores
 
     def get_predicted_label(self, obs, cond_moments, observed_dates=None):
         

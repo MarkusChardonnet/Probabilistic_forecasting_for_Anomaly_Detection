@@ -188,6 +188,7 @@ def compute_scores(
         send=False,
         use_replace_values=False,
         dirichlet_use_coord=None,
+        aggregation_method='mean',
         **options
 ):
     """
@@ -233,7 +234,8 @@ def compute_scores(
         "load_best": load_best,
         "nb_MC_samples": nb_MC_samples, "seed": seed, "epsilon": epsilon,
         "use_replace_values": use_replace_values,
-        "dirichlet_use_coord": dirichlet_use_coord
+        "dirichlet_use_coord": dirichlet_use_coord,
+        "aggregation_method": aggregation_method,
     }
 
     # load dataset-metadata
@@ -346,6 +348,8 @@ def compute_scores(
             output_vars=output_vars,
             dimension=dimension,
             distribution_class="beta",
+            aggregation_method=aggregation_method,
+            train_labels=abx_labels,
             replace_values=replace_values,
             class_thres=class_thres,)
     else:

@@ -212,6 +212,7 @@ def compute_scores(
         use_replace_values: bool, whether to use replace values for variance
         dirichlet_use_coord: int, which coordinate to use for the dirichlet
             distribution as factor, if None: median of all coordinates is used
+        aggregation_method: str, method to aggregate the scores (if needed)
     """
     global USE_GPU, N_CPUS, N_DATASET_WORKERS
     if use_gpu is not None:

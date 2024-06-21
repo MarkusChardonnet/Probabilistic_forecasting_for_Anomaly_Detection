@@ -111,6 +111,19 @@ param_list_AD_microbial_lowvar2_1 += get_parameter_array(
         param_dict=param_dict_AD_microbial_lowvar2_1)
 
 
+# ------------------------------------------------------------------------------
+# AD for alpha diversity metric models
+AD_microbial_alpha_div = "{}saved_models_microbial_alpha_div/".format(data_path)
+AD_microbial_alpha_div_ids = []
+param_list_AD_microbial_alpha_div = []
+param_dict_AD_microbial_alpha_div = {
+        'load_best': [True,],
+        'verbose': [True],
+        'seed': [seed],
+        'scoring_distribution': ['normal'],
+}
+param_list_AD_microbial_alpha_div += get_parameter_array(
+        param_dict=param_dict_AD_microbial_alpha_div)
 
 
 

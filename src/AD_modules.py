@@ -640,7 +640,10 @@ class DimAcc_AD_module(torch.nn.Module):
                 self.logreg = lm.LogisticRegression()
                 self.logreg.fit(X=X[which], y=y[which])
 
-            scores = self.logreg.predict_proba(X)[:,1].reshape(-1, nb_steps)
+            _scores = self.logreg.predict_proba(X[which])[:,1]
+            scores = np.zeros_like(X[:,0]) * np.nan
+            scores[which] = _scores
+            scores = scores.reshape(-1, nb_steps)
         else:
             raise ValueError('aggregation_method not supported')
 

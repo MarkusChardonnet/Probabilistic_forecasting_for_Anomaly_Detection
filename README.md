@@ -159,6 +159,9 @@ lower dim datasets, reducing the features with low variance:
 python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_lowvar_ids --ad_params=param_list_AD_microbial_lowvar --forecast_saved_models_path=AD_microbial_lowvar --compute_scores=True --evaluate_scores=True
 python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_lowvar1_ids --ad_params=param_list_AD_microbial_lowvar1 --forecast_saved_models_path=AD_microbial_lowvar1 --compute_scores=True --evaluate_scores=True
 python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_lowvar2_ids --ad_params=param_list_AD_microbial_lowvar2 --forecast_saved_models_path=AD_microbial_lowvar2 --compute_scores=True --evaluate_scores=True
+
+# beta distribution based scoring
+python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_lowvar2_ids_2 --ad_params=param_list_AD_microbial_lowvar2_2 --forecast_saved_models_path=AD_microbial_lowvar2 --compute_scores=True --evaluate_scores=True
 ```
 
 

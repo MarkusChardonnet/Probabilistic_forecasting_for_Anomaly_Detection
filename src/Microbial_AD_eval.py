@@ -27,7 +27,7 @@ import seaborn as sns
 from configs import config
 import models
 import data_utils
-from AD_modules import AD_module, Simple_AD_module
+from AD_modules import AD_module, Simple_AD_module, DimAcc_AD_module
 import AD_modules
 
 try:
@@ -335,13 +335,19 @@ def compute_scores(
     elif scoring_distribution == 'normal':
         ad_module = Simple_AD_module(
             output_vars=output_vars,
-            nb_MC_samples=nb_MC_samples,
             distribution_class="normal",
             replace_values=replace_values,
             class_thres=class_thres,
             seed=seed,
             epsilon=epsilon,
             verbose=verbose)
+    elif scoring_distribution == 'beta':
+        ad_module = DimAcc_AD_module(
+            output_vars=output_vars,
+            dimension=dimension,
+            distribution_class="beta",
+            replace_values=replace_values,
+            class_thres=class_thres,)
     else:
         raise ValueError("scoring_distribution not implemented")
 

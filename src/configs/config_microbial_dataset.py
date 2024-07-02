@@ -178,7 +178,7 @@ config_div_alpha_faith_pd_1 = {
     'dataset': 'ft_vat19_anomaly_v20240105_genus_lowvar94q.tsv',
     'dataset_name': 'microbial_div_alpha_faith_pd_1',
     'microbial_features': ['div_alpha_faith_pd'],
-    'signature_features': None,
+    'signature_features': None,  # sets to same as microbial_features
     'static_features': [],
     'dynamic_features': ["delivery_mode", "diet_milk", "diet_weaning"], # "sex", "geo_location_name"
     'val_size': 0.2,
@@ -192,7 +192,7 @@ config_div_alpha_faith_pd_2 = {
     'dataset': 'ft_vat19_anomaly_v20240105_genus_lowvar94q.tsv',
     'dataset_name': 'microbial_div_alpha_faith_pd_2',
     'microbial_features': ['div_alpha_faith_pd'],
-    'signature_features': None,
+    'signature_features': None,  # sets to same as microbial_features
     'static_features': [],
     'dynamic_features': ["delivery_mode", "diet_milk", "diet_weaning"], # "sex", "geo_location_name"
     'val_size': 0.2,

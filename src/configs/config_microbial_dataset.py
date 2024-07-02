@@ -202,6 +202,52 @@ config_div_alpha_faith_pd_2 = {
     'which_split': ['all', 'no_abx'],
 }
 
-#TODO: maybe try a dataset with different diversity metric or with static instead of dynamic features
+config_div_alpha_faith_pd_3 = {
+    'dataset': 'ft_vat19_anomaly_v20240105_genus_lowvar94q.tsv',
+    'dataset_name': 'microbial_div_alpha_faith_pd_3',
+    'microbial_features': ['div_alpha_shannon'],
+    'signature_features': None,  # sets to same as microbial_features
+    'static_features': [],
+    'dynamic_features': ["delivery_mode", "diet_milk", "diet_weaning"], # "sex", "geo_location_name"
+    'val_size': 0.2,
+    'seed': 398,
+    'starting_date': 0,
+    'init_val_method': None,
+    'which_split': ['all', 'no_abx'],
+}
 
+config_div_alpha_faith_pd_4 = {
+    'dataset': 'ft_vat19_anomaly_v20240105_genus_lowvar94q.tsv',
+    'dataset_name': 'microbial_div_alpha_faith_pd_4',
+    'microbial_features': ['div_alpha_observed_features'],
+    'signature_features': None,  # sets to same as microbial_features
+    'static_features': [],
+    'dynamic_features': ["delivery_mode", "diet_milk", "diet_weaning"], # "sex", "geo_location_name"
+    'val_size': 0.2,
+    'seed': 398,
+    'starting_date': 0,
+    'init_val_method': None,
+    'which_split': ['all', 'no_abx'],
+}
+
+config_div_alpha_faith_pd_5 = {
+    'dataset': 'ft_vat19_anomaly_v20240105_genus_lowvar94q.tsv',
+    'dataset_name': 'microbial_div_alpha_faith_pd_4',
+    'microbial_features': ['div_alpha_shannon', 'div_alpha_observed_features', 'div_alpha_faith_pd'],
+    'signature_features': None,  # sets to same as microbial_features
+    'static_features': [],
+    'dynamic_features': ["delivery_mode", "diet_milk", "diet_weaning"], # "sex", "geo_location_name"
+    'val_size': 0.2,
+    'seed': 398,
+    'starting_date': 0,
+    'init_val_method': None,
+    'which_split': ['all', 'no_abx'],
+}
+
+
+
+#TODO: maybe try a dataset with different diversity metric or with static
+#   instead of dynamic features
+#   other div metrics:
+#       div_alpha_shannon, div_alpha_observed_features, div_alpha_faith_pd
 

@@ -111,6 +111,9 @@ alpha diversity metric datasets:
 ```shell
 python make_microbial_dataset.py --dataset_config=config_div_alpha_faith_pd_1
 python make_microbial_dataset.py --dataset_config=config_div_alpha_faith_pd_2
+python make_microbial_dataset.py --dataset_config=config_div_alpha_faith_pd_3
+python make_microbial_dataset.py --dataset_config=config_div_alpha_faith_pd_4
+python make_microbial_dataset.py --dataset_config=config_div_alpha_faith_pd_5
 ```
 
 ### Training PD-NJODE:
@@ -164,7 +167,10 @@ python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_lowvar2_ids --ad_p
 python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_lowvar2_ids_2 --ad_params=param_list_AD_microbial_lowvar2_2 --forecast_saved_models_path=AD_microbial_lowvar2 --compute_scores=True --evaluate_scores=True
 ```
 
-
+alpha diversity metric datasets:
+```shell
+python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_alpha_div_ids --ad_params=param_list_AD_microbial_alpha_div --forecast_saved_models_path=AD_microbial_alpha_div --compute_scores=True --evaluate_scores=True
+```
 
 # TODOs and Possible Improvements
 - [ ] different AD scoring method: using coordinate wise p-values based on beta distribution 

@@ -232,7 +232,7 @@ config_div_alpha_faith_pd_4 = {
 
 config_div_alpha_faith_pd_5 = {
     'dataset': 'ft_vat19_anomaly_v20240105_genus_lowvar94q.tsv',
-    'dataset_name': 'microbial_div_alpha_faith_pd_4',
+    'dataset_name': 'microbial_div_alpha_faith_pd_5',
     'microbial_features': ['div_alpha_shannon', 'div_alpha_observed_features', 'div_alpha_faith_pd'],
     'signature_features': None,  # sets to same as microbial_features
     'static_features': [],

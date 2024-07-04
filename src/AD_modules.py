@@ -30,10 +30,18 @@ def gaussian_scoring(
         else:
             cond_var = np.maximum(min_var_val, cond_var)
     cond_std = np.sqrt(cond_var)
-    z_scores = np.abs((np.tile(np.expand_dims(obs,axis=3),(1,1,1,nb_steps_ahead)) - cond_exp)) / cond_std
+    z_scores = (np.tile(np.expand_dims(obs,axis=3),(1,1,1,nb_steps_ahead)) - cond_exp) / cond_std
     if scoring_metric == 'p-value':
-        p_vals = 2*scipy.stats.norm.sf(z_scores) # computes survival function, 2 factor for two sided
+        p_vals = 2*scipy.stats.norm.sf(np.abs(z_scores)) # computes survival function, 2 factor for two sided
         scores = -np.log(p_vals + 1e-10)
+    elif scoring_metric == 'left-tail':
+        p_vals = scipy.stats.norm.cdf(z_scores)
+        scores = -np.log(p_vals + 1e-10)
+    elif scoring_metric == 'right-tail':
+        p_vals = scipy.stats.norm.sf(z_scores)
+        scores = -np.log(p_vals + 1e-10)
+    else:
+        raise ValueError('scoring_metric not supported')
     # scores : [nb_steps, nb_samples, dimension, steps_ahead]
     if observed_dates is not None:
         scores[~observed_dates] = np.nan

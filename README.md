@@ -170,6 +170,8 @@ python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_lowvar2_ids_2 --ad
 alpha diversity metric datasets:
 ```shell
 python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_alpha_div_ids --ad_params=param_list_AD_microbial_alpha_div --forecast_saved_models_path=AD_microbial_alpha_div --compute_scores=True --evaluate_scores=True
+python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_alpha_div_ids_1 --ad_params=param_list_AD_microbial_alpha_div --forecast_saved_models_path=AD_microbial_alpha_div --compute_scores=True --evaluate_scores=True
+python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_alpha_div_ids_2 --ad_params=param_list_AD_microbial_alpha_div_2 --forecast_saved_models_path=AD_microbial_alpha_div --compute_scores=True --evaluate_scores=True
 ```
 
 # TODOs and Possible Improvements

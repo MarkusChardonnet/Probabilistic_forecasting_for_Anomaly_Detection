@@ -148,6 +148,20 @@ param_dict_AD_microbial_alpha_div_2 = {
 param_list_AD_microbial_alpha_div_2 += get_parameter_array(
         param_dict=param_dict_AD_microbial_alpha_div_2)
 
+AD_microbial_alpha_div_ids_3 = [102]
+param_list_AD_microbial_alpha_div_3 = []
+param_dict_AD_microbial_alpha_div_3 = {
+        'load_best': [True, False],
+        'verbose': [True],
+        'seed': [seed],
+        'scoring_distribution': ['normal'],
+        'scoring_metric': ['left-tail'],
+}
+param_list_AD_microbial_alpha_div_3 += get_parameter_array(
+        param_dict=param_dict_AD_microbial_alpha_div_3)
+
+
+
 
 
 

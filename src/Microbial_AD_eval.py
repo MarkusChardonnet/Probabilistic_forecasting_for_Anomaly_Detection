@@ -189,6 +189,7 @@ def compute_scores(
         use_replace_values=False,
         dirichlet_use_coord=None,
         aggregation_method='mean',
+        scoring_metric='p-value',
         **options
 ):
     """
@@ -213,6 +214,10 @@ def compute_scores(
         dirichlet_use_coord: int, which coordinate to use for the dirichlet
             distribution as factor, if None: median of all coordinates is used
         aggregation_method: str, method to aggregate the scores (if needed)
+        scoring_metric: str, metric to use for scoring. one of:
+            - 'p-value': use the 2-sided p-value of the distribution
+            - 'left-tail': use the left tail of the distribution
+            - 'right-tail': use the right tail of the distribution
     """
     global USE_GPU, N_CPUS, N_DATASET_WORKERS
     if use_gpu is not None:
@@ -237,10 +242,10 @@ def compute_scores(
         "use_replace_values": use_replace_values,
         "dirichlet_use_coord": dirichlet_use_coord,
         "aggregation_method": aggregation_method,
+        "scoring_metric": scoring_metric,
     }
 
     # load dataset-metadata
-
     train_idx = np.load(os.path.join(
         train_data_path, dataset, "all", 'train_idx.npy'
     ), allow_pickle=True)
@@ -339,6 +344,7 @@ def compute_scores(
         ad_module = Simple_AD_module(
             output_vars=output_vars,
             distribution_class="normal",
+            scoring_metric=scoring_metric,
             replace_values=replace_values,
             class_thres=class_thres,
             seed=seed,

@@ -343,7 +343,8 @@ def compute_scores(
             class_thres=class_thres,
             seed=seed,
             epsilon=epsilon,
-            verbose=verbose)
+            verbose=verbose,
+            aggregation_method=aggregation_method)
     elif scoring_distribution == 'beta':
         ad_module = DimAcc_AD_module(
             output_vars=output_vars,

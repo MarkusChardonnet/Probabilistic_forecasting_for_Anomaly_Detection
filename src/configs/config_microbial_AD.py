@@ -125,6 +125,7 @@ param_list_AD_microbial_lowvar2_2 += get_parameter_array(
 # AD for alpha diversity metric models
 AD_microbial_alpha_div = "{}saved_models_microbial_alpha_div/".format(data_path)
 AD_microbial_alpha_div_ids = [13, 102]
+AD_microbial_alpha_div_ids_1 = [321, 327,]
 param_list_AD_microbial_alpha_div = []
 param_dict_AD_microbial_alpha_div = {
         'load_best': [True, False],
@@ -134,6 +135,18 @@ param_dict_AD_microbial_alpha_div = {
 }
 param_list_AD_microbial_alpha_div += get_parameter_array(
         param_dict=param_dict_AD_microbial_alpha_div)
+
+AD_microbial_alpha_div_ids_2 = [331]
+param_list_AD_microbial_alpha_div_2 = []
+param_dict_AD_microbial_alpha_div_2 = {
+        'load_best': [True, False],
+        'verbose': [True],
+        'seed': [seed],
+        'scoring_distribution': ['normal'],
+        'aggregation_method': ['mean', 'max'],
+}
+param_list_AD_microbial_alpha_div_2 += get_parameter_array(
+        param_dict=param_dict_AD_microbial_alpha_div_2)
 
 
 

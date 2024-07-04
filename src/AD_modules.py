@@ -402,6 +402,12 @@ class AD_module(torch.nn.Module): # AD_module_1D, AD_module_ND
         self.weights.weight = torch.nn.Parameter(ls_weights)
 
 
+AGGREGATION_METHODS = {
+    'mean': np.mean,
+    'min': np.min,
+    'max': np.max,
+}
+
 class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
     def __init__(self, 
                  output_vars,
@@ -414,6 +420,7 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
                  nb_MC_samples=10**5,
                  epsilon=1e-6,
                  dirichlet_use_coord=None,
+                 aggregation_method='mean',
                  seed=None,
                  verbose=False,):
         super(Simple_AD_module, self).__init__()
@@ -428,6 +435,7 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
         self.epsilon = epsilon
         self.dirichlet_use_coord = dirichlet_use_coord
         self.weight = score_factor
+        self.aggregation_method = aggregation_method
 
         if activation_fct == 'sigmoid':
             self.act = torch.nn.Sigmoid()
@@ -468,7 +476,11 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
             scores_valid = gaussian_scoring(
                 obs=obs, cond_exp=cond_exp, cond_var=cond_var,
                 observed_dates=observed_dates,
-                scoring_metric=self.scoring_metric, replace_var=self.replace_values)
+                scoring_metric=self.scoring_metric,
+                replace_var=self.replace_values,)
+            if scores_valid.shape[2] > 1:
+                scores_valid = AGGREGATION_METHODS[self.aggregation_method](
+                    scores_valid, axis=2, keepdims=True)
             assert scores_valid.shape[2] == 1 and scores_valid.shape[3] == 1
             # scores : [nb_samples, nb_steps]
             scores_valid = scores_valid.squeeze(3).squeeze(2).transpose(1,0)

@@ -73,6 +73,7 @@ def lognorm_scoring(
     # method of moments estimator
     mu = np.log(cond_exp) - 0.5 * np.log(1 + cond_var / cond_exp ** 2)
     sigma = np.sqrt(np.log(1 + cond_var / cond_exp ** 2))
+    obs = np.tile(np.expand_dims(obs, axis=3),(1,1,1,nb_steps_ahead))
     sf = scipy.stats.lognorm.sf(obs, s=sigma, scale=np.exp(mu))
     cdf = scipy.stats.lognorm.cdf(obs, s=sigma, scale=np.exp(mu))
     if scoring_metric == 'p-value':

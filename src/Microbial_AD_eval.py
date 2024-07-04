@@ -340,10 +340,10 @@ def compute_scores(
             epsilon=epsilon,
             dirichlet_use_coord=dirichlet_use_coord,
             verbose=verbose)
-    elif scoring_distribution == 'normal':
+    elif scoring_distribution in ['normal', 'lognormal']:
         ad_module = Simple_AD_module(
             output_vars=output_vars,
-            distribution_class="normal",
+            distribution_class=scoring_distribution,
             scoring_metric=scoring_metric,
             replace_values=replace_values,
             class_thres=class_thres,

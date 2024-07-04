@@ -48,6 +48,50 @@ def gaussian_scoring(
     return scores
 
 
+def lognorm_scoring(
+        obs, cond_exp, cond_var,
+        observed_dates=None,
+        scoring_metric = 'p-value',
+        min_var_val = 1e-4,
+        replace_var = None):
+    # obs : [nb_steps, nb_samples, dimension]
+    # cond_exp : [nb_steps, nb_samples, dimension, steps_ahead]
+    # cond_var : [nb_steps, nb_samples, dimension, steps_ahead]
+    dimension = cond_exp.shape[2]
+    nb_steps_ahead = cond_exp.shape[3]
+    if np.any(cond_var < 0):
+        # print('WARNING: some predicted cond. variances below 0 -> clip')
+        if replace_var is not None:
+            for d in range(dimension):
+                for s in range(nb_steps_ahead):
+                    condition = ~np.isnan(cond_var[:,:,d,s])
+                    condition = np.logical_and(condition, cond_var[:,:,d,s] <= 0)
+                    cond_var[:,:,d,s][condition] = replace_var[d,s]
+        else:
+            cond_var = np.maximum(min_var_val, cond_var)
+
+    # method of moments estimator
+    mu = np.log(cond_exp) - 0.5 * np.log(1 + cond_var / cond_exp ** 2)
+    sigma = np.sqrt(np.log(1 + cond_var / cond_exp ** 2))
+    sf = scipy.stats.lognorm.sf(obs, s=sigma, scale=np.exp(mu))
+    cdf = scipy.stats.lognorm.cdf(obs, s=sigma, scale=np.exp(mu))
+    if scoring_metric == 'p-value':
+        p_vals = 2 * np.minimum(cdf, sf)
+        scores = -np.log(p_vals + 1e-10)
+    elif scoring_metric == 'left-tail':
+        p_vals = cdf
+        scores = -np.log(p_vals + 1e-10)
+    elif scoring_metric == 'right-tail':
+        p_vals = sf
+        scores = -np.log(p_vals + 1e-10)
+    else:
+        raise ValueError('scoring_metric not supported')
+    # scores : [nb_steps, nb_samples, dimension, steps_ahead]
+    if observed_dates is not None:
+        scores[~observed_dates] = np.nan
+    return scores
+
+
 def beta_scoring(
         obs, cond_exp, cond_var,
         observed_dates=None,
@@ -475,13 +519,17 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
                 scoring_metric=self.scoring_metric, replace_var=None)
             # scores : [nb_samples, nb_steps, dimension, steps_ahead=1]
             scores_valid = scores_valid.transpose(1,0,2,3)
-        elif self.distribution_class == 'normal':
+        elif self.distribution_class in ['normal', 'lognormal']:
+            scoring_methods = {
+                'normal': gaussian_scoring,
+                'lognormal': lognorm_scoring,
+            }
             cond_exp = np.expand_dims(cond_exp, 3)
             cond_var = np.expand_dims(cond_var, 3)
             if self.replace_values is not None:
                 self.replace_values = np.expand_dims(self.replace_values, 1)
             # scores : [nb_steps, nb_samples, dimension, steps_ahead]
-            scores_valid = gaussian_scoring(
+            scores_valid = scoring_methods[self.distribution_class](
                 obs=obs, cond_exp=cond_exp, cond_var=cond_var,
                 observed_dates=observed_dates,
                 scoring_metric=self.scoring_metric,

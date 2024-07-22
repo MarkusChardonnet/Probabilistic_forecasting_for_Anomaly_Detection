@@ -438,19 +438,26 @@ def _transform_scores(scores_wide: pd.DataFrame, days_per_month=30.437) -> pd.Da
 
 
 def _create_subplot(x_axis, y_axis, data, title, ylabel, xlabel, n=None):
-    gs = matplotlib.gridspec.GridSpec(2, 1, height_ratios=[1, 0.5])
-    fig = plt.figure(figsize=(12, 8), dpi=400)
-    ax1 = plt.subplot(gs[0])
-    ax2 = plt.subplot(gs[1], sharex=ax1)
-    axs = [ax1, ax2]
+    fig, axs = plt.subplots(
+        2, 1, figsize=(10, 6), sharex=True, dpi=400
+    )
 
-    sns.boxplot(x=x_axis, y=y_axis, data=data, ax=axs[0], color="skyblue")
+    # axs[0] is the boxplot
+    # category used to have consistent x-axis
+    min_x = data[x_axis].min()
+    max_x = data[x_axis].max()
+    data[f"{x_axis}_cat"] = pd.Categorical(
+        data[x_axis], categories=np.arange(min_x, max_x + 1)
+    )
+    sns.boxplot(x=f"{x_axis}_cat", y=y_axis, data=data, ax=axs[0], color="skyblue")
+
     axs[0].set_title(title)
     axs[0].set_xlabel("")
 
     if n is not None:
         axs[0].axvline(3, color="darkred")
 
+    # axs[1] is the barplot
     grouped_counts = data.groupby(x_axis)[y_axis].count().reset_index(name="counts")
     sns.barplot(x=x_axis, y="counts", data=grouped_counts, color="peachpuff", ax=axs[1])
 
@@ -616,6 +623,7 @@ def evaluate_scores(
     path_to_abx_ts = f"{config.original_data_path}ts_vat19_abx_{version}.tsv"
     abx_df = _get_abx_info(path_to_abx_ts)
 
+    all_scores = {}
     for split in ['train', 'val']:
         # load scores
         ad_scores = pd.read_csv(f"{scores_path}{split}_ad_scores.csv")
@@ -635,33 +643,41 @@ def evaluate_scores(
         # flatten and enrich scores
         ad_scores_flat = _transform_scores(ad_scores)
         ad_scores_flat = ad_scores_flat.merge(ft_df, on=["host_id", "day"], how="left")
+        all_scores[split] = ad_scores_flat
+    
+    noabx_train = all_scores["train"][~all_scores["train"]["abx"]].copy()
+    noabx_val = all_scores["val"][~all_scores["val"]["abx"]].copy()
 
+    abx_scores_train = all_scores["train"][all_scores["train"]["abx"]].copy()
+    abx_scores_val = all_scores["val"][all_scores["val"]["abx"]].copy()
+    abx_scores = pd.concat([abx_scores_train, abx_scores_val])
+    abx_scores = abx_scores[abx_scores.score.notnull()].copy()
+
+    all_scores_split = {"train_noabx": noabx_train, "val_noabx": noabx_val, "abx": abx_scores}
+
+    dic_img_age = {}
+    for flag, scores in all_scores_split.items():
         # plot scores over age
-        # abx
-        abx_scores_flat = ad_scores_flat[ad_scores_flat["abx"]].copy()
-        impath_age_abx = _plot_score_over_age(
-            abx_scores_flat, f"{split}_abx", evaluation_path
-        )
-        # no abx
-        impath_age_noabx = _plot_score_over_age(
-            ad_scores_flat[~ad_scores_flat["abx"]], f"{split}_noabx", evaluation_path
+        dic_img_age[flag] = _plot_score_over_age(
+            scores, flag, evaluation_path
         )
 
         # plot scores after n-th abx exposure (performed only for abx samples)
-        impath_nth_abx_score = {}
-        for n in [1, 2]:
-            scores_abx_nth_samples = _select_samples_around_nth_abx_exposure(
-                abx_scores_flat, abx_df, n=n
-            )
-            n_path = _plot_score_after_nth_abx_exposure(
-                scores_abx_nth_samples,
-                x_axis="diff_age_nth_abx",
-                y_axis="score",
-                n=n,
-                path_to_save=evaluation_path,
-                flag=split,
-            )
-            impath_nth_abx_score[n] = n_path
+        if flag == "abx":
+            impath_nth_abx_score = {}
+            for n in [1, 2, 3]:
+                scores_abx_nth_samples = _select_samples_around_nth_abx_exposure(
+                    scores, abx_df, n=n
+                )
+                n_path = _plot_score_after_nth_abx_exposure(
+                    scores_abx_nth_samples,
+                    x_axis="diff_age_nth_abx",
+                    y_axis="score",
+                    n=n,
+                    path_to_save=evaluation_path,
+                    flag=split,
+                )
+                impath_nth_abx_score[n] = n_path
 
         # send to telegram
         if send:
@@ -674,7 +690,6 @@ def evaluate_scores(
                 text_for_files=caption
             )
             # scores over age
-            dic_img_age = {"abx": impath_age_abx, "noabx":impath_age_noabx}
             for k, v in dic_img_age.items():
                 caption = "scores-over-age {} - {} - id={}".format(k, which, forecast_model_id)
                 SBM.send_notification(

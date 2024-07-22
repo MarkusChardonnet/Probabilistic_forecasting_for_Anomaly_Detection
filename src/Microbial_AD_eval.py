@@ -483,7 +483,6 @@ def _get_abx_info(path_to_abx_ts: str) -> pd.DataFrame:
     abx_df = pd.read_csv(path_to_abx_ts, sep="\t", index_col=0)
     abx_df = abx_df["abx_start_age_months"].reset_index()
     abx_df.sort_values(["host_id", "abx_start_age_months"], inplace=True)
-    abx_df["abx_any_cumcount"] = abx_df.groupby("host_id").cumcount() + 1
     return abx_df
 
 
@@ -604,7 +603,15 @@ def evaluate_scores(
     evaluation_path = '{}evaluation_{}/'.format(ad_path, which)
     makedirs(evaluation_path)
 
+    # get raw feature table
     raw_dataset_name = dataset_metadata["dataset"]
+    ft_df = pd.read_csv(f"{config.original_data_path}{raw_dataset_name}", sep="\t", index_col=0)
+    cols_to_evaluate = ["abx_any_cumcount"]
+    ft_df["age_days"] = ft_df["age_days"].astype(int)
+    ft_df.rename(columns={"age_days": "day"}, inplace=True)
+    ft_df = ft_df[["day", "host_id"] + cols_to_evaluate].copy()
+
+    # get abx time-series
     version = raw_dataset_name.split("_")[3]
     path_to_abx_ts = f"{config.original_data_path}ts_vat19_abx_{version}.tsv"
     abx_df = _get_abx_info(path_to_abx_ts)
@@ -625,8 +632,11 @@ def evaluate_scores(
             path_to_save=evaluation_path,
         )
 
-        # plot scores over age
+        # flatten and enrich scores
         ad_scores_flat = _transform_scores(ad_scores)
+        ad_scores_flat = ad_scores_flat.merge(ft_df, on=["host_id", "day"], how="left")
+
+        # plot scores over age
         # abx
         abx_scores_flat = ad_scores_flat[ad_scores_flat["abx"]].copy()
         impath_age_abx = _plot_score_over_age(

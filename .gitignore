@@ -20,3 +20,7 @@ src/configs/config_AD*.py
 src/wandb/
 
 test.py
+
+*.egg-info/
+.installed.cfg
+*.egg

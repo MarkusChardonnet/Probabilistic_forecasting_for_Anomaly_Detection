@@ -39,8 +39,9 @@ def _create_subplot(
     # category used to have consistent x-axis
     min_x = data[x_axis].min()
     max_x = data[x_axis].max()
+    range_x = np.arange(min_x, max_x + 1)
     data[f"{x_axis}_cat"] = pd.Categorical(
-        data[x_axis], categories=np.arange(min_x, max_x + 1)
+        data[x_axis], categories=range_x
     )
     sns.boxplot(x=f"{x_axis}_cat", y=y_axis, data=data, ax=axs[0], color="skyblue")
 
@@ -51,7 +52,8 @@ def _create_subplot(
     else:
         axs[0].set_ylim(-1, 1.1 * y_max)
     if n is not None:
-        axs[0].axvline(3, color="darkred")
+        zero_index = np.where(range_x == 0)[0][0]
+        axs[0].axvline(zero_index, color="darkred")
 
     # axs[1] is the barplot
     grouped_counts = data.groupby(x_axis)[y_axis].count().reset_index(name="counts")
@@ -73,7 +75,7 @@ def _create_subplot(
                 if p_val < 0.1:
                     max_y = data["score"].max()
                     axs[0].text(
-                        t1 + 3,
+                        t1 + zero_index,
                         y_shift * max_y,
                         sign,
                         color=color,
@@ -96,7 +98,7 @@ def _create_subplot(
                 facecolor=v[0],
                 edgecolor=v[1],
             )
-        axs[1].axvline(3, color="darkred")
+        axs[1].axvline(zero_index, color="darkred")
         axs[1].set_ylabel("Number of samples")
         axs[1].set_xlabel(f"Months since {n}. abx exposure")
 
@@ -129,7 +131,7 @@ def _create_subplot(
         axs[1].legend(custom_lines, legend_txt)
 
     if n is not None:
-        axs[1].axvline(3, color="darkred")
+        axs[1].axvline(zero_index, color="darkred")
 
     axs[1].set_ylabel(ylabel)
     axs[1].set_xlabel(xlabel)
@@ -160,7 +162,7 @@ def _get_abx_info(path_to_abx_ts: str) -> pd.DataFrame:
     return abx_df
 
 
-def _select_samples_around_nth_abx_exposure(md_df, abx_df, n=1):
+def _select_samples_around_nth_abx_exposure(md_df, abx_df, n=1, min_samples=-3.0, max_samples=12.0):
     """
     Get observed samples around n-th abx exposure (n=1 is first abx exposure, n=2 is
     second etc.)
@@ -169,6 +171,8 @@ def _select_samples_around_nth_abx_exposure(md_df, abx_df, n=1):
         md_df (pd.DataFrame): Contains relevant metadata per host.
         abx_df (pd.DataFrame): Contains start month of abx exposure per host.
         n (int, optional): n-th antibiotics exposure to evaluate. Defaults to 1.
+        min_samples (float, optional): Minimum months before n-th abx exposure.
+        max_samples (float, optional): Maximum months after n-th abx exposure.
 
     Returns:
         pd.DataFrame: Dataframe with observed samples around n-th abx exposure.
@@ -204,8 +208,8 @@ def _select_samples_around_nth_abx_exposure(md_df, abx_df, n=1):
     # 12 months after
     abx_nth_samples = abx_nth_samples.loc[
         np.logical_and(
-            abx_nth_samples["diff_age_nth_abx"] >= -3.0,
-            abx_nth_samples["diff_age_nth_abx"] <= 12.0,
+            abx_nth_samples["diff_age_nth_abx"] >= min_samples,
+            abx_nth_samples["diff_age_nth_abx"] <= max_samples,
         ),
         :,
     ]
@@ -306,11 +310,13 @@ def _plot_score_after_nth_abx_exposure(
     path_to_save: str = None,
     flag: str = "",
     tag: str = "",
+    min_samples: float = -3.0,
+    max_samples: float = 12.0,
 ) -> str:
     suff = _get_ordinal_suffix(n)
 
     # perform paired/unpaired significance tests
-    t1_values = [x for x in range(-3, 13)]
+    t1_values = [x for x in range(int(min_samples), int(max_samples+1))]
     significance_df = perform_significance_tests(data, -1.0, t1_values, "score")
 
     title = f"Score before/after {n}{suff} abx exposure: {tag}"

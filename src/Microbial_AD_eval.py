@@ -22,6 +22,7 @@ from torch.backends import cudnn
 import gc
 import math
 from sklearn import metrics
+import scipy.stats as stats
 import seaborn as sns
 
 from configs import config
@@ -171,6 +172,58 @@ def get_model_predictions(
     return cond_moments, observed_dates, true_X, abx_labels, host_id
 
 
+def _plot_conditionally_standardized_distribution(
+        cond_moments, observed_dates, obs, output_vars, path_to_save,
+        compare_to_dist="normal", **options):
+    """
+    Plot the conditionally standardized distribution
+
+    Args:
+        cond_moments: np.array, [nb_steps, nb_samples, dimension, nb_moments]
+        observed_dates: np.array, [nb_steps, nb_samples]
+        obs: np.array, [nb_steps, nb_samples, dimension]
+        output_vars: list, list of output variables
+        path_to_save: str, path to save the plot
+        compare_to_dist: str, distribution to compare to
+    """
+    # cond_exp : [nb_steps, nb_samples, dimension]
+    # cond_var : [nb_steps, nb_samples, dimension]
+    cond_exp, cond_var = AD_modules.get_cond_exp_var(cond_moments, output_vars)
+    cond_std = np.sqrt(cond_var)
+    if compare_to_dist == "normal":
+        standardized_obs = (obs - cond_exp) / cond_std
+        standardized_obs = standardized_obs[observed_dates]
+    elif compare_to_dist == "lognormal":
+        mu = np.log(cond_exp) - 0.5 * np.log(1 + cond_var / cond_exp ** 2)
+        sigma = np.sqrt(np.log(1 + cond_var / cond_exp ** 2))
+        standardized_obs = (np.log(obs) - mu)/ sigma
+        standardized_obs = standardized_obs[observed_dates]
+    else:
+        raise ValueError(f"compare_to_dist {compare_to_dist} not implemented")
+
+    fig, ax = plt.subplots(1, 1, figsize=(6, 4))
+    sns.histplot(x=standardized_obs.flatten(), bins=50, kde=True,
+                 ax=ax, stat="density", color="skyblue", label="observed")
+    t = np.linspace(-5, 5, 1000)
+    ax.plot(t, stats.norm.pdf(t, loc=0, scale=1),
+            color="darkred", linestyle="--", label="standard normal")
+    ax.set_title(f"Conditionally standardized distribution\\n"
+                 f"transformed {compare_to_dist} to standard normal")
+    plt.legend()
+    plt.tight_layout()
+    figpath = f"{path_to_save}cond_std_dist.pdf"
+    plt.savefig(figpath)
+
+    filepath = f"{path_to_save}cond_std_obs.npy"
+    with open(filepath, "wb") as f:
+        np.save(f, standardized_obs)
+
+    pval = stats.kstest(standardized_obs.flatten(), "norm")[1]
+    print(f"p-value of KS test: {pval}")
+
+    return figpath, filepath
+
+
 def compute_scores(
         forecast_saved_models_path,
         forecast_model_id=None,
@@ -190,6 +243,7 @@ def compute_scores(
         dirichlet_use_coord=None,
         aggregation_method='mean',
         scoring_metric='p-value',
+        plot_cond_std_dist=None,
         **options
 ):
     """
@@ -218,6 +272,8 @@ def compute_scores(
             - 'p-value': use the 2-sided p-value of the distribution
             - 'left-tail': use the left tail of the distribution
             - 'right-tail': use the right tail of the distribution
+        plot_cond_std_dist: None or str, the distribution to compare to; one of
+            {'normal', 'lognormal'}
     """
     global USE_GPU, N_CPUS, N_DATASET_WORKERS
     if use_gpu is not None:
@@ -243,6 +299,7 @@ def compute_scores(
         "dirichlet_use_coord": dirichlet_use_coord,
         "aggregation_method": aggregation_method,
         "scoring_metric": scoring_metric,
+        "plot_cond_std_dist": plot_cond_std_dist,
     }
 
     # load dataset-metadata
@@ -395,9 +452,16 @@ def compute_scores(
     df = pd.DataFrame(data, columns=cols)
     csvpath_val = '{}val_ad_scores.csv'.format(scores_path)
     df.to_csv(csvpath_val, index=False)
+    
+    filepaths = []
+    if plot_cond_std_dist is not None:
+        filepaths = _plot_conditionally_standardized_distribution(
+            cond_moments[:, abx_labels==0], observed_dates[:, abx_labels==0],
+            obs[:, abx_labels==0], output_vars, f'{ad_path}dist/',
+            compare_to_dist=plot_cond_std_dist)
 
     if send:
-        files_to_send = [csvpath, csvpath_val]
+        files_to_send = [csvpath, csvpath_val] + filepaths
         caption = "scores - {} - id={}".format(which, forecast_model_id)
         SBM.send_notification(
             text="description: {}".format(scores_dict),

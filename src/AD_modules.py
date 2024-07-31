@@ -462,6 +462,22 @@ AGGREGATION_METHODS = {
     'max': np.max,
 }
 
+
+def get_cond_exp_var(cond_moments, output_vars):
+    assert(('id' in output_vars) and (
+            ('var' in output_vars) or ('power-2' in output_vars)))
+    which = np.argmax(np.array(output_vars) == 'id')
+    cond_exp = cond_moments[:,:,:,which]
+    if 'var' in output_vars:
+        which = np.argmax(np.array(output_vars) == 'var')
+        cond_var = cond_moments[:, :, :, which]
+    elif 'power-2' in output_vars:
+        which = np.argmax(np.array(output_vars) == 'power-2')
+        cond_exp_2 = cond_moments[:,:,:,which]
+        cond_var = cond_exp_2 - cond_exp ** 2
+    return cond_exp, cond_var
+
+
 class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
     def __init__(self, 
                  output_vars,
@@ -499,17 +515,7 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
     def get_individual_scores(
             self, cond_moments, obs, observed_dates=None):
 
-        assert(('id' in self.output_vars) and (
-                ('var' in self.output_vars) or ('power-2' in self.output_vars)))
-        which = np.argmax(np.array(self.output_vars) == 'id')
-        cond_exp = cond_moments[:,:,:,which]
-        if 'var' in self.output_vars:
-            which = np.argmax(np.array(self.output_vars) == 'var')
-            cond_var = cond_moments[:, :, :, which]
-        elif 'power-2' in self.output_vars:
-            which = np.argmax(np.array(self.output_vars) == 'power-2')
-            cond_exp_2 = cond_moments[:,:,:,which]
-            cond_var = cond_exp_2 - cond_exp ** 2
+        cond_exp, cond_var = get_cond_exp_var(cond_moments, self.output_vars)
 
         if self.distribution_class == 'gaussian':
             cond_exp = np.expand_dims(cond_exp, 3)

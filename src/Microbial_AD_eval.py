@@ -183,6 +183,7 @@ def _plot_conditionally_standardized_distribution(
         standardized_obs = standardized_obs[observed_dates]
     else:
         raise ValueError(f"compare_to_dist {compare_to_dist} not implemented")
+    standardized_obs = np.clip(standardized_obs, -5, 5)
 
     fig, ax = plt.subplots(1, 1, figsize=(6, 4))
     sns.histplot(x=standardized_obs.flatten(), bins=50, kde=True,
@@ -190,7 +191,7 @@ def _plot_conditionally_standardized_distribution(
     t = np.linspace(-5, 5, 1000)
     ax.plot(t, stats.norm.pdf(t, loc=0, scale=1),
             color="darkred", linestyle="--", label="standard normal")
-    ax.set_title(f"Conditionally standardized distribution\\n"
+    ax.set_title("Conditionally standardized distribution\n" +
                  f"transformed {compare_to_dist} to standard normal")
     plt.legend()
     plt.tight_layout()

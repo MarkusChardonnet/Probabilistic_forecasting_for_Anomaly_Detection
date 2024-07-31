@@ -82,12 +82,18 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
     host_data_signature = np.array(df[signature_features])
     abx_data = np.array(df[abx_features])
 
-    static_feature_values = np.array([list(set(host_data_static[:,i])) for i in range(nb_static_features)], dtype=object)
-    static_feature_values_counter = np.array([len(static_feature_values[i]) for i in range(nb_static_features)])
+    static_feature_values = np.array(
+        [sorted(list(set(host_data_static[:,i])), key=str) for i in range(
+            nb_static_features)], dtype=object)
+    static_feature_values_counter = np.array(
+        [len(static_feature_values[i]) for i in range(nb_static_features)])
     static_feature_digitized_size = len(sum(static_feature_values, []))
 
-    dynamic_feature_values = np.array([list(set(host_data_dynamic[:,i])) for i in range(nb_dynamic_features)], dtype=object)
-    dynamic_feature_values_counter = np.array([len(dynamic_feature_values[i]) for i in range(nb_dynamic_features)])
+    dynamic_feature_values = np.array(
+        [sorted(list(set(host_data_dynamic[:,i])), key=str) for i in range(
+            nb_dynamic_features)], dtype=object)
+    dynamic_feature_values_counter = np.array(
+        [len(dynamic_feature_values[i]) for i in range(nb_dynamic_features)])
     dynamic_feature_digitized_size = len(sum(dynamic_feature_values, []))
 
     # Sample age
@@ -97,9 +103,8 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
     sample_age_days_max = sample_age_days.max()
 
     # Hosts
-
     sample_host = np.array(df[['host_id']]).reshape(-1)
-    hosts = np.array(list(set(sample_host)))
+    hosts = np.array(sorted(list(set(sample_host))))
     nb_host = len(hosts)
 
     # Antibiotics presence
@@ -179,14 +184,14 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
     if isinstance(init_val_method, tuple) and init_val_method[0] == 'group_feat_mean':
         grouping_feature = [init_val_method[1]]
         host_data_group = np.array(df[grouping_feature]).reshape(-1)
-        grouping_feature_values = list(set(host_data_group))
+        grouping_feature_values = sorted(list(set(host_data_group)))
         groups = [[] for i in range(len(grouping_feature_values))]
         for i in range(df.shape[0]):
             idx = list(hosts).index(sample_host[i])
             for n, v in enumerate(grouping_feature_values):
                 if host_data_group[i] == v:
                     groups[n].append(idx)
-        groups = [np.array(list(set(g))) for g in groups]
+        groups = [np.array(sorted(list(set(g)))) for g in groups]
         for n,g in enumerate(groups):
             group_paths = paths[g,:,:starting_date].transpose(0,2,1).reshape(-1,nb_microbial_features)
             group_signatures = signature[g,:,:starting_date].transpose(0,2,1).reshape(-1,nb_signature_features)
@@ -298,8 +303,10 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
     ### CREATE DATASET SUBDIVISION TRAIN/TEST/VAL ###
 
     for split in which_split:
-        abx_train_idx, abx_val_idx = train_test_split(np.where(abx_observed)[0], test_size=val_size, random_state=seed)
-        noabx_train_idx, noabx_val_idx = train_test_split(np.where(~abx_observed)[0], test_size=val_size, random_state=seed)
+        abx_train_idx, abx_val_idx = train_test_split(
+            np.where(abx_observed)[0], test_size=val_size, random_state=seed)
+        noabx_train_idx, noabx_val_idx = train_test_split(
+            np.where(~abx_observed)[0], test_size=val_size, random_state=seed)
         if split == 'all':
             train_idx = np.concatenate((abx_train_idx, noabx_train_idx))
             val_idx = np.concatenate((abx_val_idx, noabx_val_idx))
@@ -314,7 +321,6 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
             np.save(f, train_idx)
         with open(os.path.join(idx_dataset_path, 'val_idx.npy'), 'wb') as f:
             np.save(f, val_idx)
-        
     # eval_ad_idx = np.where(abx_observed)[0]
     # with open(idx_dataset_path + 'eval_ad_idx.npy', 'wb') as f:
     #     np.save(f, eval_ad_idx)
@@ -329,3 +335,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     dataset_config = eval("config."+args.dataset_config)
     make_dataset(**dataset_config)
+
+
+

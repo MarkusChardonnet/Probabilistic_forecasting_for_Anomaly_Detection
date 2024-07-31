@@ -163,9 +163,11 @@ def _plot_conditionally_standardized_distribution(
         obs: np.array, [nb_steps, nb_samples, dimension]
         output_vars: list, list of output variables
         path_to_save: str, path to save the plot
-        compare_to_dist: str, distribution to compare to
+        compare_to_dist: str, distribution to compare to, one of: 'normal',
+            'lognormal'
         replace_values: np.array, [nb_steps, nb_samples, dimension], replace
             values for variance
+        host_id: np.array, [nb_samples], host ids
     """
     # cond_exp : [nb_steps, nb_samples, dimension]
     # cond_var : [nb_steps, nb_samples, dimension]
@@ -185,24 +187,27 @@ def _plot_conditionally_standardized_distribution(
         raise ValueError(f"compare_to_dist {compare_to_dist} not implemented")
     standardized_obs = np.clip(standardized_obs, -5, 5)
 
+    pval = stats.kstest(standardized_obs.flatten(), "norm")[1]
+
     fig, ax = plt.subplots(1, 1, figsize=(6, 4))
     sns.histplot(x=standardized_obs.flatten(), bins=50, kde=True,
                  ax=ax, stat="density", color="skyblue", label="observed")
     t = np.linspace(-5, 5, 1000)
     ax.plot(t, stats.norm.pdf(t, loc=0, scale=1),
             color="darkred", linestyle="--", label="standard normal")
-    ax.set_title("Conditionally standardized distribution\n" +
-                 f"transformed {compare_to_dist} to standard normal")
+    ax.set_title(
+        "Conditionally standardized distribution of no-abx val-set.\n" +
+        f"Transformation: cond. {compare_to_dist} to stand. normal\n"+
+        f"p-value of KS test: {pval:.2e}")
     plt.legend()
     plt.tight_layout()
-    figpath = f"{path_to_save}cond_std_dist.pdf"
+    figpath = f"{path_to_save}cond_std_dist-{compare_to_dist}.pdf"
     plt.savefig(figpath)
 
-    filepath = f"{path_to_save}cond_std_obs.npy"
+    filepath = f"{path_to_save}cond_std_obs-{compare_to_dist}.npy"
     with open(filepath, "wb") as f:
         np.save(f, standardized_obs)
 
-    pval = stats.kstest(standardized_obs.flatten(), "norm")[1]
     print(f"p-value of KS test: {pval}")
 
     return [figpath, filepath]
@@ -256,8 +261,9 @@ def compute_scores(
             - 'p-value': use the 2-sided p-value of the distribution
             - 'left-tail': use the left tail of the distribution
             - 'right-tail': use the right tail of the distribution
-        plot_cond_std_dist: None or str, the distribution to compare to; one of
-            {'normal', 'lognormal'}
+        plot_cond_std_dist: bool, whether to plot the conditionally standardized
+            distribution for the no-abx validation samples under normal and
+            lognormal assumption
     """
     global USE_GPU, N_CPUS, N_DATASET_WORKERS
     if use_gpu is not None:
@@ -438,13 +444,18 @@ def compute_scores(
     df.to_csv(csvpath_val, index=False)
     
     filepaths = []
-    if plot_cond_std_dist is not None:
+    if plot_cond_std_dist:
         dist_path = f'{ad_path}dist/'
         makedirs(dist_path)
-        filepaths = _plot_conditionally_standardized_distribution(
+        filepaths += _plot_conditionally_standardized_distribution(
             cond_moments[:, abx_labels==0], observed_dates[:, abx_labels==0],
             obs[:, abx_labels==0], output_vars, path_to_save=dist_path,
-            compare_to_dist=plot_cond_std_dist, replace_values=replace_values)
+            compare_to_dist="normal", replace_values=replace_values)
+        filepaths += _plot_conditionally_standardized_distribution(
+            cond_moments[:, abx_labels == 0],
+            observed_dates[:, abx_labels == 0],
+            obs[:, abx_labels == 0], output_vars, path_to_save=dist_path,
+            compare_to_dist="lognormal", replace_values=replace_values)
 
     if send:
         files_to_send = [csvpath, csvpath_val] + filepaths

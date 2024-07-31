@@ -153,7 +153,8 @@ def get_model_predictions(
 
 def _plot_conditionally_standardized_distribution(
         cond_moments, observed_dates, obs, output_vars, path_to_save,
-        compare_to_dist="normal", replace_values=None, **options):
+        compare_to_dist="normal", replace_values=None, which_set=train,
+        **options):
     """
     Plot the conditionally standardized distribution
 
@@ -168,6 +169,7 @@ def _plot_conditionally_standardized_distribution(
         replace_values: np.array, [nb_steps, nb_samples, dimension], replace
             values for variance
         host_id: np.array, [nb_samples], host ids
+        which_set: str, which set to plot, one of: 'train', 'val'
     """
     # cond_exp : [nb_steps, nb_samples, dimension]
     # cond_var : [nb_steps, nb_samples, dimension]
@@ -196,7 +198,7 @@ def _plot_conditionally_standardized_distribution(
     ax.plot(t, stats.norm.pdf(t, loc=0, scale=1),
             color="darkred", linestyle="--", label="standard normal")
     ax.set_title(
-        "Conditionally standardized distribution of no-abx val-set.\n" +
+        f"Conditionally standardized distribution of no-abx {which_set}-set.\n"+
         f"Transformation: cond. {compare_to_dist} to stand. normal\n"+
         f"p-value of KS test: {pval:.2e}")
     plt.legend()
@@ -425,6 +427,23 @@ def compute_scores(
     csvpath = '{}train_ad_scores.csv'.format(scores_path)
     df.to_csv(csvpath, index=False)
 
+    filepaths = []
+    if plot_cond_std_dist:
+        dist_path = f'{ad_path}dist/train-noabx/'
+        makedirs(dist_path)
+        filepaths += _plot_conditionally_standardized_distribution(
+            cond_moments[:, abx_labels == 0],
+            observed_dates[:, abx_labels == 0],
+            obs[:, abx_labels == 0], output_vars, path_to_save=dist_path,
+            compare_to_dist="normal", replace_values=replace_values,
+            which_set='train')
+        filepaths += _plot_conditionally_standardized_distribution(
+            cond_moments[:, abx_labels == 0],
+            observed_dates[:, abx_labels == 0],
+            obs[:, abx_labels == 0], output_vars, path_to_save=dist_path,
+            compare_to_dist="lognormal", replace_values=replace_values,
+            which_set='train')
+
     # test data
     cond_moments, observed_dates, true_X, abx_labels, host_id = \
         get_model_predictions(
@@ -443,19 +462,20 @@ def compute_scores(
     csvpath_val = '{}val_ad_scores.csv'.format(scores_path)
     df.to_csv(csvpath_val, index=False)
     
-    filepaths = []
     if plot_cond_std_dist:
-        dist_path = f'{ad_path}dist/'
+        dist_path = f'{ad_path}dist/val-noabx/'
         makedirs(dist_path)
         filepaths += _plot_conditionally_standardized_distribution(
             cond_moments[:, abx_labels==0], observed_dates[:, abx_labels==0],
             obs[:, abx_labels==0], output_vars, path_to_save=dist_path,
-            compare_to_dist="normal", replace_values=replace_values)
+            compare_to_dist="normal", replace_values=replace_values,
+            which_set='val')
         filepaths += _plot_conditionally_standardized_distribution(
             cond_moments[:, abx_labels == 0],
             observed_dates[:, abx_labels == 0],
             obs[:, abx_labels == 0], output_vars, path_to_save=dist_path,
-            compare_to_dist="lognormal", replace_values=replace_values)
+            compare_to_dist="lognormal", replace_values=replace_values,
+            which_set='val')
 
     if send:
         files_to_send = [csvpath, csvpath_val] + filepaths

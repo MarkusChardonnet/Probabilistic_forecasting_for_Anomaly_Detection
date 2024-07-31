@@ -455,9 +455,11 @@ def compute_scores(
     
     filepaths = []
     if plot_cond_std_dist is not None:
+        dist_path = f'{ad_path}dist/'
+        makedirs(dist_path)
         filepaths = _plot_conditionally_standardized_distribution(
             cond_moments[:, abx_labels==0], observed_dates[:, abx_labels==0],
-            obs[:, abx_labels==0], output_vars, f'{ad_path}dist/',
+            obs[:, abx_labels==0], output_vars, path_to_save=dist_path,
             compare_to_dist=plot_cond_std_dist)
 
     if send:

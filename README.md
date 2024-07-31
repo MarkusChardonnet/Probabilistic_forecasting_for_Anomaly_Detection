@@ -177,12 +177,12 @@ python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_alpha_div_ids_3 --
 ```
 
 # TODOs and Possible Improvements
-- [ ] different AD scoring method: using coordinate wise p-values based on beta distribution 
+- [x] different AD scoring method: using coordinate wise p-values based on beta distribution 
 - [ ] weighting of coordinates in the loss s.t. they have approx. same sizes
 - [x] reducing learning rate during training as @Jakob_Heiss suggested
 - [ ] using a different projection approach for NJODE
 - [x] or no projection at all
-- [ ] model the alpha diversity metric
+- [x] model the alpha diversity metric -> this leads to best results
 
 - 
 

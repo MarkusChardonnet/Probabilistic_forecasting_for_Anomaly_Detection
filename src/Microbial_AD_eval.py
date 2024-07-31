@@ -202,8 +202,6 @@ def _plot_conditionally_standardized_distribution(
     with open(filepath, "wb") as f:
         np.save(f, standardized_obs)
 
-    print(standardized_obs)
-
     pval = stats.kstest(standardized_obs.flatten(), "norm")[1]
     print(f"p-value of KS test: {pval}")
 

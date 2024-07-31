@@ -153,7 +153,7 @@ def get_model_predictions(
 
 def _plot_conditionally_standardized_distribution(
         cond_moments, observed_dates, obs, output_vars, path_to_save,
-        compare_to_dist="normal", replace_values=None, which_set=train,
+        compare_to_dist="normal", replace_values=None, which_set='train',
         **options):
     """
     Plot the conditionally standardized distribution

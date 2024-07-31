@@ -8,6 +8,16 @@ import scipy.stats as stat
 import sklearn.linear_model as lm
 
 
+def get_corrected_var(var, min_var_val=1e-4, replace_var=None):
+    if np.any(var < 0):
+        if replace_var is not None:
+            condition = ~np.isnan(var)
+            condition = np.logical_and(condition, var <= 0)
+            var[condition] = replace_var
+        else:
+            var = np.maximum(min_var_val, var)
+    return var
+
 def gaussian_scoring(
         obs, cond_exp, cond_var,
         observed_dates=None,
@@ -17,18 +27,9 @@ def gaussian_scoring(
     # obs : [nb_steps, nb_samples, dimension]
     # cond_exp : [nb_steps, nb_samples, dimension, steps_ahead]
     # cond_var : [nb_steps, nb_samples, dimension, steps_ahead]
-    dimension = cond_exp.shape[2]
+
     nb_steps_ahead = cond_exp.shape[3]
-    if np.any(cond_var < 0):
-        # print('WARNING: some predicted cond. variances below 0 -> clip')
-        if replace_var is not None:
-            for d in range(dimension):
-                for s in range(nb_steps_ahead):
-                    condition = ~np.isnan(cond_var[:,:,d,s])
-                    condition = np.logical_and(condition, cond_var[:,:,d,s] <= 0)
-                    cond_var[:,:,d,s][condition] = replace_var[d,s]
-        else:
-            cond_var = np.maximum(min_var_val, cond_var)
+    cond_var = get_corrected_var(cond_var, min_var_val, replace_var)
     cond_std = np.sqrt(cond_var)
     z_scores = (np.tile(np.expand_dims(obs,axis=3),(1,1,1,nb_steps_ahead)) - cond_exp) / cond_std
     if scoring_metric == 'p-value':
@@ -57,18 +58,9 @@ def lognorm_scoring(
     # obs : [nb_steps, nb_samples, dimension]
     # cond_exp : [nb_steps, nb_samples, dimension, steps_ahead]
     # cond_var : [nb_steps, nb_samples, dimension, steps_ahead]
-    dimension = cond_exp.shape[2]
+
     nb_steps_ahead = cond_exp.shape[3]
-    if np.any(cond_var < 0):
-        # print('WARNING: some predicted cond. variances below 0 -> clip')
-        if replace_var is not None:
-            for d in range(dimension):
-                for s in range(nb_steps_ahead):
-                    condition = ~np.isnan(cond_var[:,:,d,s])
-                    condition = np.logical_and(condition, cond_var[:,:,d,s] <= 0)
-                    cond_var[:,:,d,s][condition] = replace_var[d,s]
-        else:
-            cond_var = np.maximum(min_var_val, cond_var)
+    cond_var = get_corrected_var(cond_var, min_var_val, replace_var)
 
     # method of moments estimator
     mu = np.log(cond_exp) - 0.5 * np.log(1 + cond_var / cond_exp ** 2)
@@ -103,20 +95,12 @@ def beta_scoring(
     # obs : [nb_steps, nb_samples, dimension]
     # cond_exp : [nb_steps, nb_samples, dimension, steps_ahead]
     # cond_var : [nb_steps, nb_samples, dimension, steps_ahead]
+
     nb_samples = cond_exp.shape[1]
     dimension = cond_exp.shape[2]
     nb_steps_ahead = cond_exp.shape[3]
-    # replace negative variance values
-    if np.any(cond_var < 0):
-        # print('WARNING: some predicted cond. variances below 0 -> clip')
-        if replace_var is not None:
-            for d in range(dimension):
-                for s in range(nb_steps_ahead):
-                    condition = ~np.isnan(cond_var[:,:,d,s])
-                    condition = np.logical_and(condition, cond_var[:,:,d,s] <= 0)
-                    cond_var[:,:,d,s][condition] = replace_var[d,s]
-        else:
-            cond_var = np.maximum(min_var_val, cond_var)
+    cond_var = get_corrected_var(cond_var, min_var_val, replace_var)
+
     # clip expectation into admissible range [0,1]
     cond_exp = np.clip(cond_exp, epsilon, 1-epsilon)
     # compute alpha beta from moments
@@ -157,18 +141,9 @@ def dirichlet_scoring(
 
     assert cond_exp.shape == cond_var.shape
     assert len(cond_exp.shape) == 3
-    dimension = cond_exp.shape[2]
     time_steps = cond_exp.shape[0]
     samples = cond_exp.shape[1]
-    if np.any(cond_var < 0):
-        # print('WARNING: some predicted cond. variances below 0 -> clip')
-        if replace_var is not None:
-            for d in range(dimension):
-                condition = ~np.isnan(cond_var[:,:,d])
-                condition = np.logical_and(condition, cond_var[:,:,d] <= 0)
-                cond_var[:,:,d][condition] = replace_var[d]
-        else:
-            cond_var = np.maximum(min_var_val, cond_var)
+    cond_var = get_corrected_var(cond_var, min_var_val, replace_var)
 
     scores = np.zeros((time_steps, samples,))
     scores[~observed_dates] = np.nan

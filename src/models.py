@@ -1385,7 +1385,9 @@ class NJODE(torch.nn.Module):
                 n_obs_ot, return_path=False, get_loss=True, until_T=False,
                 M=None, start_M=None, which_loss=None, dim_to=None,
                 predict_labels=None, return_classifier_out=False,
-                return_at_last_obs=False):
+                return_at_last_obs=False,
+                only_jump_before_abx_exposure=False,
+                ABX_EXPOSURE=None):
         """
         the forward run of this module class, used when calling the module
         instance without a method
@@ -1423,6 +1425,14 @@ class NJODE(torch.nn.Module):
                 predict
         :param return_classifier_out: bool, whether to return the output of the
                 classifier
+        :param return_at_last_obs: bool, whether to return the hidden state at
+                the last observation
+        :param only_jump_before_abx_exposure: bool, whether to only update
+                the model input before the first antibiotics exposure, i.e.,
+                only apply jump network before the first antibiotics exposure
+        :param ABX_EXPOSURE: None or torch.tensor, whether the patient had
+                antibiotics exposure anytime before an observation time
+
         :return: torch.tensor (hidden state at final time), torch.tensor (loss),
                     if wanted the paths of t (np.array) and h, y (torch.tensors)
         """
@@ -1522,6 +1532,15 @@ class NJODE(torch.nn.Module):
                     M_obs = M[start:end]
             else:
                 M_obs = None
+
+            # only update the model before the first antibiotics exposure
+            if only_jump_before_abx_exposure:
+                abx_exp = ABX_EXPOSURE[start:end]
+                which = torch.where(abx_exp == 0)[0]
+                X_obs = X_obs[which]
+                i_obs = i_obs[which]
+                if self.masked:
+                    M_obs = M_obs[which]
 
             # decide whether to use observation as input
             if self.training:  # check whether model is in training or eval mode
@@ -1802,7 +1821,8 @@ class NJODE(torch.nn.Module):
             return eval_loss
 
     def get_pred(self, times, time_ptr, X, obs_idx, delta_t, T, start_X,
-                 S, start_S, M=None, start_M=None):
+                 S, start_S, M=None, start_M=None, abx_exposure=None,
+                 only_jump_before_abx_exposure=False):
         """
         get predicted path
         :param times: see forward
@@ -1814,6 +1834,9 @@ class NJODE(torch.nn.Module):
         :param start_X: see forward
         :param M: see forward
         :param start_M: see forward
+        :param abx_exposure: see forward
+        :param only_jump_before_abx_exposure: see forward
+
         :return: dict, with prediction y and times t
         """
         self.eval()
@@ -1821,7 +1844,9 @@ class NJODE(torch.nn.Module):
             times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx,
             delta_t=delta_t, T=T, start_X=start_X, n_obs_ot=None,
             return_path=True, get_loss=False, until_T=True, M=M,
-            start_M=start_M, S=S, start_S=start_S)
+            start_M=start_M, S=S, start_S=start_S,
+            only_jump_before_abx_exposure=only_jump_before_abx_exposure,
+            ABX_EXPOSURE=abx_exposure)
         return {'pred': path_y, 'pred_t': path_t}
 
 

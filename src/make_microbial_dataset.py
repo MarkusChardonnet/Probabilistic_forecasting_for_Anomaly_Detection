@@ -132,15 +132,16 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
     dynamic = np.zeros((nb_host,dynamic_feature_digitized_size,sample_age_days_max+1), dtype=np.float32)
     signature = np.zeros((nb_host,nb_signature_features,sample_age_days_max+1), dtype=np.float32)
 
-    abx_any = np.zeros(nb_host, dtype=np.bool_)
-    abx_observed = np.zeros(nb_host, dtype=np.bool_)
+    abx_any = np.zeros(nb_host, dtype=np.bool_)  # whether the host has any abx exposure
+    abx_observed = np.zeros(nb_host, dtype=np.bool_)  # whether the abx exposure was observed, i.e., at least one sample was taken after the exposure
+    abx_exposure = np.zeros((nb_host,sample_age_days_max+1), dtype=np.bool_)  # whether the host has already been exposed to abx at a given observation time (0 if not an observation time, i.e., if no sample was taken at this time)
 
     # Time series creation
 
     for i in range(df.shape[0]):
         idx = list(hosts).index(sample_host[i])
         time = sample_age_days[i][0]
-        observed_dates[idx,time]=1
+        observed_dates[idx,time] = 1
         paths[idx,:,time] = microbial_data[i]
         signature[idx,:,time] = host_data_signature[i]
         host_feature = np.zeros(dynamic_feature_digitized_size)
@@ -155,6 +156,7 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
             abx_any[idx] = 1
         if not np.isnan(abx_any_last_t_dmonths[i]):
             abx_observed[idx] = 1
+            abx_exposure[idx, time] = 1
     nb_obs = np.sum(observed_dates, axis=1)
 
     count = 0
@@ -273,6 +275,7 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
         np.save(f, static)
         np.save(f, abx_observed)
         np.save(f, hosts)
+        np.save(f, abx_exposure)
 
     
     metadata_dict = {"S0": None,

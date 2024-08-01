@@ -104,7 +104,8 @@ makedirs = config.makedirs
 
 
 def get_model_predictions(
-        dl, device, forecast_model, output_vars, T, delta_t, dimension):
+        dl, device, forecast_model, output_vars, T, delta_t, dimension,
+        only_jump_before_abx_exposure=False):
     """
     Get the NJODE model predictions for the given dataset
     """
@@ -125,12 +126,15 @@ def get_model_predictions(
     true_X = b["true_paths"]
     abx_labels = b["abx_observed"]
     host_id = b["host_id"]
+    abx_exposure = b["abx_exposure"]
 
     with torch.no_grad():
         res = forecast_model.get_pred(
             times=times, time_ptr=time_ptr, X=torch.cat((X, Z), dim=1),
             obs_idx=obs_idx, delta_t=None, S=S, start_S=start_S,
-            T=T, start_X=torch.cat((start_X, start_Z), dim=1))
+            T=T, start_X=torch.cat((start_X, start_Z), dim=1),
+            abx_exposure=abx_exposure,
+            only_jump_before_abx_exposure=only_jump_before_abx_exposure)
         path_y_pred = res['pred'].detach().cpu().numpy()
         path_t_pred = res['pred_t']
         torch.cuda.empty_cache()
@@ -235,6 +239,7 @@ def compute_scores(
         aggregation_method='mean',
         scoring_metric='p-value',
         plot_cond_std_dist=None,
+        only_jump_before_abx_exposure=False,
         **options
 ):
     """
@@ -266,6 +271,11 @@ def compute_scores(
         plot_cond_std_dist: bool, whether to plot the conditionally standardized
             distribution for the no-abx validation samples under normal and
             lognormal assumption
+        only_jump_before_abx_exposure: bool, whether to only update the input
+            of the model before the first abx exposure (i.e., only use the
+            jump part of the NJODE model before). This can be used to evaluate
+            the scores based on the models state before the first abx exposure.
+
     """
     global USE_GPU, N_CPUS, N_DATASET_WORKERS
     if use_gpu is not None:
@@ -292,6 +302,7 @@ def compute_scores(
         "aggregation_method": aggregation_method,
         "scoring_metric": scoring_metric,
         "plot_cond_std_dist": plot_cond_std_dist,
+        "only_jump_before_abx_exposure": only_jump_before_abx_exposure,
     }
 
     # load dataset-metadata
@@ -370,10 +381,12 @@ def compute_scores(
     cond_moments, observed_dates, true_X, abx_labels, host_id = \
         get_model_predictions(
             dl_train, device, forecast_model, output_vars, T, delta_t,
-            dimension)
+            dimension,
+            only_jump_before_abx_exposure=only_jump_before_abx_exposure)
     if use_replace_values:
         replace_values = get_replace_forecast_values(
-            cond_moments=cond_moments, output_vars=output_vars, device=device)
+            cond_moments=cond_moments[abx_labels == 0],
+            output_vars=output_vars, device=device)
         replace_values = replace_values['var']
     else:
         replace_values = None
@@ -447,7 +460,8 @@ def compute_scores(
     # test data
     cond_moments, observed_dates, true_X, abx_labels, host_id = \
         get_model_predictions(
-            dl_val, device, forecast_model, output_vars, T, delta_t, dimension)
+            dl_val, device, forecast_model, output_vars, T, delta_t, dimension,
+            only_jump_before_abx_exposure=only_jump_before_abx_exposure)
     obs = true_X.transpose(2, 0, 1)
     ad_scores = ad_module(obs, cond_moments, observed_dates)
     with open('{}val_ad_scores.npy'.format(scores_path), 'wb') as f:

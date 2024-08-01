@@ -170,7 +170,8 @@ param_dict_AD_microbial_alpha_div_4 = {
         'seed': [seed],
         'scoring_distribution': ['lognormal'],
         'scoring_metric': ['left-tail'],
-        'plot_cond_std_dist': [True]
+        'plot_cond_std_dist': [True],
+        'only_jump_before_abx_exposure': [True],
 }
 param_list_AD_microbial_alpha_div_4 += get_parameter_array(
         param_dict=param_dict_AD_microbial_alpha_div_4)

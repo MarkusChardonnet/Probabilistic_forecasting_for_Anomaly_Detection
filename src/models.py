@@ -928,6 +928,36 @@ class NJODE(torch.nn.Module):
         if self.coord_wise_tau:
             t_size = 2*input_size
 
+        use_observation_as_input = None
+        if 'use_observation_as_input' in options1:
+            use_observation_as_input = options1['use_observation_as_input']
+        if use_observation_as_input is None:
+            self.use_observation_as_input = lambda x: True
+        elif isinstance(use_observation_as_input, bool):
+            self.use_observation_as_input = \
+                lambda x: use_observation_as_input
+        elif isinstance(use_observation_as_input, float):
+            self.use_observation_as_input = \
+                lambda x: np.random.random() < use_observation_as_input
+        elif isinstance(use_observation_as_input, str):
+            self.use_observation_as_input = \
+                eval(use_observation_as_input)
+        val_use_observation_as_input = None
+        if 'val_use_observation_as_input' in options1:
+            val_use_observation_as_input = \
+                options1['val_use_observation_as_input']
+        if val_use_observation_as_input is None:
+            self.val_use_observation_as_input = self.use_observation_as_input
+        elif isinstance(val_use_observation_as_input, bool):
+            self.val_use_observation_as_input = \
+                lambda x: val_use_observation_as_input
+        elif isinstance(val_use_observation_as_input, float):
+            self.val_use_observation_as_input = \
+                lambda x: np.random.random() < val_use_observation_as_input
+        elif isinstance(val_use_observation_as_input, str):
+            self.val_use_observation_as_input = \
+                eval(val_use_observation_as_input)
+
         self.ode_f = ODEFunc(
             input_size=input_size, hidden_size=hidden_size, ode_nn=ode_nn,
             dropout_rate=dropout_rate, bias=bias,
@@ -1355,7 +1385,9 @@ class NJODE(torch.nn.Module):
                 n_obs_ot, return_path=False, get_loss=True, until_T=False,
                 M=None, start_M=None, which_loss=None, dim_to=None,
                 predict_labels=None, return_classifier_out=False,
-                return_at_last_obs=False):
+                return_at_last_obs=False,
+                only_jump_before_abx_exposure=False,
+                ABX_EXPOSURE=None):
         """
         the forward run of this module class, used when calling the module
         instance without a method
@@ -1393,6 +1425,14 @@ class NJODE(torch.nn.Module):
                 predict
         :param return_classifier_out: bool, whether to return the output of the
                 classifier
+        :param return_at_last_obs: bool, whether to return the hidden state at
+                the last observation
+        :param only_jump_before_abx_exposure: bool, whether to only update
+                the model input before the first antibiotics exposure, i.e.,
+                only apply jump network before the first antibiotics exposure
+        :param ABX_EXPOSURE: None or torch.tensor, whether the patient had
+                antibiotics exposure anytime before an observation time
+
         :return: torch.tensor (hidden state at final time), torch.tensor (loss),
                     if wanted the paths of t (np.array) and h, y (torch.tensors)
         """
@@ -1493,36 +1533,65 @@ class NJODE(torch.nn.Module):
             else:
                 M_obs = None
 
+            # only update the model before the first antibiotics exposure
+            if only_jump_before_abx_exposure:
+                abx_exp = ABX_EXPOSURE[start:end]
+                which = torch.where(abx_exp == 0)[0]
+                X_obs = X_obs[which]
+                i_obs = i_obs[which]
+                if self.masked:
+                    M_obs = M_obs[which]
+
+            # decide whether to use observation as input
+            if self.training:  # check whether model is in training or eval mode
+                use_as_input = self.use_observation_as_input(self.epoch)
+            else:
+                use_as_input = self.val_use_observation_as_input(self.epoch)
+
             # update signature
             if self.input_sig:
                 for j in i_obs:
                     current_sig[j, :] = signature[j][current_sig_nb[j]]
                 current_sig_nb[i_obs] += 1
-                c_sig = torch.from_numpy(current_sig).float().to(self.device)
+                if use_as_input:
+                    # TODO: this is not fully correct, since if we didn't
+                    #   use some intermediate observations, the signature still
+                    #   has their information when using the signature up to
+                    #   some later observation. However, this just means that
+                    #   during training, the model conditions on a (slightly)
+                    #   different sigma-algebra (if the signature is used), but
+                    #   for inference the model should still work correctly.
+                    #   Especially, if we are interested in predicting
+                    #   \hat{X}_{t,s}
+                    c_sig = torch.from_numpy(current_sig).float().to(
+                        self.device)
 
             # Using RNNCell to update h. Also updating loss, tau and last_X
             Y_bj = self.apply_readout_map(h)
-            X_obs_impute = X_obs
-            temp = h.clone()
-            if self.masked:
-                X_obs_impute = X_obs * M_obs + (torch.ones_like(
-                    M_obs.long()) - M_obs) * Y_bj[i_obs.long()]
-            c_sig_iobs = None
-            if self.input_sig:
-                c_sig_iobs = c_sig[i_obs]
-            # if self.encoder_map.use_lstm:
-            #     h[:, self.hidden_size//2:] = self.c_
-            temp[i_obs.long()] = self.encoder_map(
-                X_obs_impute, mask=M_obs, sig=c_sig_iobs, h=h[i_obs],
-                t=torch.cat((tau[i_obs], self.scale_dt * (current_time - tau[i_obs])), dim=1))
-            h = temp
-            # if self.encoder_map.use_lstm:
-            #     self.c_ = torch.chunk(h.clone(), chunks=2, dim=1)[1]
-            Y = self.apply_readout_map(h)
+            if use_as_input:
+                X_obs_impute = X_obs
+                temp = h.clone()
+                if self.masked:
+                    X_obs_impute = X_obs * M_obs + (torch.ones_like(
+                        M_obs.long()) - M_obs) * Y_bj[i_obs.long()]
+                c_sig_iobs = None
+                if self.input_sig:
+                    c_sig_iobs = c_sig[i_obs]
+                # if self.encoder_map.use_lstm:
+                #     h[:, self.hidden_size//2:] = self.c_
+                temp[i_obs.long()] = self.encoder_map(
+                    X_obs_impute, mask=M_obs, sig=c_sig_iobs, h=h[i_obs],
+                    t=torch.cat((tau[i_obs], self.scale_dt * (current_time - tau[i_obs])), dim=1))
+                h = temp
+                # if self.encoder_map.use_lstm:
+                #     self.c_ = torch.chunk(h.clone(), chunks=2, dim=1)[1]
+                Y = self.apply_readout_map(h)
 
-            # update h and sig at last observation
-            h_at_last_obs[i_obs.long()] = h[i_obs.long()].clone()
-            sig_at_last_obs = c_sig
+                # update h and sig at last observation
+                h_at_last_obs[i_obs.long()] = h[i_obs.long()].clone()
+                sig_at_last_obs = c_sig
+            else:
+                Y = Y_bj
 
             if get_loss:
                 loss = loss + LOSS_FUN_DICT[which_loss](
@@ -1538,20 +1607,21 @@ class NJODE(torch.nn.Module):
 
             # make update of last_X and tau, that is not inplace 
             #    (otherwise problems in autograd)
-            temp_X = last_X.clone()
-            temp_tau = tau.clone()
-            if self.masked and self.use_y_for_ode:
-                temp_X[i_obs.long()] = Y[i_obs.long()]
-            else:
-                temp_X[i_obs.long()] = X_obs_impute
-            if self.coord_wise_tau:
-                _M = torch.zeros_like(temp_tau)
-                _M[i_obs] = M_obs
-                temp_tau[_M==1] = obs_time.astype(np.float64)
-            else:
-                temp_tau[i_obs.long()] = obs_time.astype(np.float64)
-            last_X = temp_X
-            tau = temp_tau
+            if use_as_input:
+                temp_X = last_X.clone()
+                temp_tau = tau.clone()
+                if self.masked and self.use_y_for_ode:
+                    temp_X[i_obs.long()] = Y[i_obs.long()]
+                else:
+                    temp_X[i_obs.long()] = X_obs_impute
+                if self.coord_wise_tau:
+                    _M = torch.zeros_like(temp_tau)
+                    _M[i_obs] = M_obs
+                    temp_tau[_M==1] = obs_time.astype(np.float64)
+                else:
+                    temp_tau[i_obs.long()] = obs_time.astype(np.float64)
+                last_X = temp_X
+                tau = temp_tau
 
             if return_path:
                 path_t.append(obs_time)
@@ -1751,7 +1821,8 @@ class NJODE(torch.nn.Module):
             return eval_loss
 
     def get_pred(self, times, time_ptr, X, obs_idx, delta_t, T, start_X,
-                 S, start_S, M=None, start_M=None):
+                 S, start_S, M=None, start_M=None, abx_exposure=None,
+                 only_jump_before_abx_exposure=False):
         """
         get predicted path
         :param times: see forward
@@ -1763,6 +1834,9 @@ class NJODE(torch.nn.Module):
         :param start_X: see forward
         :param M: see forward
         :param start_M: see forward
+        :param abx_exposure: see forward
+        :param only_jump_before_abx_exposure: see forward
+
         :return: dict, with prediction y and times t
         """
         self.eval()
@@ -1770,7 +1844,9 @@ class NJODE(torch.nn.Module):
             times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx,
             delta_t=delta_t, T=T, start_X=start_X, n_obs_ot=None,
             return_path=True, get_loss=False, until_T=True, M=M,
-            start_M=start_M, S=S, start_S=start_S)
+            start_M=start_M, S=S, start_S=start_S,
+            only_jump_before_abx_exposure=only_jump_before_abx_exposure,
+            ABX_EXPOSURE=abx_exposure)
         return {'pred': path_y, 'pred_t': path_t}
 
 

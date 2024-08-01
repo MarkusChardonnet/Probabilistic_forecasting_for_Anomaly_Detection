@@ -16,7 +16,12 @@ from absl import app, flags
 from AD_modules import AD_module, DimAcc_AD_module, Simple_AD_module
 from configs import config
 from sklearn import metrics
+
+import scipy.stats as stats
+import seaborn as sns
+
 from torch.utils.data import DataLoader
+
 
 # since this is not a package - add src to path
 src_dir = os.path.abspath("src")
@@ -95,30 +100,9 @@ training_data_path = config.training_data_path
 makedirs = config.makedirs
 
 
-def load_AD_dataset(stock_model_name="BlackScholes", time_id=None):
-    """
-    load a saved dataset by its name and id
-    :param stock_model_name: str, name
-    :param time_id: int, id
-    :return: np.arrays of stock_paths, observed_dates, number_observations
-                dict of hyperparams of the dataset
-    """
-    time_id = data_utils._get_time_id(stock_model_name=stock_model_name, time_id=time_id)
-    path = '{}{}-{}/'.format(training_data_path, stock_model_name, int(time_id))
-
-    with open('{}data.npy'.format(path), 'rb') as f:
-        stock_paths = np.load(f)
-        observed_dates = np.load(f)
-        nb_obs = np.load(f)
-        ad_labels = np.load(f)
-    with open('{}metadata.txt'.format(path), 'r') as f:
-        hyperparam_dict = json.load(f)
-
-    return stock_paths, observed_dates, nb_obs, ad_labels, hyperparam_dict
-
-
 def get_model_predictions(
-        dl, device, forecast_model, output_vars, T, delta_t, dimension):
+        dl, device, forecast_model, output_vars, T, delta_t, dimension,
+        only_jump_before_abx_exposure=False):
     """
     Get the NJODE model predictions for the given dataset
     """
@@ -139,12 +123,15 @@ def get_model_predictions(
     true_X = b["true_paths"]
     abx_labels = b["abx_observed"]
     host_id = b["host_id"]
+    abx_exposure = b["abx_exposure"]
 
     with torch.no_grad():
         res = forecast_model.get_pred(
             times=times, time_ptr=time_ptr, X=torch.cat((X, Z), dim=1),
             obs_idx=obs_idx, delta_t=None, S=S, start_S=start_S,
-            T=T, start_X=torch.cat((start_X, start_Z), dim=1))
+            T=T, start_X=torch.cat((start_X, start_Z), dim=1),
+            abx_exposure=abx_exposure,
+            only_jump_before_abx_exposure=only_jump_before_abx_exposure)
         path_y_pred = res['pred'].detach().cpu().numpy()
         path_t_pred = res['pred_t']
         torch.cuda.empty_cache()
@@ -165,6 +152,70 @@ def get_model_predictions(
     return cond_moments, observed_dates, true_X, abx_labels, host_id
 
 
+def _plot_conditionally_standardized_distribution(
+        cond_moments, observed_dates, obs, output_vars, path_to_save,
+        compare_to_dist="normal", replace_values=None, which_set='train',
+        **options):
+    """
+    Plot the conditionally standardized distribution
+
+    Args:
+        cond_moments: np.array, [nb_steps, nb_samples, dimension, nb_moments]
+        observed_dates: np.array, [nb_steps, nb_samples]
+        obs: np.array, [nb_steps, nb_samples, dimension]
+        output_vars: list, list of output variables
+        path_to_save: str, path to save the plot
+        compare_to_dist: str, distribution to compare to, one of: 'normal',
+            'lognormal'
+        replace_values: np.array, [nb_steps, nb_samples, dimension], replace
+            values for variance
+        host_id: np.array, [nb_samples], host ids
+        which_set: str, which set to plot, one of: 'train', 'val'
+    """
+    # cond_exp : [nb_steps, nb_samples, dimension]
+    # cond_var : [nb_steps, nb_samples, dimension]
+    cond_exp, cond_var = AD_modules.get_cond_exp_var(cond_moments, output_vars)
+    cond_var = AD_modules.get_corrected_var(
+        cond_var, min_var_val=1e-4, replace_var=replace_values)
+    cond_std = np.sqrt(cond_var)
+    if compare_to_dist == "normal":
+        standardized_obs = (obs - cond_exp) / cond_std
+        standardized_obs = standardized_obs[observed_dates]
+    elif compare_to_dist == "lognormal":
+        mu = np.log(cond_exp) - 0.5 * np.log(1 + cond_var / cond_exp ** 2)
+        sigma = np.sqrt(np.log(1 + cond_var / cond_exp ** 2))
+        standardized_obs = (np.log(obs) - mu)/ sigma
+        standardized_obs = standardized_obs[observed_dates]
+    else:
+        raise ValueError(f"compare_to_dist {compare_to_dist} not implemented")
+    standardized_obs = np.clip(standardized_obs, -5, 5)
+
+    pval = stats.kstest(standardized_obs.flatten(), "norm")[1]
+
+    fig, ax = plt.subplots(1, 1, figsize=(6, 4))
+    sns.histplot(x=standardized_obs.flatten(), bins=50, kde=True,
+                 ax=ax, stat="density", color="skyblue", label="observed")
+    t = np.linspace(-5, 5, 1000)
+    ax.plot(t, stats.norm.pdf(t, loc=0, scale=1),
+            color="darkred", linestyle="--", label="standard normal")
+    ax.set_title(
+        f"Conditionally standardized distribution of no-abx {which_set}-set.\n"+
+        f"Transformation: cond. {compare_to_dist} to stand. normal\n"+
+        f"p-value of KS test: {pval:.2e}")
+    plt.legend()
+    plt.tight_layout()
+    figpath = f"{path_to_save}cond_std_dist-{compare_to_dist}.pdf"
+    plt.savefig(figpath)
+
+    filepath = f"{path_to_save}cond_std_obs-{compare_to_dist}.npy"
+    with open(filepath, "wb") as f:
+        np.save(f, standardized_obs)
+
+    print(f"p-value of KS test: {pval}")
+
+    return [figpath, filepath]
+
+
 def compute_scores(
     forecast_saved_models_path,
     forecast_model_id=None,
@@ -183,6 +234,9 @@ def compute_scores(
     use_replace_values=False,
     dirichlet_use_coord=None,
         aggregation_method='mean',
+        scoring_metric='p-value',
+        plot_cond_std_dist=None,
+        only_jump_before_abx_exposure=False,
         **options
 ):
     """
@@ -207,6 +261,18 @@ def compute_scores(
         dirichlet_use_coord: int, which coordinate to use for the dirichlet
             distribution as factor, if None: median of all coordinates is used
         aggregation_method: str, method to aggregate the scores (if needed)
+        scoring_metric: str, metric to use for scoring. one of:
+            - 'p-value': use the 2-sided p-value of the distribution
+            - 'left-tail': use the left tail of the distribution
+            - 'right-tail': use the right tail of the distribution
+        plot_cond_std_dist: bool, whether to plot the conditionally standardized
+            distribution for the no-abx validation samples under normal and
+            lognormal assumption
+        only_jump_before_abx_exposure: bool, whether to only update the input
+            of the model before the first abx exposure (i.e., only use the
+            jump part of the NJODE model before). This can be used to evaluate
+            the scores based on the models state before the first abx exposure.
+
     """
     global USE_GPU, N_CPUS, N_DATASET_WORKERS
     if use_gpu is not None:
@@ -231,10 +297,12 @@ def compute_scores(
         "use_replace_values": use_replace_values,
         "dirichlet_use_coord": dirichlet_use_coord,
         "aggregation_method": aggregation_method,
+        "scoring_metric": scoring_metric,
+        "plot_cond_std_dist": plot_cond_std_dist,
+        "only_jump_before_abx_exposure": only_jump_before_abx_exposure,
     }
 
     # load dataset-metadata
-
     train_idx = np.load(os.path.join(
         train_data_path, dataset, "all", 'train_idx.npy'
     ), allow_pickle=True)
@@ -310,10 +378,12 @@ def compute_scores(
     cond_moments, observed_dates, true_X, abx_labels, host_id = \
         get_model_predictions(
             dl_train, device, forecast_model, output_vars, T, delta_t,
-            dimension)
+            dimension,
+            only_jump_before_abx_exposure=only_jump_before_abx_exposure)
     if use_replace_values:
         replace_values = get_replace_forecast_values(
-            cond_moments=cond_moments, output_vars=output_vars, device=device)
+            cond_moments=cond_moments[abx_labels == 0],
+            output_vars=output_vars, device=device)
         replace_values = replace_values['var']
     else:
         replace_values = None
@@ -329,15 +399,17 @@ def compute_scores(
             epsilon=epsilon,
             dirichlet_use_coord=dirichlet_use_coord,
             verbose=verbose)
-    elif scoring_distribution == 'normal':
+    elif scoring_distribution in ['normal', 'lognormal']:
         ad_module = Simple_AD_module(
             output_vars=output_vars,
-            distribution_class="normal",
+            distribution_class=scoring_distribution,
+            scoring_metric=scoring_metric,
             replace_values=replace_values,
             class_thres=class_thres,
             seed=seed,
             epsilon=epsilon,
-            verbose=verbose)
+            verbose=verbose,
+            aggregation_method=aggregation_method)
     elif scoring_distribution == 'beta':
         ad_module = DimAcc_AD_module(
             output_vars=output_vars,
@@ -365,10 +437,28 @@ def compute_scores(
     csvpath = '{}train_ad_scores.csv'.format(scores_path)
     df.to_csv(csvpath, index=False)
 
+    filepaths = []
+    if plot_cond_std_dist:
+        dist_path = f'{ad_path}dist/train-noabx/'
+        makedirs(dist_path)
+        filepaths += _plot_conditionally_standardized_distribution(
+            cond_moments[:, abx_labels == 0],
+            observed_dates[:, abx_labels == 0],
+            obs[:, abx_labels == 0], output_vars, path_to_save=dist_path,
+            compare_to_dist="normal", replace_values=replace_values,
+            which_set='train')
+        filepaths += _plot_conditionally_standardized_distribution(
+            cond_moments[:, abx_labels == 0],
+            observed_dates[:, abx_labels == 0],
+            obs[:, abx_labels == 0], output_vars, path_to_save=dist_path,
+            compare_to_dist="lognormal", replace_values=replace_values,
+            which_set='train')
+
     # test data
     cond_moments, observed_dates, true_X, abx_labels, host_id = \
         get_model_predictions(
-            dl_val, device, forecast_model, output_vars, T, delta_t, dimension)
+            dl_val, device, forecast_model, output_vars, T, delta_t, dimension,
+            only_jump_before_abx_exposure=only_jump_before_abx_exposure)
     obs = true_X.transpose(2, 0, 1)
     ad_scores = ad_module(obs, cond_moments, observed_dates)
     with open('{}val_ad_scores.npy'.format(scores_path), 'wb') as f:
@@ -382,9 +472,24 @@ def compute_scores(
     df = pd.DataFrame(data, columns=cols)
     csvpath_val = '{}val_ad_scores.csv'.format(scores_path)
     df.to_csv(csvpath_val, index=False)
+    
+    if plot_cond_std_dist:
+        dist_path = f'{ad_path}dist/val-noabx/'
+        makedirs(dist_path)
+        filepaths += _plot_conditionally_standardized_distribution(
+            cond_moments[:, abx_labels==0], observed_dates[:, abx_labels==0],
+            obs[:, abx_labels==0], output_vars, path_to_save=dist_path,
+            compare_to_dist="normal", replace_values=replace_values,
+            which_set='val')
+        filepaths += _plot_conditionally_standardized_distribution(
+            cond_moments[:, abx_labels == 0],
+            observed_dates[:, abx_labels == 0],
+            obs[:, abx_labels == 0], output_vars, path_to_save=dist_path,
+            compare_to_dist="lognormal", replace_values=replace_values,
+            which_set='val')
 
     if send:
-        files_to_send = [csvpath, csvpath_val]
+        files_to_send = [csvpath, csvpath_val] + filepaths
         caption = "scores - {} - id={}".format(which, forecast_model_id)
         SBM.send_notification(
             text="description: {}".format(scores_dict),
@@ -534,64 +639,6 @@ def get_replace_forecast_values(cond_moments, output_vars, replace_with='mean',
     return replace_values
 
 
-
-
-
-def compute_metrics(ad_labels, ad_scores, mask, autom_thres = None, filename = '',
-                    threshold = 0.5, metric = 'f1_score', path=None):
-    
-    ad_labels = ad_labels[mask].astype(int).reshape(-1)
-    ad_scores = ad_scores[mask].reshape(-1)
-
-    if path is not None:
-        fpr, tpr, thresholds  = metrics.roc_curve(ad_labels, ad_scores)
-        #create ROC curve
-        plt.plot(fpr,tpr)
-        plt.plot(fpr, thresholds, color='r')
-        plt.ylabel('True Positive Rate')
-        plt.xlabel('False Positive Rate')
-        plt.savefig(path + filename + '-roc_curve')
-        plt.close()
-
-    if autom_thres is not None:
-        autom_thres = autom_thres.split('-')
-        if autom_thres[0] == 'FPR_limit':
-            limit = float(autom_thres[1])
-            indices = np.arange(len(fpr))
-            indices[fpr > limit] = 0
-            idx = np.argmax(indices)
-        if autom_thres[0] == 'TPR_limit':
-            limit = float(autom_thres[1])
-            indices = np.arange(len(tpr))
-            indices[tpr < limit] = np.inf
-            idx = np.argmin(indices)
-        threshold = thresholds[idx]
-
-    predicted_ad_labels = np.zeros_like(ad_scores).astype(int).reshape(-1)
-    predicted_ad_labels[ad_scores > threshold] = 1
-
-    score = None
-    if metric == 'recall':
-        score = metrics.recall_score(ad_labels, predicted_ad_labels)
-    elif metric == 'precision':
-        score = metrics.precision_score(ad_labels, predicted_ad_labels)
-    elif metric == 'f1_score':
-        score = metrics.f1_score(ad_labels, predicted_ad_labels)
-    elif metric == 'accuracy':
-        score = metrics.accuracy_score(ad_labels, predicted_ad_labels)
-    elif metric == 'balanced_accuracy':
-        score = metrics.balanced_accuracy_score(ad_labels, predicted_ad_labels)
-    elif metric == 'roc_auc':
-        score = metrics.roc_auc_score(ad_labels, predicted_ad_labels)
-
-    if autom_thres is not None:
-        print("Threshold found : {} for FPR of {} and TPR of : {}".format(threshold, fpr[idx], tpr[idx]))
-
-
-    # print(score)
-    
-    return score, threshold
-
 def get_forecast_model_param_dict(
         epochs=100,
         seed=398,
@@ -686,186 +733,6 @@ def get_forecast_model_param_dict(
     return params_dict, collate_fn
 
 
-
-    
-
-
-def plot_AD_module_params(ad_module, path, filename, steps_ahead = None, dt=0.0025):
-
-    if isinstance(ad_module, AD_module):
-
-        weights = ad_module.get_weights().squeeze().clone().detach().numpy()
-        steps_ahead = [str(dt * s) for s in steps_ahead]
-        neighbors = [str(i) for i in range(-ad_module.smoothing, ad_module.smoothing+1)]
-
-        fig, ax = plt.subplots(figsize=(10,8))
-        im = ax.imshow(weights)
-        ax.set_xticks(np.arange(weights.shape[1]))
-        ax.set_yticks(np.arange(weights.shape[0]))
-        ax.set_xticklabels(neighbors)
-        ax.set_yticklabels(steps_ahead)
-        fig.colorbar(im, ax=ax, shrink=0.25)
-        plt.title('Weights of scores smoothing on forecasting horizon and neighbouring timestamps', fontsize=15)
-        plt.xlabel('Neighbouring timestamps', fontsize=10)
-        plt.ylabel('Forecasting horizons', fontsize=10)
-        plt.savefig(path + filename + '_ad_module_weights.png')
-        plt.close()
-
-
-def plot_one_path_with_pred(
-        device, forecast_model, ad_module, batch, delta_t, T,
-        paths_to_plot=(0,), save_path='', filename='plot_{}.png',
-        plot_variance=False, std_factor=1.96, model_name='PD-NJ-ODE',
-        save_extras={'bbox_inches': 'tight', 'pad_inches': 0.01},
-        output_vars=None, steps_ahead=[1], plot_forecast_predictions=False,
-        forecast_horizons_to_plot=[1], anomaly_type='undefined',
-):
-
-    prop_cycle = plt.rcParams['axes.prop_cycle']  # change style of plot?
-    colors = prop_cycle.by_key()['color']
-    if plot_forecast_predictions:
-        std_color = [list(matplotlib.colors.to_rgb(colors[c])) + [0.5] for c in range(len(forecast_horizons_to_plot) + 2)]
-    makedirs(save_path)
-    
-    times = batch["times"]
-    time_ptr = batch["time_ptr"]
-    X = batch["X"].to(device)
-    M = batch["M"]
-    if M is not None:
-        M = M.to(device)
-    start_M = batch["start_M"]
-    if start_M is not None:
-        start_M = start_M.to(device)
-
-    start_X = batch["start_X"].to(device)
-    obs_idx = batch["obs_idx"]
-    n_obs_ot = batch["n_obs_ot"].to(device)
-    observed_dates = batch['observed_dates']
-    path_t_true_X = np.linspace(0., T, int(np.round(T / delta_t)) + 1)
-    true_M = batch["true_mask"]
-    true_X = batch["true_paths"]
-    ad_labels = batch["ad_labels"]
-
-    with torch.no_grad():
-        path_t, path_y = forecast_model.custom_forward(
-        # hT, c_loss, path_t, path_h, path_y = model( 
-            times, time_ptr, X, obs_idx, delta_t, T, start_X,
-            n_obs_ot, steps=steps_ahead, get_loss=False, M=M,
-            start_M=start_M)
-        torch.cuda.empty_cache()
-        
-    nb_steps = path_t_true_X.shape[0]
-    nb_steps_ahead = len(steps_ahead)
-    batch_size = ad_labels.shape[0]
-    dimension = ad_labels.shape[1]
-    nb_vars = len(output_vars)
-
-    cond_moments = np.empty((nb_steps, batch_size, dimension, nb_vars, nb_steps_ahead))
-    cond_moments[:,:,:,:,:] = np.nan
-    for i in range(nb_steps_ahead):
-        index_times = np.empty_like(path_t_true_X)
-        for j,t in enumerate(path_t_true_X):
-            if np.any(np.abs(t*np.ones_like(path_t[i]) - path_t[i]) < 1e-10):
-                index_times[j] = True
-            else:
-                index_times[j] = False
-        index_times = np.argwhere(index_times).reshape(-1)
-        for m in range(nb_vars):
-            cond_moments[index_times,:,:,m,i] = path_y[i].detach().cpu().numpy()[:,:,m*dimension:(m+1)*dimension]
-
-    obs = torch.tensor(true_X, dtype=torch.float32).permute(2,0,1)
-    cond_moments = torch.tensor(cond_moments, dtype=torch.float32)
-    ad_scores, mask = ad_module(obs, cond_moments)
-    ad_scores = ad_scores.detach().cpu().numpy()
-    ad_labels = ad_labels.transpose((2,0,1))
-    predicted_ad_labels, scores = ad_module.get_predicted_label(obs, cond_moments)
-    # predicted_ad_labels = predicted_ad_labels.transpose((1, 2, 0))
-
-    scores = scores.detach().cpu().numpy().transpose((1, 2, 0))
-    ad_labels = ad_labels.transpose((1, 2, 0))
-    predicted_ad_labels = predicted_ad_labels.detach().cpu().numpy().transpose((1, 2, 0))
-
-    ad_labels_plot = ad_labels.copy()
-    ad_labels_plot[:,:,1:][np.logical_and(ad_labels[:,:,1:]==0,ad_labels[:,:,:-1]==1)] = 1
-    ad_labels_plot[:,:,:-1][np.logical_and(ad_labels[:,:,1:]==1,ad_labels[:,:,:-1]==0)] = 1
-    predicted_ad_labels_plot = predicted_ad_labels.copy()
-    predicted_ad_labels_plot[:,:,1:][np.logical_and(predicted_ad_labels[:,:,1:]==0,predicted_ad_labels[:,:,:-1]==1)] = 1
-    predicted_ad_labels_plot[:,:,:-1][np.logical_and(predicted_ad_labels[:,:,1:]==1,predicted_ad_labels[:,:,:-1]==0)] = 1
-
-    mask_pred_path = np.ma.masked_where((predicted_ad_labels_plot == 1), true_X)
-    mask_pred_path_w_anomaly = np.ma.masked_where((predicted_ad_labels_plot == 0), true_X)
-    mask_data_path = np.ma.masked_where((ad_labels_plot == 1), true_X)
-    mask_data_path_w_anomaly = np.ma.masked_where((ad_labels_plot == 0), true_X)
-    mask_pred_scores = np.ma.masked_where((np.isnan(scores)), scores)
-
-
-    for a in paths_to_plot:
-        fig, axs = plt.subplots(dimension,2,figsize=(20, 7))
-        if dimension == 1:
-            axs = [axs]
-        
-        for j in range(dimension):
-            # get the true_X at observed dates
-            path_t_obs = []
-            path_X_obs = []
-            for k, od in enumerate(observed_dates[a]):
-                if od == 1:
-                    if true_M is None or (true_M is not None and
-                                        true_M[a, j, k]==1):
-                        path_t_obs.append(path_t_true_X[k])
-                        path_X_obs.append(true_X[a, j, k])
-            path_t_obs = np.array(path_t_obs)
-            path_X_obs = np.array(path_X_obs)
-
-            axs[j][0].set_title("Ground_truth, dimension {}".format(j+1))
-            axs[j][0].plot(path_t_true_X, mask_data_path[a, j, :], label='true path, no anomaly',
-                        color=colors[0])
-            axs[j][0].plot(path_t_true_X, mask_data_path_w_anomaly[a, j, :], label='true path, anomaly',
-                        color=colors[1])
-            axs[j][1].set_title("Anomaly Detection, dimension {}".format(j+1))
-            axs[j][1].plot(path_t_true_X, mask_pred_path[a, j, :], label='true path, no predicted anomaly',
-                        color=colors[0])
-            axs[j][1].plot(path_t_true_X, mask_pred_path_w_anomaly[a, j, :], label='true path, predicted anomaly',
-                        color=colors[1])
-            axs[j][1].plot(path_t_true_X, mask_pred_scores[a, j, :], label='Predicted scores',
-                        color=colors[2])
-
-            if plot_forecast_predictions:
-                for h,s in enumerate(forecast_horizons_to_plot):
-                    step_idx = steps_ahead.index(s)
-                    exp_prediction = cond_moments[:,a,j,0,step_idx].detach().cpu().numpy()
-                    axs[j][1].plot(path_t_true_X, exp_prediction, label=model_name + " expectation prediction {} steps ahead".format(s), color=colors[h+2])
-                    if plot_variance:
-                        assert(('var' in output_vars) or ('power-2' in output_vars))
-                        if 'var' in output_vars:
-                            which = np.argmax(np.array(output_vars) == 'var')
-                            var_prediction = cond_moments[:,a,j,which,step_idx].detach().cpu().numpy()
-                        elif 'power-2' in output_vars:
-                            which = np.argmax(np.array(output_vars) == 'power-2')
-                            exp_2_prediction = cond_moments[:,a,j,which,step_idx].detach().cpu().numpy()
-                            var_prediction = exp_2_prediction - exp_prediction ** 2 
-                        
-                        if np.any(var_prediction < 0):
-                            # print('WARNING: some true cond. variances below 0 -> clip')
-                            var_prediction = np.maximum(0, var_prediction)
-                        std_prediction = np.sqrt(var_prediction)
-                        axs[j][1].fill_between(path_t_true_X,
-                            exp_prediction - std_factor * std_prediction,
-                            exp_prediction + std_factor * std_prediction,
-                            label="standart deviation ({} factor) prediction {} steps ahead".format(std_factor, s), color=std_color[h+2])
-            
-            axs[j][0].legend()
-            axs[j][1].legend()
-            axs[j][0].set_ylim(0., 1.)
-            axs[j][1].set_ylim(0., 1.)
-            axs[j][1].axhline(y=ad_module.threshold, color='r', linestyle='-')
-
-        plt.xlabel('$t$')
-        plt.suptitle("Anomaly detection on {} anomalies".format(anomaly_type))
-        save = os.path.join(save_path, filename.format(a))
-        plt.savefig(save, **save_extras)
-        plt.close()
-    
 
 
 def main(arg):

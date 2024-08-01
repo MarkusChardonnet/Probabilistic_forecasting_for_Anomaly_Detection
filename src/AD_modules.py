@@ -8,6 +8,16 @@ import scipy.stats as stat
 import sklearn.linear_model as lm
 
 
+def get_corrected_var(var, min_var_val=1e-4, replace_var=None):
+    if np.any(var < 0):
+        if replace_var is not None:
+            condition = ~np.isnan(var)
+            condition = np.logical_and(condition, var <= 0)
+            var[condition] = replace_var
+        else:
+            var = np.maximum(min_var_val, var)
+    return var
+
 def gaussian_scoring(
         obs, cond_exp, cond_var,
         observed_dates=None,
@@ -17,23 +27,58 @@ def gaussian_scoring(
     # obs : [nb_steps, nb_samples, dimension]
     # cond_exp : [nb_steps, nb_samples, dimension, steps_ahead]
     # cond_var : [nb_steps, nb_samples, dimension, steps_ahead]
-    dimension = cond_exp.shape[2]
+
     nb_steps_ahead = cond_exp.shape[3]
-    if np.any(cond_var < 0):
-        # print('WARNING: some predicted cond. variances below 0 -> clip')
-        if replace_var is not None:
-            for d in range(dimension):
-                for s in range(nb_steps_ahead):
-                    condition = ~np.isnan(cond_var[:,:,d,s])
-                    condition = np.logical_and(condition, cond_var[:,:,d,s] <= 0)
-                    cond_var[:,:,d,s][condition] = replace_var[d,s]
-        else:
-            cond_var = np.maximum(min_var_val, cond_var)
+    cond_var = get_corrected_var(cond_var, min_var_val, replace_var)
     cond_std = np.sqrt(cond_var)
-    z_scores = np.abs((np.tile(np.expand_dims(obs,axis=3),(1,1,1,nb_steps_ahead)) - cond_exp)) / cond_std
+    z_scores = (np.tile(np.expand_dims(obs,axis=3),(1,1,1,nb_steps_ahead)) - cond_exp) / cond_std
     if scoring_metric == 'p-value':
-        p_vals = 2*scipy.stats.norm.sf(z_scores) # computes survival function, 2 factor for two sided
+        p_vals = 2*scipy.stats.norm.sf(np.abs(z_scores)) # computes survival function, 2 factor for two sided
         scores = -np.log(p_vals + 1e-10)
+    elif scoring_metric == 'left-tail':
+        p_vals = scipy.stats.norm.cdf(z_scores)
+        scores = -np.log(p_vals + 1e-10)
+    elif scoring_metric == 'right-tail':
+        p_vals = scipy.stats.norm.sf(z_scores)
+        scores = -np.log(p_vals + 1e-10)
+    else:
+        raise ValueError('scoring_metric not supported')
+    # scores : [nb_steps, nb_samples, dimension, steps_ahead]
+    if observed_dates is not None:
+        scores[~observed_dates] = np.nan
+    return scores
+
+
+def lognorm_scoring(
+        obs, cond_exp, cond_var,
+        observed_dates=None,
+        scoring_metric = 'p-value',
+        min_var_val = 1e-4,
+        replace_var = None):
+    # obs : [nb_steps, nb_samples, dimension]
+    # cond_exp : [nb_steps, nb_samples, dimension, steps_ahead]
+    # cond_var : [nb_steps, nb_samples, dimension, steps_ahead]
+
+    nb_steps_ahead = cond_exp.shape[3]
+    cond_var = get_corrected_var(cond_var, min_var_val, replace_var)
+
+    # method of moments estimator
+    mu = np.log(cond_exp) - 0.5 * np.log(1 + cond_var / cond_exp ** 2)
+    sigma = np.sqrt(np.log(1 + cond_var / cond_exp ** 2))
+    obs = np.tile(np.expand_dims(obs, axis=3),(1,1,1,nb_steps_ahead))
+    sf = scipy.stats.lognorm.sf(obs, s=sigma, scale=np.exp(mu))
+    cdf = scipy.stats.lognorm.cdf(obs, s=sigma, scale=np.exp(mu))
+    if scoring_metric == 'p-value':
+        p_vals = 2 * np.minimum(cdf, sf)
+        scores = -np.log(p_vals + 1e-10)
+    elif scoring_metric == 'left-tail':
+        p_vals = cdf
+        scores = -np.log(p_vals + 1e-10)
+    elif scoring_metric == 'right-tail':
+        p_vals = sf
+        scores = -np.log(p_vals + 1e-10)
+    else:
+        raise ValueError('scoring_metric not supported')
     # scores : [nb_steps, nb_samples, dimension, steps_ahead]
     if observed_dates is not None:
         scores[~observed_dates] = np.nan
@@ -45,31 +90,24 @@ def beta_scoring(
         observed_dates=None,
         scoring_metric = 'p-value', 
         min_var_val = 1e-4,
+        epsilon = 1e-6,
         replace_var = None):
     # obs : [nb_steps, nb_samples, dimension]
     # cond_exp : [nb_steps, nb_samples, dimension, steps_ahead]
     # cond_var : [nb_steps, nb_samples, dimension, steps_ahead]
+
     nb_samples = cond_exp.shape[1]
     dimension = cond_exp.shape[2]
     nb_steps_ahead = cond_exp.shape[3]
-    # replace negative variance values
-    if np.any(cond_var < 0):
-        # print('WARNING: some predicted cond. variances below 0 -> clip')
-        if replace_var is not None:
-            for d in range(dimension):
-                for s in range(nb_steps_ahead):
-                    condition = ~np.isnan(cond_var[:,:,d,s])
-                    condition = np.logical_and(condition, cond_var[:,:,d,s] <= 0)
-                    cond_var[:,:,d,s][condition] = replace_var[d,s]
-        else:
-            cond_var = np.maximum(min_var_val, cond_var)
+    cond_var = get_corrected_var(cond_var, min_var_val, replace_var)
+
     # clip expectation into admissible range [0,1]
-    cond_exp = np.clip(cond_exp, 1e-5, 1-1e-5)
+    cond_exp = np.clip(cond_exp, epsilon, 1-epsilon)
     # compute alpha beta from moments
-    idx = cond_var <= cond_exp * (1-cond_exp) - 1e-6
+    idx = cond_var <= cond_exp * (1-cond_exp) - epsilon
     terms = np.zeros_like(cond_exp)
     terms[idx] = cond_exp[idx] * (1-cond_exp[idx]) / cond_var[idx] - 1
-    terms[~idx] = (cond_exp[~idx] * (1-cond_exp[~idx])) / (cond_exp[~idx] * (1-cond_exp[~idx]) - 1e-6) - 1
+    terms[~idx] = (cond_exp[~idx] * (1-cond_exp[~idx])) / (cond_exp[~idx] * (1-cond_exp[~idx]) - epsilon) - 1
     alphas = cond_exp * terms
     betas = (1-cond_exp) * terms
     # reshape vars
@@ -103,18 +141,9 @@ def dirichlet_scoring(
 
     assert cond_exp.shape == cond_var.shape
     assert len(cond_exp.shape) == 3
-    dimension = cond_exp.shape[2]
     time_steps = cond_exp.shape[0]
     samples = cond_exp.shape[1]
-    if np.any(cond_var < 0):
-        # print('WARNING: some predicted cond. variances below 0 -> clip')
-        if replace_var is not None:
-            for d in range(dimension):
-                condition = ~np.isnan(cond_var[:,:,d])
-                condition = np.logical_and(condition, cond_var[:,:,d] <= 0)
-                cond_var[:,:,d][condition] = replace_var[d]
-        else:
-            cond_var = np.maximum(min_var_val, cond_var)
+    cond_var = get_corrected_var(cond_var, min_var_val, replace_var)
 
     scores = np.zeros((time_steps, samples,))
     scores[~observed_dates] = np.nan
@@ -402,6 +431,28 @@ class AD_module(torch.nn.Module): # AD_module_1D, AD_module_ND
         self.weights.weight = torch.nn.Parameter(ls_weights)
 
 
+AGGREGATION_METHODS = {
+    'mean': np.mean,
+    'min': np.min,
+    'max': np.max,
+}
+
+
+def get_cond_exp_var(cond_moments, output_vars):
+    assert(('id' in output_vars) and (
+            ('var' in output_vars) or ('power-2' in output_vars)))
+    which = np.argmax(np.array(output_vars) == 'id')
+    cond_exp = cond_moments[:,:,:,which]
+    if 'var' in output_vars:
+        which = np.argmax(np.array(output_vars) == 'var')
+        cond_var = cond_moments[:, :, :, which]
+    elif 'power-2' in output_vars:
+        which = np.argmax(np.array(output_vars) == 'power-2')
+        cond_exp_2 = cond_moments[:,:,:,which]
+        cond_var = cond_exp_2 - cond_exp ** 2
+    return cond_exp, cond_var
+
+
 class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
     def __init__(self, 
                  output_vars,
@@ -414,6 +465,7 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
                  nb_MC_samples=10**5,
                  epsilon=1e-6,
                  dirichlet_use_coord=None,
+                 aggregation_method='mean',
                  seed=None,
                  verbose=False,):
         super(Simple_AD_module, self).__init__()
@@ -428,6 +480,7 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
         self.epsilon = epsilon
         self.dirichlet_use_coord = dirichlet_use_coord
         self.weight = score_factor
+        self.aggregation_method = aggregation_method
 
         if activation_fct == 'sigmoid':
             self.act = torch.nn.Sigmoid()
@@ -437,17 +490,7 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
     def get_individual_scores(
             self, cond_moments, obs, observed_dates=None):
 
-        assert(('id' in self.output_vars) and (
-                ('var' in self.output_vars) or ('power-2' in self.output_vars)))
-        which = np.argmax(np.array(self.output_vars) == 'id')
-        cond_exp = cond_moments[:,:,:,which]
-        if 'var' in self.output_vars:
-            which = np.argmax(np.array(self.output_vars) == 'var')
-            cond_var = cond_moments[:, :, :, which]
-        elif 'power-2' in self.output_vars:
-            which = np.argmax(np.array(self.output_vars) == 'power-2')
-            cond_exp_2 = cond_moments[:,:,:,which]
-            cond_var = cond_exp_2 - cond_exp ** 2
+        cond_exp, cond_var = get_cond_exp_var(cond_moments, self.output_vars)
 
         if self.distribution_class == 'gaussian':
             cond_exp = np.expand_dims(cond_exp, 3)
@@ -459,16 +502,24 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
                 scoring_metric=self.scoring_metric, replace_var=None)
             # scores : [nb_samples, nb_steps, dimension, steps_ahead=1]
             scores_valid = scores_valid.transpose(1,0,2,3)
-        elif self.distribution_class == 'normal':
+        elif self.distribution_class in ['normal', 'lognormal']:
+            scoring_methods = {
+                'normal': gaussian_scoring,
+                'lognormal': lognorm_scoring,
+            }
             cond_exp = np.expand_dims(cond_exp, 3)
             cond_var = np.expand_dims(cond_var, 3)
             if self.replace_values is not None:
                 self.replace_values = np.expand_dims(self.replace_values, 1)
             # scores : [nb_steps, nb_samples, dimension, steps_ahead]
-            scores_valid = gaussian_scoring(
+            scores_valid = scoring_methods[self.distribution_class](
                 obs=obs, cond_exp=cond_exp, cond_var=cond_var,
                 observed_dates=observed_dates,
-                scoring_metric=self.scoring_metric, replace_var=self.replace_values)
+                scoring_metric=self.scoring_metric,
+                replace_var=self.replace_values,)
+            if scores_valid.shape[2] > 1:
+                scores_valid = AGGREGATION_METHODS[self.aggregation_method](
+                    scores_valid, axis=2, keepdims=True)
             assert scores_valid.shape[2] == 1 and scores_valid.shape[3] == 1
             # scores : [nb_samples, nb_steps]
             scores_valid = scores_valid.squeeze(3).squeeze(2).transpose(1,0)

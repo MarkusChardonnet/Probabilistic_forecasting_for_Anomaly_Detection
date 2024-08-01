@@ -113,6 +113,9 @@ alpha diversity metric datasets:
 ```shell
 python make_microbial_dataset.py --dataset_config=config_div_alpha_faith_pd_1
 python make_microbial_dataset.py --dataset_config=config_div_alpha_faith_pd_2
+python make_microbial_dataset.py --dataset_config=config_div_alpha_faith_pd_3
+python make_microbial_dataset.py --dataset_config=config_div_alpha_faith_pd_4
+python make_microbial_dataset.py --dataset_config=config_div_alpha_faith_pd_5
 ```
 
 #### Training PD-NJODE:
@@ -166,7 +169,14 @@ python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_lowvar2_ids --ad_p
 python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_lowvar2_ids_2 --ad_params=param_list_AD_microbial_lowvar2_2 --forecast_saved_models_path=AD_microbial_lowvar2 --compute_scores=True --evaluate_scores=True
 ```
 
-
+alpha diversity metric datasets:
+```shell
+python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_alpha_div_ids --ad_params=param_list_AD_microbial_alpha_div --forecast_saved_models_path=AD_microbial_alpha_div --compute_scores=True --evaluate_scores=True
+python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_alpha_div_ids_1 --ad_params=param_list_AD_microbial_alpha_div --forecast_saved_models_path=AD_microbial_alpha_div --compute_scores=True --evaluate_scores=True
+python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_alpha_div_ids_2 --ad_params=param_list_AD_microbial_alpha_div_2 --forecast_saved_models_path=AD_microbial_alpha_div --compute_scores=True --evaluate_scores=True
+python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_alpha_div_ids_3 --ad_params=param_list_AD_microbial_alpha_div_3 --forecast_saved_models_path=AD_microbial_alpha_div --compute_scores=True --evaluate_scores=True
+python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_alpha_div_ids_3 --ad_params=param_list_AD_microbial_alpha_div_4 --forecast_saved_models_path=AD_microbial_alpha_div --compute_scores=True --evaluate_scores=True
+```
 
 ## Score evaluation
 Once you trained a microbiome-based model, you can evaluate the resulting scores in the notebook `results/evaluate_scores.ipynb`. To run the notebook, create and activate this conda environment:
@@ -177,12 +187,12 @@ pip install -e .
 ````
 
 # TODOs and Possible Improvements
-- [ ] different AD scoring method: using coordinate wise p-values based on beta distribution 
+- [x] different AD scoring method: using coordinate wise p-values based on beta distribution 
 - [ ] weighting of coordinates in the loss s.t. they have approx. same sizes
 - [x] reducing learning rate during training as @Jakob_Heiss suggested
 - [ ] using a different projection approach for NJODE
 - [x] or no projection at all
-- [ ] model the alpha diversity metric
+- [x] model the alpha diversity metric -> this leads to best results
 
 - 
 

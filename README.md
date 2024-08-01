@@ -5,6 +5,7 @@ The general approach is Based on Probabilistic Forecasting. The principle is to 
 
 The probabilistic forecasting is based on the PD-NJODE framework. This framework is described in the paper [Optimal Estimation of Generic Dynamics by Path-Dependent Neural Jump ODEs](https://arxiv.org/abs/2206.14284) and the code is available at [PD-NJODE](https://github.com/FlorianKrach/PD-NJODE).
 
+## Model inference
 ### Dependencies
 - Python 3.7 and Conda
 - Create environment in python 3.7:
@@ -17,6 +18,7 @@ The probabilistic forecasting is based on the PD-NJODE framework. This framework
     ```
 - Install dependencies:
   ```bash
+    pip install numpy==1.18.5
     pip install -r requirements.txt
     ```
 
@@ -92,8 +94,8 @@ Important flags:
 
 
 
-## Training commands (Florian)
-### Generate Dataset:
+### Training commands (Florian)
+#### Generate Dataset:
 ```shell
 python make_microbial_dataset.py --dataset_config=config_otu_sig_highab
 python make_microbial_dataset.py --dataset_config=config_genus_sig_highab
@@ -116,7 +118,7 @@ python make_microbial_dataset.py --dataset_config=config_div_alpha_faith_pd_4
 python make_microbial_dataset.py --dataset_config=config_div_alpha_faith_pd_5
 ```
 
-### Training PD-NJODE:
+#### Training PD-NJODE:
 on OTU dataset:
 ```shell
 python run.py --params=param_list_microbial_otu2 --NB_JOBS=64 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_otu2
@@ -145,7 +147,7 @@ python run.py --params=param_list_microbial_alpha_div --NB_JOBS=64 --NB_CPUS=1 -
 ```
 
 
-### Compute Anomaly Detection Scores:
+#### Compute Anomaly Detection Scores:
 on OTU dataset:
 ```shell
 python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_otu3_ids --ad_params=param_list_AD_microbial_otu --forecast_saved_models_path=AD_microbial_otu3 --compute_scores=True --evaluate_scores=True
@@ -175,6 +177,14 @@ python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_alpha_div_ids_2 --
 python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_alpha_div_ids_3 --ad_params=param_list_AD_microbial_alpha_div_3 --forecast_saved_models_path=AD_microbial_alpha_div --compute_scores=True --evaluate_scores=True
 python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_alpha_div_ids_3 --ad_params=param_list_AD_microbial_alpha_div_4 --forecast_saved_models_path=AD_microbial_alpha_div --compute_scores=True --evaluate_scores=True
 ```
+
+## Score evaluation
+Once you trained a microbiome-based model, you can evaluate the resulting scores in the notebook `results/evaluate_scores.ipynb`. To run the notebook, create and activate this conda environment:
+````
+conda create --name score_eval numpy pandas matplotlib seaborn scipy ipython ipykernel -y
+conda activate score_eval
+pip install -e .
+````
 
 # TODOs and Possible Improvements
 - [x] different AD scoring method: using coordinate wise p-values based on beta distribution 

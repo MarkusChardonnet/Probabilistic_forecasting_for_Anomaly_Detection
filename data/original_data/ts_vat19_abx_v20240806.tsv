@@ -1,0 +1,550 @@
+host_id	abx_start_age_months	abx_duration_days	abx_type	abx_reason
+E002338	13.0	10.0	Cephalosporine	Infection of urinary tract
+E002338	13.5	3.0	Cephalosporine	Infection of urinary tract
+E002338	14.0	31.0	Other	Infection of urinary tract
+E002338	17.5	7.0	Penicillin	Otitis media
+E002473	28.0	7.0	Cephalosporine	Otitis media
+E002473	30.0	7.0	Cephalosporine	Infection of respiratory tract
+E002681	9.0	7.0	Other	Otitis media
+E002681	10.5	10.0	Penicillin	Otitis media
+E002681	28.0	14.0	Other, Penicillin	Otitis media
+E002825	3.5	7.0	Penicillin	Infection of respiratory tract
+E002825	11.5	10.0	Cotrimoxazole	Otitis media
+E002825	23.0	7.0	Other	Infection of respiratory tract
+E003188	6.5	7.0	Penicillin	Otitis media
+E003188	7.0	7.0	Other	Otitis media
+E003188	13.0	7.0	Other	Otitis media
+E003188	13.5	3.0	Macrolide	Otitis media
+E003188	14.0	6.0	Other	Otitis media
+E003188	15.5	7.0	Cotrimoxazole	Otitis media
+E003188	16.0	12.0	Cephalosporine, Macrolide	Otitis media
+E003188	16.5	12.0	Cephalosporine	Otitis media
+E003188	25.0	12.0	Cephalosporine, Penicillin	Others, Otitis media
+E003953	6.5	7.0	Penicillin	Otitis media
+E003953	10.0	7.0	Penicillin	Otitis media
+E003953	10.5	5.0	Cotrimoxazole	Otitis media
+E003953	12.5	5.0	Penicillin	Otitis media
+E003953	14.5	7.0	Penicillin	Otitis media
+E003953	15.0	7.0	Cotrimoxazole	Otitis media
+E003953	16.5	7.0	Cotrimoxazole	Otitis media
+E003953	17.0	7.0	Penicillin	Otitis media
+E003953	17.5	7.0	Cotrimoxazole	Otitis media
+E003953	18.0	11.0	Penicillin	Otitis media
+E003953	23.0	7.0	Macrolide	Otitis media
+E003953	24.0	5.0	Penicillin	Otitis media
+E003953	28.0	7.0	Penicillin	Otitis media
+E003953	29.0	2.0	Penicillin	Infection of respiratory tract
+E003953	32.0	7.0	Penicillin	Otitis media
+E004071	29.0	7.0	Penicillin	Otitis media
+E004080	32.0	6.0	Other	Otitis media
+E004628	7.0	7.0	Penicillin	Otitis media
+E004628	7.5	7.0	Cephalosporine	Otitis media
+E004628	10.5	3.0	Macrolide	Otitis media
+E004628	11.5	7.0	Penicillin	Otitis media
+E004628	12.5	7.0	Cotrimoxazole	Otitis media
+E004628	13.0	7.0	Cotrimoxazole	Otitis media
+E004628	16.0	10.0	Other	Otitis media
+E004628	21.0	5.0	Other	Otitis media
+E004628	23.0	10.0	Other	Infection of respiratory tract
+E004628	27.0	5.0	Cotrimoxazole	Otitis media
+E004628	28.0	7.0	Other	Otitis media
+E004628	35.0	7.0	Cephalosporine	Otitis media
+E004781	10.0	7.0	Penicillin	Otitis media
+E004781	12.0	14.0	Cotrimoxazole	Otitis media
+E004781	17.0	7.0	Penicillin	Otitis media
+E004898	4.5	7.0	Penicillin	Otitis media
+E004898	7.0	7.0	Other	Otitis media
+E004898	13.0	7.0	Macrolide	Infection of respiratory tract
+E004898	17.0	7.0	Other	Otitis media
+E004898	20.5	14.0	Other	Otitis media
+E004898	21.5	7.0	Other	Otitis media
+E004898	23.0	5.0	Penicillin	Otitis media
+E004898	24.0	7.0	Cotrimoxazole	Infection of respiratory tract
+E004898	26.0	3.0	Macrolide	Infection of respiratory tract
+E004898	28.5	7.0	Other	Infection of respiratory tract
+E004898	30.0	7.0	Penicillin	Otitis media
+E004898	36.0	7.0	Penicillin	Otitis media
+E004934	21.5	8.0	Macrolide, Other	Otitis media
+E004934	29.5	5.0	Cephalosporine	Otitis media
+E005786	10.0	10.0	Cotrimoxazole, Other	Otitis media
+E005786	13.0	5.0	Cotrimoxazole	Otitis media
+E005786	17.0	10.0	Cotrimoxazole	Otitis media
+E005786	18.0	7.0	Cotrimoxazole	Otitis media
+E005786	21.0	14.0	Cotrimoxazole, Other	Otitis media
+E005786	22.0	7.0	Cotrimoxazole, Macrolide	Otitis media
+E005786	23.0	7.0	Other	Otitis media
+E005804	8.0	5.0	Penicillin	Otitis media
+E005804	10.0	7.0	Penicillin	Otitis media
+E005804	12.5	3.0	Other	Otitis media
+E005804	13.0	1.0	Cephalosporine	Otitis media
+E005804	13.5	7.0	Cephalosporine	Otitis media
+E005804	14.5	9.0	Macrolide, Penicillin	Otitis media
+E005804	22.0	7.0	Cotrimoxazole	Infection of respiratory tract
+E005804	26.0	7.0	Penicillin	Otitis media
+E006091	12.0	7.0	Penicillin	Otitis media
+E006091	14.0	7.0	Other	Otitis media
+E006091	16.0	6.0	Penicillin	Otitis media
+E006091	20.0	7.0	Other	Infection of respiratory tract
+E006091	21.0	10.0	Penicillin	Infection of respiratory tract
+E006091	22.0	10.0	Cotrimoxazole	Others
+E006091	23.0	5.0	Penicillin	Otitis media
+E006091	24.0	12.0	Cotrimoxazole, Penicillin	Otitis media
+E006781	12.0	5.0	Cephalosporine	Otitis media
+E006781	13.0	7.0	Cephalosporine	Otitis media
+E006781	17.0	42.0	Cotrimoxazole, Macrolide, Other, Penicillin	Otitis media
+E006781	23.0	20.0	Other	Otitis media
+E006781	32.0	12.0	Cotrimoxazole, Other	Otitis media
+E006781	33.0	7.0	Cephalosporine	Infection of urinary tract
+E006781	34.0	7.0	Other	Otitis media
+E006871	11.0	7.0	Cotrimoxazole, Penicillin	Otitis media
+E006871	22.0	7.0	Cotrimoxazole	Otitis media
+E006871	24.0	7.0	Cotrimoxazole	Otitis media
+E006871	34.0	15.0	Cotrimoxazole, Penicillin	Otitis media
+E007303	9.0	7.0	Penicillin	Infection of respiratory tract
+E007303	10.0	7.0	Penicillin	Otitis media
+E007743	2.0	7.0	Penicillin	Otitis media
+E007743	4.0	3.0	Macrolide	Otitis media
+E007743	5.5	7.0	Penicillin	Otitis media
+E007980	6.0	7.0	Penicillin	Otitis media
+E008241	11.0	10.0	Penicillin	Otitis media
+E008357	3.0	6.0	Other	Infection of respiratory tract
+E008357	8.0	7.0	Penicillin	Otitis media
+E008357	11.0	7.0	Penicillin	Otitis media
+E008357	15.0	7.0	Cephalosporine	Others
+E008357	23.0	7.0	Penicillin	Otitis media
+E008357	25.0	7.0	Other	Otitis media
+E008437	5.0	3.0	Macrolide	Otitis media
+E008437	13.0	7.0	Cotrimoxazole	Otitis media
+E008437	13.5	7.0	Penicillin	Otitis media
+E008437	17.0	6.0	Cephalosporine	Otitis media
+E008437	26.0	7.0	Other	Otitis media
+E008437	27.0	3.0	Macrolide	Otitis media
+E008643	26.0	7.0	Penicillin	Otitis media
+E009020	11.0	7.0	Penicillin	Otitis media
+E009020	15.0	7.0	Other	Otitis media
+E009020	19.0	7.0	Penicillin	Otitis media
+E009020	22.0	7.0	Penicillin	Otitis media
+E009020	24.0	5.0	Cotrimoxazole	Otitis media
+E009667	20.0	17.0	Cotrimoxazole, Penicillin	Otitis media
+E009676	16.0	7.0	Macrolide	Otitis media
+E009676	20.0	7.0	Macrolide	Otitis media
+E010481	2.0	7.0	Penicillin	Otitis media
+E010481	4.0	7.0	Other	Otitis media
+E010481	5.0	7.0	Other	Otitis media
+E010481	6.0	3.0	Macrolide	Otitis media
+E010481	8.0	12.0	Cephalosporine, Other	Otitis media
+E010481	17.0	7.0	Other	Otitis media
+E010481	22.0	7.0	Penicillin	Otitis media
+E010481	25.0	7.0	Cotrimoxazole	Otitis media
+E010481	27.0	7.0	Other	Otitis media
+E010481	28.0	14.0	Cotrimoxazole	Otitis media
+E010481	29.0	7.0	Penicillin	Otitis media
+E010481	33.0	7.0	Penicillin	Others
+E010682	9.0	7.0	Penicillin	Otitis media
+E010682	9.5	12.0	Other	Otitis media
+E010682	10.5	7.0	Other	Otitis media
+E010682	12.0	6.0	Penicillin	Prophylaxis
+E010682	27.0	7.0	Penicillin	Otitis media
+E010682	33.0	12.0	Other, Penicillin	Otitis media
+E010682	35.0	16.0	Cephalosporine, Macrolide, Penicillin	Otitis media
+E010682	36.0	4.0	Macrolide	Otitis media
+E011183	2.0	5.0	Penicillin	Prophylaxis
+E011183	19.0	3.0	Macrolide	Otitis media
+E011183	20.0	3.0	Macrolide	Otitis media
+E011183	22.0	6.0	Macrolide, Penicillin	Infection of respiratory tract, Otitis media
+E011183	25.0	3.0	Macrolide	Otitis media
+E011183	32.0	3.0	Macrolide	Otitis media
+E011459	19.0	3.0	Macrolide	Otitis media
+E011878	8.0	5.0	Penicillin	Otitis media
+E011878	9.5	7.0	Penicillin	Otitis media
+E011878	11.0	17.0	Cephalosporine, Cotrimoxazole, Macrolide	Otitis media
+E011878	12.0	12.0	Cotrimoxazole	Otitis media
+E011878	20.0	7.0	Other	Otitis media
+E011878	22.0	10.0	Other	Otitis media
+E011878	24.0	16.0	Cephalosporine, Penicillin	Otitis media
+E011878	25.0	7.0	Penicillin	Otitis media
+E012115	12.5	4.0	Penicillin	Otitis media
+E012115	37.0	3.0	Macrolide	Infection of respiratory tract
+E012124	7.0	5.0	Penicillin	Otitis media
+E012124	9.0	7.0	Penicillin	Otitis media
+E012124	12.0	10.0	Macrolide, Penicillin	Otitis media
+E012124	19.0	7.0	Penicillin	Otitis media
+E012124	22.0	7.0	Penicillin	Otitis media
+E012393	24.0	3.0	Macrolide	Otitis media
+E012393	26.0	7.0	Other	Infection of respiratory tract
+E012393	28.0	5.0	Penicillin	Infection of respiratory tract
+E012854	9.5	7.0	Penicillin	Otitis media
+E012854	12.5	5.0	Other	Otitis media
+E012854	17.0	5.0	Penicillin	Otitis media
+E012854	18.0	5.0	Penicillin	Otitis media
+E012854	19.0	5.0	Penicillin	Otitis media
+E012854	20.0	3.0	Macrolide	Infection of respiratory tract
+E012854	28.0	17.0	Cotrimoxazole, Penicillin	Otitis media
+E012854	30.0	5.0	Penicillin	Otitis media
+E012971	5.5	7.0	Penicillin	Otitis media
+E012971	6.0	10.0	Cephalosporine	Otitis media
+E012971	8.0	5.0	Penicillin	Otitis media
+E012971	10.0	7.0	Penicillin	Otitis media
+E012971	12.0	7.0	Cephalosporine	Infection of respiratory tract
+E012971	21.0	7.0	Penicillin	Otitis media
+E013394	7.0	9.0	Penicillin	Others
+E013394	17.0	5.0	Other	Otitis media
+E013394	29.0	5.0	Cotrimoxazole	Otitis media
+E013394	33.0	5.0	Other	Infection of respiratory tract
+E013505	12.0	7.0	Penicillin	Otitis media
+E013505	16.0	7.0	Penicillin	Otitis media
+E013505	17.0	7.0	Other	Otitis media
+E013505	18.0	17.0	Cotrimoxazole, Other	Otitis media
+E013505	20.0	14.0	Other	Otitis media
+E013505	23.0	7.0	Penicillin	Otitis media
+E013505	31.0	6.0	Macrolide	Otitis media
+E013505	34.0	6.0	Penicillin	Otitis media
+E013505	35.0	6.0	Penicillin	Otitis media
+E014403	5.5	10.0	Other, Penicillin	Otitis media
+E014403	6.5	10.0	Cotrimoxazole	Otitis media
+E014403	7.6	3.0	Macrolide	Otitis media
+E014403	8.0	5.0	Other	Otitis media
+E014403	12.0	7.0	Other	Otitis media
+E014403	14.5	7.0	Other	Otitis media
+E014403	32.5	7.0	Other	Otitis media
+E014953	10.0	7.0	Penicillin	Otitis media
+E014953	18.0	10.0	Penicillin	Otitis media
+E014953	23.0	4.0	Penicillin	Infection of respiratory tract
+E015208	16.0	7.0	Penicillin	Otitis media
+E015378	19.0	7.0	Penicillin	Otitis media
+E015378	21.0	7.0	Penicillin	Otitis media
+E015378	23.0	7.0	Penicillin	Infection of respiratory tract
+E015378	30.0	7.0	Other	Infection of respiratory tract
+E015378	32.0	7.0	Penicillin	Otitis media
+E015991	10.0	10.0	Penicillin	Otitis media
+E016148	10.0	7.0	Penicillin	Infection of respiratory tract
+E016148	17.0	3.0	Macrolide	Otitis media
+E016148	18.0	7.0	Other	Otitis media
+E016148	19.0	7.0	Other	Otitis media
+E016426	0.0	1.0	Other	Others
+E016426	9.0	3.0	Other, Penicillin	Otitis media
+E016426	10.0	3.0	Macrolide	Otitis media
+E016426	15.0	15.0	Cephalosporine, Cotrimoxazole, Macrolide	Otitis media
+E016426	19.0	5.0	Penicillin	Otitis media
+E016426	20.0	5.0	Penicillin	Otitis media
+E016426	21.0	14.0	Cephalosporine	Otitis media
+E016426	22.0	7.0	Cotrimoxazole	Otitis media
+E016426	27.0	7.0	Cephalosporine	Otitis media
+E016444	9.5	10.0	Macrolide, Penicillin	Otitis media
+E016444	10.0	5.0	Cotrimoxazole	Otitis media
+E016444	11.0	7.0	Other	Otitis media
+E016444	12.0	7.0	Other	Otitis media
+E016444	30.0	5.0	Penicillin	Otitis media
+E016444	32.0	3.0	Macrolide	Otitis media
+E016444	34.0	7.0	Penicillin	Otitis media
+E016681	11.0	7.0	Penicillin	Otitis media
+E016681	15.0	6.0	Penicillin	Otitis media
+E016681	16.0	5.0	Penicillin	Otitis media
+E016870	2.5	3.0	Macrolide	Infection of respiratory tract
+E016870	7.0	5.0	Macrolide	Otitis media
+E016870	10.0	7.0	Penicillin	Others
+E017049	10.0	5.0	Other	Otitis media
+E017049	16.0	7.0	Penicillin	Otitis media
+E017049	32.0	7.0	Penicillin	Otitis media
+E017715	25.0	7.0	Penicillin	Otitis media
+E018421	9.0	7.0	Penicillin	Otitis media
+E018421	10.5	7.0	Penicillin	Otitis media
+E018421	13.0	5.0	Penicillin	Otitis media
+E018421	14.0	3.0	Macrolide	Otitis media
+E018421	30.0	7.0	Other	Otitis media
+E018574	6.0	7.0	Penicillin	Otitis media
+E018574	8.0	5.0	Cotrimoxazole	Otitis media
+E018574	14.0	7.0	Penicillin	Otitis media
+E019160	16.0	10.0	Cephalosporine	Otitis media
+E019160	19.0	7.0	Penicillin	Otitis media
+E019187	19.0	5.0	Penicillin	Otitis media
+E019349	9.5	7.0	Penicillin	Otitis media
+E019349	25.0	7.0	Penicillin	Otitis media
+E019349	30.0	7.0	Penicillin	Otitis media
+E019349	36.0	5.0	Penicillin	Otitis media
+E019793	9.5	1.0	Penicillin	Otitis media
+E019793	13.0	1.0	Penicillin	Otitis media
+E019793	27.0	3.0	Macrolide	Infection of respiratory tract
+E019793	34.0	60.0	Other	Prophylaxis
+E020682	14.0	7.0	Penicillin	Otitis media
+E020682	18.0	7.0	Penicillin	Otitis media
+E020682	27.0	17.0	Macrolide, Other	Infection of respiratory tract, Otitis media
+E020682	29.0	7.0	Penicillin	Otitis media
+E020682	30.0	7.0	Cotrimoxazole	Otitis media
+E020781	22.0	7.0	Penicillin	Prophylaxis
+E020808	12.0	5.0	Penicillin	Otitis media
+E020808	16.0	9.0	Cotrimoxazole	Otitis media
+E020808	18.0	10.0	Penicillin	Otitis media
+E020808	20.0	5.0	Penicillin	Otitis media
+E020808	21.0	7.0	Penicillin	Otitis media
+E020808	23.0	7.0	Cephalosporine	Otitis media
+E020808	28.0	7.0	Other	Otitis media
+E020808	32.0	3.0	Macrolide	Infection of respiratory tract
+E020924	7.0	19.0	Cephalosporine, Macrolide, Penicillin	Otitis media
+E020924	14.0	5.0	Penicillin	Otitis media
+E020924	15.0	7.0	Other	Otitis media
+E020924	17.0	7.0	Other	Otitis media
+E020924	18.0	10.0	Macrolide, Other	Otitis media
+E020924	21.0	7.0	Other	Otitis media
+E020924	24.0	14.0	Other	Otitis media
+E020924	25.0	10.0	Macrolide, Other	Otitis media
+E020924	29.0	7.0	Other	Otitis media
+E021235	0.0	12.0	Other, Penicillin	Infection of respiratory tract
+E021235	7.0	10.0	Penicillin	Otitis media
+E021235	8.0	5.0	Penicillin	Otitis media
+E021235	9.0	3.0	Macrolide	Otitis media
+E021235	10.0	3.0	Macrolide	Otitis media
+E021235	12.0	7.0	Cephalosporine	Otitis media
+E021235	13.0	16.0	Cephalosporine, Macrolide, Penicillin	Otitis media
+E021822	5.0	7.0	Penicillin	Otitis media
+E021822	12.0	7.0	Penicillin	Otitis media
+E021822	14.0	3.0	Macrolide	Otitis media
+E021822	16.0	5.0	Cotrimoxazole	Otitis media
+E021822	20.0	3.0	Macrolide	Otitis media
+E021822	23.0	3.0	Macrolide	Otitis media
+E021822	24.0	7.0	Cotrimoxazole	Otitis media
+E021822	27.0	12.0	Cotrimoxazole, Penicillin	Otitis media
+E021822	36.0	6.0	Penicillin	Otitis media
+E021940	6.0	18.0	Cephalosporine, Cotrimoxazole, Penicillin	Otitis media
+E021940	11.0	5.0	Cotrimoxazole	Otitis media
+E021940	12.0	7.0	Penicillin	Otitis media
+E021940	14.0	7.0	Penicillin	Otitis media
+E021940	19.0	4.0	Macrolide	Infection of respiratory tract
+E021940	22.0	4.0	Macrolide	Infection of respiratory tract
+E021940	27.0	7.0	Other	Otitis media
+E021940	34.0	5.0	Penicillin	Otitis media
+E021940	35.0	7.0	Other	Otitis media
+E022083	20.0	7.0	Penicillin	Otitis media
+E022960	6.0	6.0	Cephalosporine	Others
+E022960	12.0	18.0	Cephalosporine, Cotrimoxazole, Penicillin	Otitis media
+E022960	13.0	7.0	Macrolide	Otitis media
+E022960	14.0	3.0	Macrolide	Otitis media
+E023445	12.0	5.0	Penicillin	Otitis media
+E023445	13.0	7.0	Cotrimoxazole	Otitis media
+E023445	15.0	7.0	Penicillin	Otitis media
+E023445	16.0	7.0	Cotrimoxazole	Otitis media
+E023445	18.0	3.0	Macrolide	Otitis media
+E023445	18.5	14.0	Cotrimoxazole	Prophylaxis
+E023445	22.0	5.0	Cephalosporine	Otitis media
+E023445	29.0	7.0	Penicillin	Infection of respiratory tract
+E023445	31.0	7.0	Cephalosporine	Otitis media
+E023535	12.0	10.0	Cephalosporine	Others
+E023681	30.0	7.0	Penicillin	Otitis media
+E023705	17.5	10.0	Penicillin	Otitis media
+E023705	21.0	14.0	Cephalosporine, Penicillin	Infection of respiratory tract
+E023705	24.0	7.0	Penicillin	Otitis media
+E023705	26.0	10.0	Penicillin	Otitis media
+E023839	1.5	5.0	Other	Otitis media
+E023839	4.5	7.0	Other	Otitis media
+E023839	5.0	5.0	Macrolide	Otitis media
+E023839	6.0	10.0	Macrolide, Other	Otitis media
+E023839	11.0	7.0	Penicillin	Otitis media
+E024213	18.0	7.0	Penicillin	Otitis media
+E024213	22.0	7.0	Penicillin	Otitis media
+E024213	26.0	6.0	Penicillin	Otitis media
+E024240	12.0	7.0	Penicillin	Infection of respiratory tract
+E024240	19.0	12.0	Penicillin	Otitis media
+E024646	11.0	17.0	Other, Penicillin	Otitis media
+E024646	12.0	8.0	Cephalosporine, Macrolide	Otitis media
+E024907	5.0	5.0	Penicillin	Otitis media
+E024907	6.0	8.0	Cephalosporine	Otitis media
+E024907	11.0	7.0	Cephalosporine	Otitis media
+E024907	12.0	6.0	Cotrimoxazole	Otitis media
+E024907	16.0	12.0	Cotrimoxazole	Otitis media
+E024907	20.0	5.0	Penicillin	Otitis media
+E024907	23.0	5.0	Penicillin	Otitis media
+E024907	23.5	3.0	Macrolide	Otitis media
+E024907	24.0	5.0	Penicillin	Otitis media
+E024907	26.0	16.0	Cotrimoxazole, Penicillin	Otitis media
+E025671	15.0	10.0	Penicillin	Otitis media
+E025671	16.5	10.0	Cephalosporine	Infection of respiratory tract
+E025671	24.0	7.0	Other	Otitis media
+E025671	25.0	5.0	Macrolide	Otitis media
+E025671	26.0	7.0	Cotrimoxazole	Otitis media
+E025671	27.0	7.0	Penicillin	Otitis media
+E025912	5.5	5.0	Penicillin	Otitis media
+E025921	13.0	12.0	Macrolide, Penicillin	Otitis media
+E025921	30.0	6.0	Other	Otitis media
+E025921	36.0	12.0	Other, Penicillin	Otitis media
+E026343	10.0	12.0	Other, Penicillin	Otitis media
+E026343	11.0	5.0	Cephalosporine	Otitis media
+E026343	22.0	7.0	Other	Otitis media
+E028794	28.0	7.0	Other	Otitis media
+E029310	16.0	7.0	Penicillin	Otitis media
+E029310	20.0	5.0	Penicillin	Otitis media
+E029310	23.0	5.0	Penicillin	Otitis media
+E029310	25.0	5.0	Other	Otitis media
+E029310	29.0	5.0	Other	Otitis media
+E029310	35.0	5.0	Other	Otitis media
+E030828	6.0	14.0	Penicillin	Otitis media
+E030828	8.0	10.0	Cotrimoxazole	Otitis media
+E030828	9.0	10.0	Cotrimoxazole	Otitis media
+E030828	15.0	7.0	Cephalosporine	Otitis media
+E030933	18.0	11.0	Macrolide, Other	Infection of respiratory tract, Otitis media
+E030933	23.0	14.0	Macrolide, Other	Infection of respiratory tract, Otitis media
+E030933	28.0	12.0	Cephalosporine, Penicillin	Infection of respiratory tract, Otitis media
+E030933	33.0	7.0	Macrolide	Infection of respiratory tract
+E030933	35.0	7.0	Macrolide	Otitis media
+E031941	15.0	6.0	Macrolide, Other	Otitis media
+E031941	24.0	7.0	Macrolide	Otitis media
+E032745	17.0	5.0	Penicillin	Otitis media
+E033036	13.0	7.0	Penicillin	Otitis media
+E033036	22.0	7.0	Penicillin	Otitis media
+E033156	5.0	6.0	Penicillin	Otitis media
+E033156	14.0	10.0	Cotrimoxazole, Penicillin	Otitis media
+E033156	15.0	18.0	Cotrimoxazole, Penicillin	Otitis media
+E033156	23.0	3.0	Macrolide	Otitis media
+E033156	26.0	5.0	Penicillin	Otitis media
+E034324	3.0	2.0	Penicillin	Otitis media
+E034885	14.5	14.0	Cotrimoxazole, Penicillin	Otitis media
+E034885	16.0	7.0	Cotrimoxazole, Penicillin	Otitis media
+E034885	22.0	9.0	Penicillin	Infection of respiratory tract
+E034885	25.0	3.0	Macrolide	Infection of respiratory tract
+P000648	2.0	5.0	Cephalosporine	Gastroenteritis
+P000648	10.0	5.0	Other	Gastroenteritis
+P003825	6.0	5.0	Other	Infection of respiratory tract
+P003825	11.0	5.0	Penicillin	Infection of respiratory tract
+P004447	11.0	7.0	Penicillin	Infection of respiratory tract
+P004847	11.0	5.0	Penicillin	Infection of respiratory tract
+P005135	10.0	5.0	Other	Infection of respiratory tract
+P005279	10.0	5.0	Penicillin	Infection of respiratory tract
+P005342	9.0	10.0	Cephalosporine	Infection of respiratory tract
+P005342	10.0	10.0	Cephalosporine	Infection of respiratory tract
+P005558	36.0	5.0	Penicillin	Infection of respiratory tract
+P006862	10.5	6.0	Penicillin	Infection of respiratory tract
+P006862	25.0	21.0	Cephalosporine, Macrolide, Other	Infection of respiratory tract
+P009291	17.0	5.0	Penicillin	Infection of respiratory tract
+P009746	9.0	7.0	Macrolide	Infection of respiratory tract
+P009746	9.5	5.0	Macrolide	Infection of respiratory tract
+P009880	0.5	5.0	Cephalosporine	Others
+P010096	1.0	7.0	Cephalosporine	Infection of urinary tract
+P010096	4.0	13.0	Other	Infection of urinary tract
+P010096	6.0	2.0	Macrolide	Infection of respiratory tract
+P010096	7.0	5.0	Penicillin	Infection of respiratory tract
+P010096	26.0	3.0	Macrolide	Infection of respiratory tract
+P015091	12.5	10.0	Other	Others
+P015656	0.5	3.0	Other	Others
+P017671	10.0	3.0	Other	Gastroenteritis
+P017671	18.0	11.0	Cephalosporine, Macrolide	Infection of respiratory tract
+P017671	21.0	7.0	Penicillin	Infection of respiratory tract
+P019475	15.0	12.0	Cephalosporine, Penicillin	Infection of respiratory tract
+P019980	18.0	5.0	Cephalosporine	Gastroenteritis
+P022130	10.0	3.0	Macrolide	Infection of respiratory tract
+T000094	2.0	6.0	Cotrimoxazole	Prophylaxis
+T000094	2.5	6.0	Cotrimoxazole	Prophylaxis
+T000094	3.0	9.0	Cephalosporine	Infection of urinary tract
+T000094	10.0	9.0	Penicillin	Infection of urinary tract
+T000094	12.0	9.0	Penicillin	Infection of urinary tract
+T000272	11.0	7.0	Penicillin	Otitis media
+T000272	13.0	7.0	Other	Otitis media
+T000272	21.0	7.0	Cephalosporine	Infection of respiratory tract
+T000272	24.0	7.0	Penicillin	Otitis media
+T000272	30.0	7.0	Other	Otitis media
+T002534	2.0	10.0	Penicillin	Infection of respiratory tract
+T003355	32.0	6.0	Cotrimoxazole, Penicillin	Infection of urinary tract
+T004341	21.0	5.0	Penicillin	Otitis media
+T004341	24.0	7.0	Other	Otitis media
+T004341	35.0	7.0	Macrolide	Infection of respiratory tract
+T005093	8.0	5.0	Penicillin	Infection of respiratory tract
+T005093	10.0	5.0	Penicillin	Infection of respiratory tract
+T005093	25.0	4.0	Cephalosporine	Infection of respiratory tract
+T005507	12.0	10.0	Penicillin	Otitis media
+T005507	25.0	10.0	Penicillin	Otitis media
+T005643	35.0	7.0	Penicillin	Otitis media
+T005999	8.0	7.0	Penicillin	Infection of respiratory tract
+T006266	11.0	6.0	Penicillin	Infection of urinary tract
+T006266	11.5	10.0	Cephalosporine	Infection of urinary tract
+T006266	24.0	7.0	Penicillin	Otitis media
+T006288	11.0	10.0	Penicillin	Infection of respiratory tract
+T007404	8.0	10.0	Macrolide, Penicillin	Otitis media
+T007404	12.0	7.0	Cephalosporine	Otitis media
+T007404	13.0	7.0	Macrolide	Otitis media
+T007404	13.5	7.0	Cephalosporine	Otitis media
+T007404	14.0	7.0	Penicillin	Otitis media
+T007404	19.0	7.0	Penicillin	Otitis media
+T007404	20.0	14.0	Cephalosporine, Penicillin	Otitis media
+T007404	23.0	7.0	Cephalosporine	Otitis media
+T007404	31.0	6.0	Other	Infection of urinary tract
+T007404	33.0	6.0	Penicillin	Otitis media
+T007748	1.0	10.0	Cephalosporine, Other, Penicillin	Infection of urinary tract
+T007748	2.0	12.0	Cephalosporine, Cotrimoxazole	Infection of urinary tract
+T007750	12.0	6.0	Penicillin	Otitis media
+T008025	10.0	10.0	Penicillin	Otitis media
+T008025	33.0	7.0	Penicillin	Otitis media
+T008025	34.0	7.0	Penicillin	Otitis media
+T008247	3.0	3.0	Other	Infection of urinary tract
+T008247	16.0	5.0	Penicillin	Otitis media
+T009275	5.5	14.0	Penicillin	Otitis media
+T009275	10.5	10.0	Penicillin	Infection of respiratory tract
+T009280	16.0	7.0	Penicillin	Otitis media
+T009280	21.0	5.0	Penicillin	Otitis media
+T009280	22.0	5.0	Penicillin	Otitis media
+T009280	24.0	15.0	Penicillin	Otitis media
+T009280	34.0	10.0	Penicillin	Others
+T009717	1.0	7.0	Penicillin	Otitis media
+T009717	42.0	10.0	Penicillin	Infection of respiratory tract
+T009909	12.0	7.0	Penicillin	Otitis media
+T010520	10.0	7.0	Penicillin	Otitis media
+T010532	5.0	8.0	Cotrimoxazole, Other	Infection of urinary tract
+T011454	10.0	7.0	Penicillin	Infection of respiratory tract
+T011454	24.0	7.0	Penicillin	Infection of respiratory tract
+T011676	15.0	5.0	Penicillin	Otitis media
+T011676	16.0	7.0	Penicillin	Otitis media
+T011676	21.0	7.0	Penicillin	Otitis media
+T011676	27.5	2.0	Cephalosporine	Infection of respiratory tract
+T011676	30.0	5.0	Penicillin	Otitis media
+T011676	32.0	7.0	Penicillin	Otitis media
+T012312	0.0	10.0	Other, Penicillin	Infection in neonatal period
+T012312	15.0	6.0	Penicillin	Others
+T012374	0.0	8.0	Other, Penicillin	Infection in neonatal period
+T012374	9.0	6.0	Cephalosporine	Others
+T012374	15.0	7.0	Penicillin	Otitis media
+T012374	34.0	7.0	Penicillin	Infection of respiratory tract
+T012389	5.0	4.0	Other	Infection of respiratory tract
+T012389	6.0	5.0	Cephalosporine	Others
+T012389	9.0	2.0	Penicillin	Otitis media
+T012389	18.0	7.0	Other	Infection of respiratory tract
+T012389	32.0	6.0	Other	Otitis media
+T012977	9.0	14.0	Penicillin	Otitis media
+T012977	24.0	7.0	Macrolide	Otitis media
+T013828	17.0	5.0	Penicillin	Others
+T013832	0.0	6.0	Other, Penicillin	Others
+T013832	13.5	7.0	Penicillin	Otitis media
+T014800	18.0	3.0	Penicillin	Infection of respiratory tract
+T014801	0.0	6.0	Other, Penicillin	Infection in neonatal period
+T014825	7.0	5.0	Macrolide	Infection of respiratory tract
+T014825	35.0	5.0	Penicillin	Others
+T016811	15.0	6.0	Penicillin	Others
+T016811	35.5	12.0	Penicillin	Others
+T016834	15.0	9.0	Penicillin	Infection of respiratory tract
+T016834	29.0	5.0	Penicillin	Infection of respiratory tract
+T017394	4.0	5.0	Penicillin	Infection of respiratory tract
+T017419	24.0	7.0	Penicillin	Infection of respiratory tract
+T018343	14.0	5.0	Penicillin	Otitis media
+T018343	25.0	7.0	Penicillin	Otitis media
+T019021	12.0	3.0	Penicillin	Infection of respiratory tract
+T019031	11.0	7.0	Penicillin	Otitis media
+T019031	33.0	7.0	Penicillin	Otitis media
+T019853	12.0	7.0	Penicillin	Gastroenteritis
+T021613	13.0	14.0	Cotrimoxazole	Otitis media
+T021613	21.0	4.0	Cotrimoxazole	Infection of respiratory tract
+T021613	28.0	7.0	Penicillin	Infection of respiratory tract
+T021613	29.0	7.0	Penicillin	Otitis media
+T021613	30.0	8.0	Cephalosporine	Otitis media
+T023390	35.0	3.0	Penicillin	Infection of respiratory tract
+T023909	35.0	5.0	Penicillin	Infection of respiratory tract
+T024121	6.0	5.0	Penicillin	Others
+T024121	12.0	10.0	Penicillin	Otitis media
+T025415	20.0	10.0	Penicillin	Infection of respiratory tract
+T025415	23.0	7.0	Cephalosporine	Infection of respiratory tract
+T028183	6.0	5.0	Cotrimoxazole	Infection of respiratory tract
+T028183	7.0	6.0	Cotrimoxazole	Otitis media
+T028183	10.5	7.0	Cotrimoxazole	Infection of respiratory tract
+T028183	22.0	7.0	Penicillin	Otitis media
+T028183	23.0	7.0	Penicillin	Otitis media
+T028183	24.0	10.0	Penicillin	Infection of respiratory tract
+T029687	23.0	5.0	Penicillin	Infection of respiratory tract
+T029922	5.5	7.0	Penicillin	Infection of respiratory tract
+T029922	6.0	5.0	Cephalosporine	Infection of respiratory tract
+T029922	13.5	7.0	Penicillin	Infection of respiratory tract
+T029922	34.0	7.0	Macrolide	Infection of respiratory tract

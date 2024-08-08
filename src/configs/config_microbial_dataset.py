@@ -244,10 +244,64 @@ config_div_alpha_faith_pd_5 = {
     'which_split': ['all', 'no_abx'],
 }
 
+# ------------------------------------------------------------------------------
+config_novel_alpha_faith_pd = {
+    'dataset': 'ft_vat19_anomaly_v20240806_entero_family.tsv',
+    'dataset_name': 'microbial_novel_alpha_faith_pd',
+    'microbial_features': ['div_alpha_faith_pd'],
+    'signature_features': None,  # sets to same as microbial_features
+    'static_features': [],
+    'dynamic_features': ["delivery_mode", "diet_milk", "diet_weaning"],
+    'val_size': 0.2,
+    'seed': 398,
+    'starting_date': 0,
+    'init_val_method': None,
+    'which_split': ['all', 'no_abx'],
+}
 
+config_novel_alpha_faith_pd_w_geo = {
+    'dataset': 'ft_vat19_anomaly_v20240806_entero_family.tsv',
+    'dataset_name': 'microbial_novel_alpha_faith_pd_w_geo',
+    'microbial_features': ['div_alpha_faith_pd'],
+    'signature_features': None,  # sets to same as microbial_features
+    'static_features': [],
+    'dynamic_features': ["delivery_mode", "diet_milk", "diet_weaning", "geo_location_name"],
+    'val_size': 0.2,
+    'seed': 398,
+    'starting_date': 0,
+    'init_val_method': None,
+    'which_split': ['all', 'no_abx'],
+}
 
-#TODO: maybe try a dataset with different diversity metric or with static
-#   instead of dynamic features
-#   other div metrics:
-#       div_alpha_shannon, div_alpha_observed_features, div_alpha_faith_pd
+# TODO: decide whether "geo_location_name" should be included in next model runs
+# TODO: or not - if it doesn't hurt we should include it
+config_novel_alpha_faith_pd_entero_family = {
+    'dataset': 'ft_vat19_anomaly_v20240806_entero_family.tsv',
+    'dataset_name': 'microbial_novel_alpha_faith_pd_entero_family',
+    'microbial_features': ['div_alpha_faith_pd', 'rel_abd_enteropathogens_family'],
+    'signature_features': None,  # sets to same as microbial_features
+    'static_features': [],
+    'dynamic_features': ["delivery_mode", "diet_milk", "diet_weaning", "geo_location_name"],
+    'val_size': 0.2,
+    'seed': 398,
+    'starting_date': 0,
+    'init_val_method': None,
+    'which_split': ['all', 'no_abx'],
+}
 
+config_novel_alpha_faith_pd_entero_genus = {
+    'dataset': 'ft_vat19_anomaly_v20240806_entero_genus.tsv',
+    'dataset_name': 'microbial_novel_alpha_faith_pd_entero_genus',
+    'microbial_features': ['div_alpha_faith_pd', 'rel_abd_enteropathogens_genus'],
+    'signature_features': None,  # sets to same as microbial_features
+    'static_features': [],
+    'dynamic_features': ["delivery_mode", "diet_milk", "diet_weaning", "geo_location_name"],
+    'val_size': 0.2,
+    'seed': 398,
+    'starting_date': 0,
+    'init_val_method': None,
+    'which_split': ['all', 'no_abx'],
+}
+
+# ------------------------------------------------------------------------------
+#TODO: maybe try a dataset with static instead of dynamic features

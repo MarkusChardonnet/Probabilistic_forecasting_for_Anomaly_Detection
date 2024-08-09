@@ -1,3 +1,4 @@
+import os 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -157,12 +158,14 @@ def _plot_score_over_age(df: pd.DataFrame, flag: str, path_to_save: str) -> str:
 
 def _get_abx_info(path_to_abx_ts: str) -> pd.DataFrame:
     abx_df = pd.read_csv(path_to_abx_ts, sep="\t", index_col=0)
-    abx_df = abx_df["abx_start_age_months"].reset_index()
+    cols_to_keep = ["abx_start_age_months", "abx_type", "abx_reason"]
+    abx_df = abx_df[cols_to_keep].reset_index()
     abx_df.sort_values(["host_id", "abx_start_age_months"], inplace=True)
     return abx_df
 
 
-def _select_samples_around_nth_abx_exposure(md_df, abx_df, n=1, min_samples=-3.0, max_samples=12.0):
+def _select_samples_around_nth_abx_exposure(
+        md_df, abx_df, n=1, min_samples=-3.0, max_samples=12.0, group_samples=False):
     """
     Get observed samples around n-th abx exposure (n=1 is first abx exposure, n=2 is
     second etc.)
@@ -173,6 +176,8 @@ def _select_samples_around_nth_abx_exposure(md_df, abx_df, n=1, min_samples=-3.0
         n (int, optional): n-th antibiotics exposure to evaluate. Defaults to 1.
         min_samples (float, optional): Minimum months before n-th abx exposure.
         max_samples (float, optional): Maximum months after n-th abx exposure.
+        group_samples (bool, optional): If True, group samples from min_samples to
+        -1 to one bucket.
 
     Returns:
         pd.DataFrame: Dataframe with observed samples around n-th abx exposure.
@@ -220,6 +225,24 @@ def _select_samples_around_nth_abx_exposure(md_df, abx_df, n=1, min_samples=-3.0
     # remove samples with no observed features
     abx_nth_samples = abx_nth_samples.dropna(subset=["score"])
 
+    # select last sample prior to abx exposure in range_to_group
+    if group_samples:
+        range_to_group = [float(x) for x in range(int(min_samples), 0, 1)]
+        # select samples to group + to keep
+        scores_to_keep = abx_nth_samples[~abx_nth_samples["diff_age_nth_abx"].isin(range_to_group)].copy()
+        scores_to_group = abx_nth_samples[abx_nth_samples["diff_age_nth_abx"].isin(range_to_group)].copy()
+        assert(scores_to_keep.shape[0] + scores_to_group.shape[0] == abx_nth_samples.shape[0])
+
+        # in scores_to_group select last sample prior to abx expsosure per host_id
+        scores_to_group.sort_values(by=["host_id", "diff_age_nth_abx"], inplace=True)
+        selected_samples = scores_to_group.loc[scores_to_group.groupby('host_id')['diff_age_nth_abx'].idxmax()]
+        # replace all values from range_to_group with -1
+        for i in range_to_group:
+            selected_samples["diff_age_nth_abx"] = selected_samples["diff_age_nth_abx"].replace(i, -1.0)
+        
+        # append both groups and resort
+        abx_nth_samples = pd.concat([scores_to_keep, selected_samples])
+        abx_nth_samples.sort_values(["abx", "host_id", "day"], inplace=True)
     return abx_nth_samples
 
 
@@ -312,20 +335,29 @@ def _plot_score_after_nth_abx_exposure(
     tag: str = "",
     min_samples: float = -3.0,
     max_samples: float = 12.0,
+    grouped_samples: bool = False,
 ) -> str:
     suff = _get_ordinal_suffix(n)
 
     # perform paired/unpaired significance tests
-    t1_values = [x for x in range(int(min_samples), int(max_samples+1))]
+    if grouped_samples:
+        t1_values = [x for x in range(int(-1.0), int(max_samples+1))]
+    else:
+        t1_values = [x for x in range(int(min_samples), int(max_samples+1))]
     significance_df = perform_significance_tests(data, -1.0, t1_values, "score")
 
     title = f"Score before/after {n}{suff} abx exposure: {tag}"
     ylabel = f"# samples w {y_axis}"
     xlabel = f"Months since {n}{suff} abx exposure"
+    if grouped_samples:
+        xlabel += f"\n\n(-1 is last sample prior to abx in {min_samples} to -1.0 range)"
     fig, _ = _create_subplot(
         x_axis, y_axis, data, title, ylabel, xlabel, n, significance_df
     )
     if path_to_save is not None:
+        # if path_to_save is not a path make it a directory
+        if not os.path.exists(path_to_save):
+            os.makedirs(path_to_save)
         path_to_plot = f"{path_to_save}score_after_abx{n}{suff}_{flag}.pdf"
         plt.savefig(path_to_plot)
         return path_to_plot

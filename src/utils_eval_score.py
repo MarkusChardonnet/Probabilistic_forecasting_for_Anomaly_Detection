@@ -225,9 +225,24 @@ def _select_samples_around_nth_abx_exposure(
     # remove samples with no observed features
     abx_nth_samples = abx_nth_samples.dropna(subset=["score"])
 
+    # select last sample prior to abx exposure in range_to_group
     if group_samples:
-        for i in range(int(min_samples), 0, 1):
-            abx_nth_samples["diff_age_nth_abx"] = abx_nth_samples["diff_age_nth_abx"].replace(float(i), -1.0)
+        range_to_group = [float(x) for x in range(int(min_samples), 0, 1)]
+        # select samples to group + to keep
+        scores_to_keep = abx_nth_samples[~abx_nth_samples["diff_age_nth_abx"].isin(range_to_group)].copy()
+        scores_to_group = abx_nth_samples[abx_nth_samples["diff_age_nth_abx"].isin(range_to_group)].copy()
+        assert(scores_to_keep.shape[0] + scores_to_group.shape[0] == abx_nth_samples.shape[0])
+
+        # in scores_to_group select last sample prior to abx expsosure per host_id
+        scores_to_group.sort_values(by=["host_id", "diff_age_nth_abx"], inplace=True)
+        selected_samples = scores_to_group.loc[scores_to_group.groupby('host_id')['diff_age_nth_abx'].idxmax()]
+        # replace all values from range_to_group with -1
+        for i in range_to_group:
+            selected_samples["diff_age_nth_abx"] = selected_samples["diff_age_nth_abx"].replace(i, -1.0)
+        
+        # append both groups and resort
+        abx_nth_samples = pd.concat([scores_to_keep, selected_samples])
+        abx_nth_samples.sort_values(["abx", "host_id", "day"], inplace=True)
     return abx_nth_samples
 
 
@@ -333,10 +348,9 @@ def _plot_score_after_nth_abx_exposure(
 
     title = f"Score before/after {n}{suff} abx exposure: {tag}"
     ylabel = f"# samples w {y_axis}"
+    xlabel = f"Months since {n}{suff} abx exposure"
     if grouped_samples:
-        xlabel = f"Months after {n}{suff} abx exposure"
-    else:
-        xlabel = f"Months since {n}{suff} abx exposure"
+        xlabel += f"\n\n(-1 is last sample prior to abx in {min_samples} to -1.0 range)"
     fig, _ = _create_subplot(
         x_axis, y_axis, data, title, ylabel, xlabel, n, significance_df
     )

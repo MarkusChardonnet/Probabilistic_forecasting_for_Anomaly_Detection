@@ -316,6 +316,8 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
         if split == 'no_abx':
             train_idx = noabx_train_idx
             val_idx = noabx_val_idx
+        print("train idx:", train_idx)
+        print("val_idx:", val_idx)
 
         idx_dataset_path = os.path.join(dataset_path, split)
         if not os.path.isdir(idx_dataset_path):

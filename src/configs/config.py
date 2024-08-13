@@ -26,7 +26,7 @@ else:
 
 # ==============================================================================
 # Global variables
-CHAT_ID = "-4133860340"
+CHAT_ID = "-1002245921777"
 ERROR_CHAT_ID = "-4104495192"
 
 SendBotMessage = SendBotMessage

@@ -13,6 +13,7 @@ import numpy as np  # large arrays and matrices, functions
 import pandas as pd
 import torch  # machine learning
 from absl import app, flags
+import AD_modules
 from AD_modules import AD_module, DimAcc_AD_module, Simple_AD_module
 from configs import config
 from sklearn import metrics
@@ -217,22 +218,22 @@ def _plot_conditionally_standardized_distribution(
 
 
 def compute_scores(
-    forecast_saved_models_path,
-    forecast_model_id=None,
+        forecast_saved_models_path,
+        forecast_model_id=None,
         dataset='microbial_genus',
         scoring_distribution='dirichlet',
-    forecast_param=None,
-    load_best=True,
-    use_gpu=None,
-    nb_cpus=None,
-    n_dataset_workers=None,
-    nb_MC_samples=10**5,
-    verbose=False,
-    epsilon=1e-6,
-    seed=333,
-    send=False,
-    use_replace_values=False,
-    dirichlet_use_coord=None,
+        forecast_param=None,
+        load_best=True,
+        use_gpu=None,
+        nb_cpus=None,
+        n_dataset_workers=None,
+        nb_MC_samples=10**5,
+        verbose=False,
+        epsilon=1e-6,
+        seed=333,
+        send=False,
+        use_replace_values=False,
+        dirichlet_use_coord=None,
         aggregation_method='mean',
         scoring_metric='p-value',
         plot_cond_std_dist=None,

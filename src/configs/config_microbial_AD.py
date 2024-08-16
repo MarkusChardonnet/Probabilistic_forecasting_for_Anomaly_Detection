@@ -194,6 +194,7 @@ param_dict_AD_microbial_novel_alpha_div = {
 param_list_AD_microbial_novel_alpha_div += get_parameter_array(
         param_dict=param_dict_AD_microbial_novel_alpha_div)
 
+# TODO: best AD results for id 2 at best with normal
 
 
 

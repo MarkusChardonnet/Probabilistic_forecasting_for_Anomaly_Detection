@@ -122,6 +122,11 @@ novel alpha diversity metric datasets:
 ```shell
 python make_microbial_dataset.py --dataset_config=config_novel_alpha_faith_pd
 python make_microbial_dataset.py --dataset_config=config_novel_alpha_faith_pd_w_geo
+
+python make_microbial_dataset.py --dataset_config=config_entero_family
+python make_microbial_dataset.py --dataset_config=config_entero_family_w_geo
+python make_microbial_dataset.py --dataset_config=config_entero_genus
+python make_microbial_dataset.py --dataset_config=config_entero_genus_w_geo
 ```
 
 #### Training PD-NJODE:

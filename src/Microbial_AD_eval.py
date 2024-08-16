@@ -207,6 +207,7 @@ def _plot_conditionally_standardized_distribution(
     plt.tight_layout()
     figpath = f"{path_to_save}cond_std_dist-{compare_to_dist}.pdf"
     plt.savefig(figpath)
+    plt.close()
 
     filepath = f"{path_to_save}cond_std_obs-{compare_to_dist}.npy"
     with open(filepath, "wb") as f:
@@ -520,6 +521,7 @@ def _plot_n_save_histograms(abx_samples, non_abx_samples, split, path_to_save):
 
     impath = f"{path_to_save}hist_{split}.pdf"
     plt.savefig(impath, format='pdf')
+    plt.close()
     return impath
 
 
@@ -554,6 +556,7 @@ def evaluate_scores(
 
 
     all_scores = {}
+    files_to_send = []
     for split in ["train", "val"]:
         # load scores
         ad_scores = pd.read_csv(f"{scores_path}{split}_ad_scores.csv")
@@ -566,9 +569,21 @@ def evaluate_scores(
             split=split,
             path_to_save=evaluation_path,
         )
+        files_to_send.append(impath_hist)
 
         # flatten and enrich scores
         all_scores[split] = _transform_scores(ad_scores)
+
+    if send:
+        # histograms
+        caption = "scores-histogram - {} - id={}".format(
+            which, forecast_model_id)
+        SBM.send_notification(
+            text=None,
+            chat_id=config.CHAT_ID,
+            files=[impath_hist],
+            text_for_files=caption
+        )
 
     noabx_train = all_scores["train"][~all_scores["train"]["abx"]].copy()
     noabx_val = all_scores["val"][~all_scores["val"]["abx"]].copy()
@@ -589,22 +604,15 @@ def evaluate_scores(
         # plot scores over age
         dic_img_age[flag] = _plot_score_over_age(scores, flag, evaluation_path)
 
-        # send to telegram
-        if send:
-            # histograms
-            caption = "scores-histogram - {} - id={}".format(which, forecast_model_id)
+    # send to telegram
+    if send:
+        # scores over age
+        for k, v in dic_img_age.items():
+            caption = "scores-over-age {} - {} - id={}".format(
+                k, which, forecast_model_id)
             SBM.send_notification(
-                text=None,
-                chat_id=config.CHAT_ID,
-                files=[impath_hist],
-                text_for_files=caption
+                text=None, chat_id=config.CHAT_ID, files=[v], text_for_files=caption
             )
-            # scores over age
-            for k, v in dic_img_age.items():
-                caption = "scores-over-age {} - {} - id={}".format(k, which, forecast_model_id)
-                SBM.send_notification(
-                    text=None, chat_id=config.CHAT_ID, files=[v], text_for_files=caption
-                )
 
         # print(np.all(np.isnan(abx_samples), axis=1).sum())
         # print(np.all(np.isnan(non_abx_samples), axis=1).sum())

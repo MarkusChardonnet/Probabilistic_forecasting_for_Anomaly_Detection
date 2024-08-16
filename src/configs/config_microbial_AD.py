@@ -180,13 +180,13 @@ param_list_AD_microbial_alpha_div_4 += get_parameter_array(
 # ------------------------------------------------------------------------------
 # AD for novel alpha diversity metric models
 AD_microbial_novel_alpha_div = "{}saved_models_microbial_novel_alpha_div/".format(data_path)
-AD_microbial_novel_alpha_div_ids = []
+AD_microbial_novel_alpha_div_ids = [2,5]
 param_list_AD_microbial_novel_alpha_div = []
 param_dict_AD_microbial_novel_alpha_div = {
-        'load_best': [False],
+        'load_best': [True],
         'verbose': [True],
         'seed': [seed],
-        'scoring_distribution': ['lognormal'],
+        'scoring_distribution': ['normal'],
         'scoring_metric': ['left-tail'],
         'plot_cond_std_dist': [True],
         'only_jump_before_abx_exposure': [True],

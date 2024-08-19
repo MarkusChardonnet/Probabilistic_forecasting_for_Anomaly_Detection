@@ -1427,11 +1427,14 @@ class NJODE(torch.nn.Module):
                 classifier
         :param return_at_last_obs: bool, whether to return the hidden state at
                 the last observation
-        :param only_jump_before_abx_exposure: bool, whether to only update
+        :param only_jump_before_abx_exposure: bool or int, whether to only update
                 the model input before the first antibiotics exposure, i.e.,
-                only apply jump network before the first antibiotics exposure
+                only apply jump network before the first antibiotics exposure.
+                if int, then only update the model input before the n-th
+                antibiotics exposure.
         :param ABX_EXPOSURE: None or torch.tensor, whether the patient had
-                antibiotics exposure anytime before an observation time
+                antibiotics exposure anytime before an observation time, or
+                amount of exposures before an observation time.
 
         :return: torch.tensor (hidden state at final time), torch.tensor (loss),
                     if wanted the paths of t (np.array) and h, y (torch.tensors)
@@ -1535,8 +1538,11 @@ class NJODE(torch.nn.Module):
 
             # only update the model before the first antibiotics exposure
             if only_jump_before_abx_exposure:
+                cut = 1
+                if isinstance(only_jump_before_abx_exposure, int):
+                    cut = only_jump_before_abx_exposure
                 abx_exp = ABX_EXPOSURE[start:end]
-                which = torch.where(abx_exp == 0)[0]
+                which = torch.where(abx_exp < cut)[0]
                 X_obs = X_obs[which]
                 i_obs = i_obs[which]
                 if self.masked:

@@ -264,16 +264,19 @@ def compute_scores(
             distribution as factor, if None: median of all coordinates is used
         aggregation_method: str, method to aggregate the scores (if needed)
         scoring_metric: str, metric to use for scoring. one of:
-            - 'p-value': use the 2-sided p-value of the distribution
+            - 'two-sided' or 'p-value': use the 2-sided p-value of the distribution
             - 'left-tail': use the left tail of the distribution
             - 'right-tail': use the right tail of the distribution
         plot_cond_std_dist: bool, whether to plot the conditionally standardized
             distribution for the no-abx validation samples under normal and
             lognormal assumption
-        only_jump_before_abx_exposure: bool, whether to only update the input
-            of the model before the first abx exposure (i.e., only use the
+        only_jump_before_abx_exposure: bool or int, whether to only update the
+            input of the model before the first abx exposure (i.e., only use the
             jump part of the NJODE model before). This can be used to evaluate
             the scores based on the models state before the first abx exposure.
+            if int, then this is the number of abx exposure until which
+            observations are used as input (i.e., model is updated). Hence, True
+            has the same effect as 1, False as infinity.
 
     """
     global USE_GPU, N_CPUS, N_DATASET_WORKERS

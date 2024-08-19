@@ -32,7 +32,7 @@ def gaussian_scoring(
     cond_var = get_corrected_var(cond_var, min_var_val, replace_var)
     cond_std = np.sqrt(cond_var)
     z_scores = (np.tile(np.expand_dims(obs,axis=3),(1,1,1,nb_steps_ahead)) - cond_exp) / cond_std
-    if scoring_metric == 'p-value':
+    if scoring_metric in ['p-value', 'two-sided']:
         p_vals = 2*scipy.stats.norm.sf(np.abs(z_scores)) # computes survival function, 2 factor for two sided
         scores = -np.log(p_vals + 1e-10)
     elif scoring_metric == 'left-tail':
@@ -68,7 +68,7 @@ def lognorm_scoring(
     obs = np.tile(np.expand_dims(obs, axis=3),(1,1,1,nb_steps_ahead))
     sf = scipy.stats.lognorm.sf(obs, s=sigma, scale=np.exp(mu))
     cdf = scipy.stats.lognorm.cdf(obs, s=sigma, scale=np.exp(mu))
-    if scoring_metric == 'p-value':
+    if scoring_metric in ['p-value', 'two-sided']:
         p_vals = 2 * np.minimum(cdf, sf)
         scores = -np.log(p_vals + 1e-10)
     elif scoring_metric == 'left-tail':
@@ -115,7 +115,7 @@ def beta_scoring(
     reshaped_betas = betas.reshape(-1)
     reshaped_obs = np.tile(np.expand_dims(obs,axis=3),(1,1,1,nb_steps_ahead)).reshape(-1)
     # compute survival / accumulation function -> p-value
-    if scoring_metric == 'p-value':
+    if scoring_metric in ['p-value', 'two-sided']:
         # compute the CDF and SF values
         cdf_values = scipy.stats.beta.cdf(reshaped_obs, reshaped_alphas, reshaped_betas)
         sf_values = scipy.stats.beta.sf(reshaped_obs, reshaped_alphas, reshaped_betas)

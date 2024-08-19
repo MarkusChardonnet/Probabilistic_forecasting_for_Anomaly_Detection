@@ -273,6 +273,64 @@ config_novel_alpha_faith_pd_w_geo = {
     'which_split': ['all', 'no_abx'],
 }
 
+
+# ------ enteropathogens ---------
+config_entero_family = {
+    'dataset': 'ft_vat19_anomaly_v20240806_entero_family.tsv',
+    'dataset_name': 'microbial_rel_abd_enteropathogens_family',
+    'microbial_features': ['rel_abd_enteropathogens_family'],
+    'signature_features': None,  # sets to same as microbial_features
+    'static_features': [],
+    'dynamic_features': ["delivery_mode", "diet_milk", "diet_weaning",],
+    'val_size': 0.2,
+    'seed': 398,
+    'starting_date': 0,
+    'init_val_method': None,
+    'which_split': ['all', 'no_abx'],
+}
+
+config_entero_family_w_geo = {
+    'dataset': 'ft_vat19_anomaly_v20240806_entero_family.tsv',
+    'dataset_name': 'microbial_rel_abd_enteropathogens_family_w_geo',
+    'microbial_features': ['rel_abd_enteropathogens_family'],
+    'signature_features': None,  # sets to same as microbial_features
+    'static_features': [],
+    'dynamic_features': ["delivery_mode", "diet_milk", "diet_weaning", "geo_location_name"],
+    'val_size': 0.2,
+    'seed': 398,
+    'starting_date': 0,
+    'init_val_method': None,
+    'which_split': ['all', 'no_abx'],
+}
+
+config_entero_genus = {
+    'dataset': 'ft_vat19_anomaly_v20240806_entero_genus.tsv',
+    'dataset_name': 'microbial_rel_abd_enteropathogens_genus',
+    'microbial_features': ['rel_abd_enteropathogens_genus'],
+    'signature_features': None,  # sets to same as microbial_features
+    'static_features': [],
+    'dynamic_features': ["delivery_mode", "diet_milk", "diet_weaning"],
+    'val_size': 0.2,
+    'seed': 398,
+    'starting_date': 0,
+    'init_val_method': None,
+    'which_split': ['all', 'no_abx'],
+}
+
+config_entero_genus_w_geo = {
+    'dataset': 'ft_vat19_anomaly_v20240806_entero_genus.tsv',
+    'dataset_name': 'microbial_rel_abd_enteropathogens_genus_w_geo',
+    'microbial_features': ['rel_abd_enteropathogens_genus'],
+    'signature_features': None,  # sets to same as microbial_features
+    'static_features': [],
+    'dynamic_features': ["delivery_mode", "diet_milk", "diet_weaning", "geo_location_name"],
+    'val_size': 0.2,
+    'seed': 398,
+    'starting_date': 0,
+    'init_val_method': None,
+    'which_split': ['all', 'no_abx'],
+}
+
 # TODO: decide whether "geo_location_name" should be included in next model runs
 # TODO: or not - if it doesn't hurt we should include it
 config_novel_alpha_faith_pd_entero_family = {

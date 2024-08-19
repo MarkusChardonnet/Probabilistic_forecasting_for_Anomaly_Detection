@@ -1454,6 +1454,198 @@ overview_dict_microbial_alpha_div = dict(
 )
 
 
+# ------------------------------------------------------------------------------
+# training on novel alpha diversity metric
+
+microbial_models_path_novel_alpha_div = "{}saved_models_microbial_novel_alpha_div/".format(data_path)
+param_list_microbial_novel_alpha_div = []
+
+for add_pred, which_loss in [
+        [["var"], "variance_bis2"],
+]:
+        param_dict_microbial_sig_rnn_novel_alpha_div = {
+                'dataset': ['microbial_novel_alpha_faith_pd',
+                            'microbial_novel_alpha_faith_pd_w_geo',],
+                'dataset_split': ["no_abx",],
+                'epochs': [epochs],
+                'batch_size': [batch_size],
+                'save_every': [save_every],
+                'learning_rate': [learning_rate],
+                'seed': [seed],
+                'hidden_size': [hidden_size],
+                'bias': [bias],
+                'dropout_rate': [dropout_rate],
+                'ode_nn': [ode_nn1],  # ode_nn, ode_nn1
+                'readout_nn': [readout_nn],
+                'enc_nn': [enc_nn],
+                'use_rnn': [True, False],
+                'input_sig': [True, False],
+                'level': [2],
+                'residual_enc_dec': [True,],
+                'func_appl_X': [["power-2"]],              # [["power-2", "power-3", "power-4"]]
+                'add_pred': [add_pred],
+                'test': [test],
+                'solver': [solver],
+                'solver_delta_t_factor': [solver_delta_t_factor],
+                'weight': [0.],
+                'weight_evolve': [{'type': 'linear', 'target': 1, 'reach': None}],
+                'plot': [True],
+                'which_loss': [which_loss],
+                'which_eval_loss': ['val_variance'],
+                'evaluate': [False],
+                'eval_metrics': [eval_metrics],
+                'paths_to_plot': [(0,)],
+                'plot_variance': [True],
+                'std_factor': [std_factor],
+                'plot_moments': [plot_moments],
+                'saved_models_path': [microbial_models_path_novel_alpha_div],
+                'use_cond_exp': [True],
+                'input_current_t': [input_current_t],
+                'periodic_current_t': [True],
+                'scale_dt': [scale_dt],
+                'enc_input_t': [enc_input_t],
+                # 'add_readout_activation': [(None, [])], # add_readout_activation # ('softmax',['id']) ('sum2one',['id'])
+                'add_dynamic_cov': [True],
+                'pre-train': [10000],
+                'zero_weight_init': [False],
+            }
+        param_list_microbial_novel_alpha_div += get_parameter_array(
+                param_dict=param_dict_microbial_sig_rnn_novel_alpha_div)
+
+# long term predictions
+for add_pred, which_loss in [
+        [["var"], "variance_bis2"],
+]:
+        param_dict_microbial_sig_rnn_novel_alpha_div = {
+                'dataset': ['microbial_novel_alpha_faith_pd',
+                            'microbial_novel_alpha_faith_pd_w_geo',],
+                'dataset_split': ["no_abx",],
+                'epochs': [epochs],
+                'batch_size': [batch_size],
+                'save_every': [save_every],
+                'learning_rate': [learning_rate],
+                'seed': [seed],
+                'hidden_size': [hidden_size],
+                'bias': [bias],
+                'dropout_rate': [dropout_rate],
+                'ode_nn': [ode_nn1],  # ode_nn, ode_nn1
+                'readout_nn': [readout_nn],
+                'enc_nn': [enc_nn],
+                'use_rnn': [True, False],
+                'input_sig': [True, False],
+                'level': [2],
+                'residual_enc_dec': [True,],
+                'func_appl_X': [["power-2"]],              # [["power-2", "power-3", "power-4"]]
+                'add_pred': [add_pred],
+                'test': [test],
+                'solver': [solver],
+                'solver_delta_t_factor': [solver_delta_t_factor],
+                'weight': [0.],
+                'weight_evolve': [{'type': 'linear', 'target': 1, 'reach': None}],
+                'plot': [True],
+                'which_loss': [which_loss],
+                'which_eval_loss': ['val_variance'],
+                'evaluate': [False],
+                'eval_metrics': [eval_metrics],
+                'paths_to_plot': [(0,)],
+                'plot_variance': [True],
+                'std_factor': [std_factor],
+                'plot_moments': [plot_moments],
+                'saved_models_path': [microbial_models_path_novel_alpha_div],
+                'use_cond_exp': [True],
+                'input_current_t': [input_current_t],
+                'periodic_current_t': [True],
+                'scale_dt': [scale_dt],
+                'enc_input_t': [enc_input_t],
+                # 'add_readout_activation': [(None, [])], # add_readout_activation # ('softmax',['id']) ('sum2one',['id'])
+                'add_dynamic_cov': [True],
+                'pre-train': [10000],
+                'zero_weight_init': [False],
+                'use_observation_as_input': [
+                    0.5, "lambda x: np.random.random(1) < max(0.5, 1-x/6000)",
+                ],
+                'val_use_observation_as_input': [True],
+            }
+        param_list_microbial_novel_alpha_div += get_parameter_array(
+                param_dict=param_dict_microbial_sig_rnn_novel_alpha_div)
+
+# relative abundance enteropathogens
+for add_pred, which_loss in [
+        [["var"], "variance_bis2"],
+]:
+        param_dict_microbial_sig_rnn_novel_alpha_div = {
+                'dataset': ['microbial_rel_abd_enteropathogens_family',
+                            'microbial_rel_abd_enteropathogens_family_w_geo',
+                            'microbial_rel_abd_enteropathogens_genus',
+                            'microbial_rel_abd_enteropathogens_genus_w_geo'],
+                'dataset_split': ["no_abx",],
+                'epochs': [epochs],
+                'batch_size': [batch_size],
+                'save_every': [save_every],
+                'learning_rate': [learning_rate],
+                'seed': [seed],
+                'hidden_size': [hidden_size],
+                'bias': [bias],
+                'dropout_rate': [dropout_rate],
+                'ode_nn': [ode_nn1],  # ode_nn, ode_nn1
+                'readout_nn': [readout_nn],
+                'enc_nn': [enc_nn],
+                'use_rnn': [True, False],
+                'input_sig': [True, False],
+                'level': [2],
+                'residual_enc_dec': [True,],
+                'func_appl_X': [["power-2"]],              # [["power-2", "power-3", "power-4"]]
+                'add_pred': [add_pred],
+                'test': [test],
+                'solver': [solver],
+                'solver_delta_t_factor': [solver_delta_t_factor],
+                'weight': [0.],
+                'weight_evolve': [{'type': 'linear', 'target': 1, 'reach': None}],
+                'plot': [True],
+                'which_loss': [which_loss],
+                'which_eval_loss': ['val_variance'],
+                'evaluate': [False],
+                'eval_metrics': [eval_metrics],
+                'paths_to_plot': [(0,)],
+                'plot_variance': [True],
+                'std_factor': [std_factor],
+                'plot_moments': [plot_moments],
+                'saved_models_path': [microbial_models_path_novel_alpha_div],
+                'use_cond_exp': [True],
+                'input_current_t': [input_current_t],
+                'periodic_current_t': [True],
+                'scale_dt': [scale_dt],
+                'enc_input_t': [enc_input_t],
+                # 'add_readout_activation': [(None, [])], # add_readout_activation # ('softmax',['id']) ('sum2one',['id'])
+                'add_dynamic_cov': [True],
+                'pre-train': [10000],
+                'zero_weight_init': [False],
+            }
+        param_list_microbial_rel_abund = get_parameter_array(
+                param_dict=param_dict_microbial_sig_rnn_novel_alpha_div)
+        param_list_microbial_novel_alpha_div += param_list_microbial_rel_abund
+
+
+overview_dict_microbial_novel_alpha_div = dict(
+    ids_from=1, ids_to=len(param_list_microbial_novel_alpha_div),
+    path=microbial_models_path_novel_alpha_div,
+    params_extract_desc=('dataset', 'dataset_split',
+                         'ode_nn', 'enc_nn', 'readout_nn',
+                         'dropout_rate', 'hidden_size', 'batch_size',
+                         'pre-train',
+                         'which_loss', 'which_eval_loss', 'add_pred',
+                         'solver_delta_t_factor', 'add_readout_activation',
+                         'residual_enc_dec', 'use_rnn',
+                         'input_sig', 'level', 'use_observation_as_input',),
+    val_test_params_extract=(
+        ("max", "epoch", "epoch", "epochs_trained"),
+        ("min", "eval_loss", "eval_loss", "eval_loss_min"),
+        ("min", "val_loss", "val_loss", "val_loss_min"),
+    ),
+    sortby=["dataset", "val_loss_min"],
+)
+
+
 
 
 

@@ -118,6 +118,17 @@ python make_microbial_dataset.py --dataset_config=config_div_alpha_faith_pd_4
 python make_microbial_dataset.py --dataset_config=config_div_alpha_faith_pd_5
 ```
 
+novel alpha diversity metric datasets:
+```shell
+python make_microbial_dataset.py --dataset_config=config_novel_alpha_faith_pd
+python make_microbial_dataset.py --dataset_config=config_novel_alpha_faith_pd_w_geo
+
+python make_microbial_dataset.py --dataset_config=config_entero_family
+python make_microbial_dataset.py --dataset_config=config_entero_family_w_geo
+python make_microbial_dataset.py --dataset_config=config_entero_genus
+python make_microbial_dataset.py --dataset_config=config_entero_genus_w_geo
+```
+
 #### Training PD-NJODE:
 on OTU dataset:
 ```shell
@@ -144,6 +155,11 @@ python run.py --params=param_list_microbial_lowvar2 --NB_JOBS=64 --NB_CPUS=1 --S
 alpha diversity metric datasets:
 ```shell
 python run.py --params=param_list_microbial_alpha_div --NB_JOBS=64 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_alpha_div
+```
+
+novel alpha diversity metric datasets:
+```shell
+python run.py --params=param_list_microbial_novel_alpha_div --NB_JOBS=24 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_novel_alpha_div
 ```
 
 
@@ -177,6 +193,12 @@ python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_alpha_div_ids_2 --
 python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_alpha_div_ids_3 --ad_params=param_list_AD_microbial_alpha_div_3 --forecast_saved_models_path=AD_microbial_alpha_div --compute_scores=True --evaluate_scores=True
 python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_alpha_div_ids_3 --ad_params=param_list_AD_microbial_alpha_div_4 --forecast_saved_models_path=AD_microbial_alpha_div --compute_scores=True --evaluate_scores=True
 ```
+
+novel alpha diversity metric datasets:
+```shell
+python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_novel_alpha_div_ids --ad_params=param_list_AD_microbial_novel_alpha_div --forecast_saved_models_path=AD_microbial_novel_alpha_div --compute_scores=True --evaluate_scores=True
+```
+
 
 ## Score evaluation
 Once you trained a microbiome-based model, you can evaluate the resulting scores in the notebook `results/evaluate_scores.ipynb`. To run the notebook, create and activate this conda environment:

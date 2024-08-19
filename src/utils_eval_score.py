@@ -153,6 +153,7 @@ def _plot_score_over_age(df: pd.DataFrame, flag: str, path_to_save: str) -> str:
 
     path_to_plot = f"{path_to_save}score_over_age_{flag}.pdf"
     plt.savefig(path_to_plot)
+    plt.close()
     return path_to_plot
 
 

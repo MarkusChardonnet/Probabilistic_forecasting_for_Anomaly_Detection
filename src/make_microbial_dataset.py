@@ -111,6 +111,7 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
 
     abx_max_count_ever = np.array(df[['abx_max_count_ever']]).reshape(-1)
     abx_any_last_t_dmonths = np.array(df[['abx_any_last_t_dmonths']]).reshape(-1)
+    abx_cumcount = np.array(df[['abx_any_cumcount']]).reshape(-1)
 
     ### DATASET DIMENSIONS ###
 
@@ -156,7 +157,7 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
             abx_any[idx] = 1
         if not np.isnan(abx_any_last_t_dmonths[i]):
             abx_observed[idx] = 1
-            abx_exposure[idx, time] = 1
+        abx_exposure[idx, time] = abx_cumcount[i]
     nb_obs = np.sum(observed_dates, axis=1)
 
     count = 0
@@ -316,6 +317,8 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
         if split == 'no_abx':
             train_idx = noabx_train_idx
             val_idx = noabx_val_idx
+        print("train idx:", train_idx)
+        print("val_idx:", val_idx)
 
         idx_dataset_path = os.path.join(dataset_path, split)
         if not os.path.isdir(idx_dataset_path):

@@ -13,6 +13,7 @@ import numpy as np  # large arrays and matrices, functions
 import pandas as pd
 import torch  # machine learning
 from absl import app, flags
+import AD_modules
 from AD_modules import AD_module, DimAcc_AD_module, Simple_AD_module
 from configs import config
 from sklearn import metrics
@@ -206,6 +207,7 @@ def _plot_conditionally_standardized_distribution(
     plt.tight_layout()
     figpath = f"{path_to_save}cond_std_dist-{compare_to_dist}.pdf"
     plt.savefig(figpath)
+    plt.close()
 
     filepath = f"{path_to_save}cond_std_obs-{compare_to_dist}.npy"
     with open(filepath, "wb") as f:
@@ -217,22 +219,22 @@ def _plot_conditionally_standardized_distribution(
 
 
 def compute_scores(
-    forecast_saved_models_path,
-    forecast_model_id=None,
+        forecast_saved_models_path,
+        forecast_model_id=None,
         dataset='microbial_genus',
         scoring_distribution='dirichlet',
-    forecast_param=None,
-    load_best=True,
-    use_gpu=None,
-    nb_cpus=None,
-    n_dataset_workers=None,
-    nb_MC_samples=10**5,
-    verbose=False,
-    epsilon=1e-6,
-    seed=333,
-    send=False,
-    use_replace_values=False,
-    dirichlet_use_coord=None,
+        forecast_param=None,
+        load_best=True,
+        use_gpu=None,
+        nb_cpus=None,
+        n_dataset_workers=None,
+        nb_MC_samples=10**5,
+        verbose=False,
+        epsilon=1e-6,
+        seed=333,
+        send=False,
+        use_replace_values=False,
+        dirichlet_use_coord=None,
         aggregation_method='mean',
         scoring_metric='p-value',
         plot_cond_std_dist=None,
@@ -262,16 +264,19 @@ def compute_scores(
             distribution as factor, if None: median of all coordinates is used
         aggregation_method: str, method to aggregate the scores (if needed)
         scoring_metric: str, metric to use for scoring. one of:
-            - 'p-value': use the 2-sided p-value of the distribution
+            - 'two-sided' or 'p-value': use the 2-sided p-value of the distribution
             - 'left-tail': use the left tail of the distribution
             - 'right-tail': use the right tail of the distribution
         plot_cond_std_dist: bool, whether to plot the conditionally standardized
             distribution for the no-abx validation samples under normal and
             lognormal assumption
-        only_jump_before_abx_exposure: bool, whether to only update the input
-            of the model before the first abx exposure (i.e., only use the
+        only_jump_before_abx_exposure: bool or int, whether to only update the
+            input of the model before the first abx exposure (i.e., only use the
             jump part of the NJODE model before). This can be used to evaluate
             the scores based on the models state before the first abx exposure.
+            if int, then this is the number of abx exposure until which
+            observations are used as input (i.e., model is updated). Hence, True
+            has the same effect as 1, False as infinity.
 
     """
     global USE_GPU, N_CPUS, N_DATASET_WORKERS
@@ -425,7 +430,8 @@ def compute_scores(
     # train data
     obs = true_X.transpose(2, 0, 1)
     ad_scores = ad_module(obs, cond_moments, observed_dates)
-    with open('{}train_ad_scores.npy'.format(scores_path), 'wb') as f:
+    with open('{}train_ad_scores_{}.npy'.format(
+            scores_path, int(only_jump_before_abx_exposure)), 'wb') as f:
         np.save(f, ad_scores)
         np.save(f, abx_labels)
         np.save(f, host_id)
@@ -434,7 +440,8 @@ def compute_scores(
     cols = ['host_id', 'abx'] + ['ad_score_day-{}'.format(i+starting_date)
                                  for i in range(ad_scores.shape[1])]
     df = pd.DataFrame(data, columns=cols)
-    csvpath = '{}train_ad_scores.csv'.format(scores_path)
+    csvpath = '{}train_ad_scores_{}.csv'.format(
+        scores_path, only_jump_before_abx_exposure)
     df.to_csv(csvpath, index=False)
 
     filepaths = []
@@ -461,7 +468,8 @@ def compute_scores(
             only_jump_before_abx_exposure=only_jump_before_abx_exposure)
     obs = true_X.transpose(2, 0, 1)
     ad_scores = ad_module(obs, cond_moments, observed_dates)
-    with open('{}val_ad_scores.npy'.format(scores_path), 'wb') as f:
+    with open('{}val_ad_scores_{}.npy'.format(
+            scores_path, only_jump_before_abx_exposure), 'wb') as f:
         np.save(f, ad_scores)
         np.save(f, abx_labels)
         np.save(f, host_id)
@@ -470,7 +478,8 @@ def compute_scores(
     cols = ['host_id', 'abx'] + ['ad_score_day-{}'.format(i+starting_date)
                                  for i in range(ad_scores.shape[1])]
     df = pd.DataFrame(data, columns=cols)
-    csvpath_val = '{}val_ad_scores.csv'.format(scores_path)
+    csvpath_val = '{}val_ad_scores_{}.csv'.format(
+        scores_path, only_jump_before_abx_exposure)
     df.to_csv(csvpath_val, index=False)
     
     if plot_cond_std_dist:
@@ -519,6 +528,7 @@ def _plot_n_save_histograms(abx_samples, non_abx_samples, split, path_to_save):
 
     impath = f"{path_to_save}hist_{split}.pdf"
     plt.savefig(impath, format='pdf')
+    plt.close()
     return impath
 
 
@@ -529,6 +539,7 @@ def evaluate_scores(
     validation=False,
     send=False,
     dataset=None,
+    only_jump_before_abx_exposure=False,
     **options,
 ):
     """
@@ -548,14 +559,17 @@ def evaluate_scores(
     ad_path = "{}anomaly_detection/".format(forecast_model_path)
     which = "best" if load_best else "last"
     scores_path = "{}scores_{}/".format(ad_path, which)
-    evaluation_path = "{}evaluation_{}/".format(ad_path, which)
+    evaluation_path = "{}evaluation_{}_{}/".format(
+        ad_path, which, only_jump_before_abx_exposure)
     makedirs(evaluation_path)
 
 
     all_scores = {}
+    files_to_send = []
     for split in ["train", "val"]:
         # load scores
-        ad_scores = pd.read_csv(f"{scores_path}{split}_ad_scores.csv")
+        ad_scores = pd.read_csv(
+            f"{scores_path}{split}_ad_scores_{only_jump_before_abx_exposure}.csv")
         score_cols = [x for x in ad_scores.columns if x.startswith("ad_score_day-")]
 
         # plot histograms
@@ -565,9 +579,21 @@ def evaluate_scores(
             split=split,
             path_to_save=evaluation_path,
         )
+        files_to_send.append(impath_hist)
 
         # flatten and enrich scores
         all_scores[split] = _transform_scores(ad_scores)
+
+    if send:
+        # histograms
+        caption = "scores-histogram - {} - id={}".format(
+            which, forecast_model_id)
+        SBM.send_notification(
+            text=None,
+            chat_id=config.CHAT_ID,
+            files=[impath_hist],
+            text_for_files=caption
+        )
 
     noabx_train = all_scores["train"][~all_scores["train"]["abx"]].copy()
     noabx_val = all_scores["val"][~all_scores["val"]["abx"]].copy()
@@ -588,22 +614,15 @@ def evaluate_scores(
         # plot scores over age
         dic_img_age[flag] = _plot_score_over_age(scores, flag, evaluation_path)
 
-        # send to telegram
-        if send:
-            # histograms
-            caption = "scores-histogram - {} - id={}".format(which, forecast_model_id)
+    # send to telegram
+    if send:
+        # scores over age
+        for k, v in dic_img_age.items():
+            caption = "scores-over-age {} - {} - id={}".format(
+                k, which, forecast_model_id)
             SBM.send_notification(
-                text=None,
-                chat_id=config.CHAT_ID,
-                files=[impath_hist],
-                text_for_files=caption
+                text=None, chat_id=config.CHAT_ID, files=[v], text_for_files=caption
             )
-            # scores over age
-            for k, v in dic_img_age.items():
-                caption = "scores-over-age {} - {} - id={}".format(k, which, forecast_model_id)
-                SBM.send_notification(
-                    text=None, chat_id=config.CHAT_ID, files=[v], text_for_files=caption
-                )
 
         # print(np.all(np.isnan(abx_samples), axis=1).sum())
         # print(np.all(np.isnan(non_abx_samples), axis=1).sum())

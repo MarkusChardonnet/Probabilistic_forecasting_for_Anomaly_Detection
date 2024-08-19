@@ -1427,11 +1427,14 @@ class NJODE(torch.nn.Module):
                 classifier
         :param return_at_last_obs: bool, whether to return the hidden state at
                 the last observation
-        :param only_jump_before_abx_exposure: bool, whether to only update
+        :param only_jump_before_abx_exposure: bool or int, whether to only update
                 the model input before the first antibiotics exposure, i.e.,
-                only apply jump network before the first antibiotics exposure
+                only apply jump network before the first antibiotics exposure.
+                if int, then only update the model input before the n-th
+                antibiotics exposure.
         :param ABX_EXPOSURE: None or torch.tensor, whether the patient had
-                antibiotics exposure anytime before an observation time
+                antibiotics exposure anytime before an observation time, or
+                amount of exposures before an observation time.
 
         :return: torch.tensor (hidden state at final time), torch.tensor (loss),
                     if wanted the paths of t (np.array) and h, y (torch.tensors)
@@ -1442,6 +1445,12 @@ class NJODE(torch.nn.Module):
         if delta_t is None:
             delta_t = self.delta_t
         assert(delta_t is not None)
+
+        if only_jump_before_abx_exposure is None:
+            only_jump_before_abx_exposure = 0
+        else:
+            assert ABX_EXPOSURE is not None
+        only_jump_before_abx_exposure = int(only_jump_before_abx_exposure)
 
         last_X = start_X
         batch_size = start_X.size()[0]
@@ -1533,10 +1542,10 @@ class NJODE(torch.nn.Module):
             else:
                 M_obs = None
 
-            # only update the model before the first antibiotics exposure
-            if only_jump_before_abx_exposure:
+            # only update the model before the n-th antibiotics exposure
+            if only_jump_before_abx_exposure > 0:
                 abx_exp = ABX_EXPOSURE[start:end]
-                which = torch.where(abx_exp == 0)[0]
+                which = torch.where(abx_exp < only_jump_before_abx_exposure)[0]
                 X_obs = X_obs[which]
                 i_obs = i_obs[which]
                 if self.masked:

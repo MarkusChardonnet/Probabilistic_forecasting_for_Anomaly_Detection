@@ -1446,6 +1446,12 @@ class NJODE(torch.nn.Module):
             delta_t = self.delta_t
         assert(delta_t is not None)
 
+        if only_jump_before_abx_exposure is None:
+            only_jump_before_abx_exposure = 0
+        else:
+            assert ABX_EXPOSURE is not None
+        only_jump_before_abx_exposure = int(only_jump_before_abx_exposure)
+
         last_X = start_X
         batch_size = start_X.size()[0]
         data_dim = start_X.size()[1]
@@ -1536,13 +1542,10 @@ class NJODE(torch.nn.Module):
             else:
                 M_obs = None
 
-            # only update the model before the first antibiotics exposure
-            if only_jump_before_abx_exposure:
-                cut = 1
-                if isinstance(only_jump_before_abx_exposure, int):
-                    cut = only_jump_before_abx_exposure
+            # only update the model before the n-th antibiotics exposure
+            if only_jump_before_abx_exposure > 0:
                 abx_exp = ABX_EXPOSURE[start:end]
-                which = torch.where(abx_exp < cut)[0]
+                which = torch.where(abx_exp < only_jump_before_abx_exposure)[0]
                 X_obs = X_obs[which]
                 i_obs = i_obs[which]
                 if self.masked:

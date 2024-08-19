@@ -430,7 +430,8 @@ def compute_scores(
     # train data
     obs = true_X.transpose(2, 0, 1)
     ad_scores = ad_module(obs, cond_moments, observed_dates)
-    with open('{}train_ad_scores.npy'.format(scores_path), 'wb') as f:
+    with open('{}train_ad_scores_{}.npy'.format(
+            scores_path, int(only_jump_before_abx_exposure)), 'wb') as f:
         np.save(f, ad_scores)
         np.save(f, abx_labels)
         np.save(f, host_id)
@@ -439,12 +440,13 @@ def compute_scores(
     cols = ['host_id', 'abx'] + ['ad_score_day-{}'.format(i+starting_date)
                                  for i in range(ad_scores.shape[1])]
     df = pd.DataFrame(data, columns=cols)
-    csvpath = '{}train_ad_scores.csv'.format(scores_path)
+    csvpath = '{}train_ad_scores_{}.csv'.format(
+        scores_path, only_jump_before_abx_exposure)
     df.to_csv(csvpath, index=False)
 
     filepaths = []
     if plot_cond_std_dist:
-        dist_path = f'{ad_path}dist/train-noabx/'
+        dist_path = f'{ad_path}dist/train-noabx-{only_jump_before_abx_exposure}/'
         makedirs(dist_path)
         filepaths += _plot_conditionally_standardized_distribution(
             cond_moments[:, abx_labels == 0],
@@ -466,7 +468,8 @@ def compute_scores(
             only_jump_before_abx_exposure=only_jump_before_abx_exposure)
     obs = true_X.transpose(2, 0, 1)
     ad_scores = ad_module(obs, cond_moments, observed_dates)
-    with open('{}val_ad_scores.npy'.format(scores_path), 'wb') as f:
+    with open('{}val_ad_scores_{}.npy'.format(
+            scores_path, only_jump_before_abx_exposure), 'wb') as f:
         np.save(f, ad_scores)
         np.save(f, abx_labels)
         np.save(f, host_id)
@@ -475,11 +478,12 @@ def compute_scores(
     cols = ['host_id', 'abx'] + ['ad_score_day-{}'.format(i+starting_date)
                                  for i in range(ad_scores.shape[1])]
     df = pd.DataFrame(data, columns=cols)
-    csvpath_val = '{}val_ad_scores.csv'.format(scores_path)
+    csvpath_val = '{}val_ad_scores_{}.csv'.format(
+        scores_path, only_jump_before_abx_exposure)
     df.to_csv(csvpath_val, index=False)
     
     if plot_cond_std_dist:
-        dist_path = f'{ad_path}dist/val-noabx/'
+        dist_path = f'{ad_path}dist/val-noabx-{only_jump_before_abx_exposure}/'
         makedirs(dist_path)
         filepaths += _plot_conditionally_standardized_distribution(
             cond_moments[:, abx_labels==0], observed_dates[:, abx_labels==0],
@@ -535,6 +539,7 @@ def evaluate_scores(
     validation=False,
     send=False,
     dataset=None,
+    only_jump_before_abx_exposure=False,
     **options,
 ):
     """
@@ -554,7 +559,8 @@ def evaluate_scores(
     ad_path = "{}anomaly_detection/".format(forecast_model_path)
     which = "best" if load_best else "last"
     scores_path = "{}scores_{}/".format(ad_path, which)
-    evaluation_path = "{}evaluation_{}/".format(ad_path, which)
+    evaluation_path = "{}evaluation_{}_{}/".format(
+        ad_path, which, only_jump_before_abx_exposure)
     makedirs(evaluation_path)
 
 
@@ -562,7 +568,8 @@ def evaluate_scores(
     files_to_send = []
     for split in ["train", "val"]:
         # load scores
-        ad_scores = pd.read_csv(f"{scores_path}{split}_ad_scores.csv")
+        ad_scores = pd.read_csv(
+            f"{scores_path}{split}_ad_scores_{only_jump_before_abx_exposure}.csv")
         score_cols = [x for x in ad_scores.columns if x.startswith("ad_score_day-")]
 
         # plot histograms

@@ -446,7 +446,7 @@ def compute_scores(
 
     filepaths = []
     if plot_cond_std_dist:
-        dist_path = f'{ad_path}dist/train-noabx-{only_jump_before_abx_exposure}/'
+        dist_path = f'{ad_path}dist/train-noabx/'
         makedirs(dist_path)
         filepaths += _plot_conditionally_standardized_distribution(
             cond_moments[:, abx_labels == 0],
@@ -483,7 +483,7 @@ def compute_scores(
     df.to_csv(csvpath_val, index=False)
     
     if plot_cond_std_dist:
-        dist_path = f'{ad_path}dist/val-noabx-{only_jump_before_abx_exposure}/'
+        dist_path = f'{ad_path}dist/val-noabx/'
         makedirs(dist_path)
         filepaths += _plot_conditionally_standardized_distribution(
             cond_moments[:, abx_labels==0], observed_dates[:, abx_labels==0],

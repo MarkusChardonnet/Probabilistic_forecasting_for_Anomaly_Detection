@@ -539,15 +539,15 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
             scores_valid = scores_valid.transpose(1,0,2,3)
         elif (self.distribution_class in ['normal', 'lognormal'] or
               self.distribution_class.startswith("t-")):
-            nu = None
-            if self.distribution_class.startswith("t-"):
-                nu = int(self.distribution_class.split('-')[1])
-                self.distribution_class = 't'
             scoring_methods = {
                 'normal': gaussian_scoring,
                 'lognormal': lognorm_scoring,
-                't': t_scoring,
             }
+            nu = None
+            if self.distribution_class.startswith("t-"):
+                nu = int(self.distribution_class.split('-')[1])
+                scoring_methods[self.distribution_class] = t_scoring
+
             cond_exp = np.expand_dims(cond_exp, 3)
             cond_var = np.expand_dims(cond_var, 3)
             if self.replace_values is not None:

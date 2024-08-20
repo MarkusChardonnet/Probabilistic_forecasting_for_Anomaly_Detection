@@ -170,7 +170,7 @@ param_dict_AD_microbial_alpha_div_4 = {
         'seed': [seed],
         'scoring_distribution': ['lognormal'],
         'scoring_metric': ['left-tail'],
-        'plot_cond_std_dist': [True],
+        'plot_cond_std_dist': [['normal', 'lognormal']],
         'only_jump_before_abx_exposure': [True],
 }
 param_list_AD_microbial_alpha_div_4 += get_parameter_array(
@@ -179,6 +179,7 @@ param_list_AD_microbial_alpha_div_4 += get_parameter_array(
 
 # ------------------------------------------------------------------------------
 # AD for novel alpha diversity metric models
+# TODO: best AD results for id 2 & 37 at best with normal
 AD_microbial_novel_alpha_div = "{}saved_models_microbial_novel_alpha_div/".format(data_path)
 AD_microbial_novel_alpha_div_ids = [2,]
 param_list_AD_microbial_novel_alpha_div = []
@@ -188,7 +189,7 @@ param_dict_AD_microbial_novel_alpha_div = {
         'seed': [seed],
         'scoring_distribution': ['normal'],
         'scoring_metric': ['left-tail'],
-        'plot_cond_std_dist': [True],
+        'plot_cond_std_dist': [['normal', 'lognormal']],
         'only_jump_before_abx_exposure': [1,2,3],
 }
 param_list_AD_microbial_novel_alpha_div += get_parameter_array(
@@ -200,9 +201,9 @@ param_dict_AD_microbial_rel_abund = {
         'load_best': [True],
         'verbose': [True],
         'seed': [seed],
-        'scoring_distribution': ['normal'],
+        'scoring_distribution': ['t-3'],
         'scoring_metric': ['right-tail'],
-        'plot_cond_std_dist': [True],
+        'plot_cond_std_dist': [['normal', 't-3']],
         'only_jump_before_abx_exposure': [1,2,3],
 }
 param_list_AD_microbial_rel_abund += get_parameter_array(
@@ -211,7 +212,7 @@ param_list_AD_microbial_rel_abund += get_parameter_array(
 
 
 
-# TODO: best AD results for id 2 at best with normal
+
 
 
 

@@ -221,8 +221,8 @@ pip install -e .
 - [x] model the alpha diversity metric -> this leads to best results
 
 - [x] implement scaling of coords
-- [ ] implement t dist for scoring and plotting
-- [ ] implement coordinate wise scoring
-- [ ] implement plotting of selected (instead of all) dists
+- [x] implement t dist for scoring and plotting
+- [x] implement coordinate wise scoring
+- [x] implement plotting of selected (instead of all) dists
 - [ ] run
 

@@ -156,6 +156,7 @@ def get_model_predictions(
 def _plot_conditionally_standardized_distribution(
         cond_moments, observed_dates, obs, output_vars, path_to_save,
         compare_to_dist="normal", replace_values=None, which_set='train',
+        which_coord=0,
         **options):
     """
     Plot the conditionally standardized distribution
@@ -178,8 +179,8 @@ def _plot_conditionally_standardized_distribution(
     cond_exp, cond_var = AD_modules.get_cond_exp_var(cond_moments, output_vars)
     cond_var = AD_modules.get_corrected_var(
         cond_var, min_var_val=1e-4, replace_var=replace_values)
-    cond_std = np.sqrt(cond_var)
     if compare_to_dist == "normal":
+        cond_std = np.sqrt(cond_var)
         standardized_obs = (obs - cond_exp) / cond_std
         standardized_obs = standardized_obs[observed_dates]
     elif compare_to_dist == "lognormal":
@@ -187,22 +188,39 @@ def _plot_conditionally_standardized_distribution(
         sigma = np.sqrt(np.log(1 + cond_var / cond_exp ** 2))
         standardized_obs = (np.log(obs) - mu)/ sigma
         standardized_obs = standardized_obs[observed_dates]
+    elif compare_to_dist.startswith("t-"):
+        nu = int(compare_to_dist.split("-")[1])
+        mu = cond_exp
+        sigma = np.sqrt(cond_var/(nu/(nu-2)))
+        standardized_obs = (obs - mu) / sigma
     else:
         raise ValueError(f"compare_to_dist {compare_to_dist} not implemented")
     standardized_obs = np.clip(standardized_obs, -5, 5)
+    standardized_obs = standardized_obs[:, which_coord]
 
-    pval = stats.kstest(standardized_obs.flatten(), "norm")[1]
+    if compare_to_dist.startswith("t-"):
+        pval = stats.kstest(standardized_obs.flatten(), "t", args=(nu,))[1]
+    else:
+        pval = stats.kstest(standardized_obs.flatten(), "norm")[1]
 
     fig, ax = plt.subplots(1, 1, figsize=(6, 4))
     sns.histplot(x=standardized_obs.flatten(), bins=50, kde=True,
                  ax=ax, stat="density", color="skyblue", label="observed")
     t = np.linspace(-5, 5, 1000)
-    ax.plot(t, stats.norm.pdf(t, loc=0, scale=1),
-            color="darkred", linestyle="--", label="standard normal")
-    ax.set_title(
-        f"Conditionally standardized distribution of no-abx {which_set}-set.\n"+
-        f"Transformation: cond. {compare_to_dist} to stand. normal\n"+
-        f"p-value of KS test: {pval:.2e}")
+    if compare_to_dist.startswith("t-"):
+        ax.plot(t, stats.t.pdf(t, nu), color="darkred", linestyle="--",
+                label=f"student-t (df={nu})")
+        ax.set_title(
+            f"Conditionally standardized distribution of no-abx {which_set}-set.\n" +
+            f"Transformation: cond. {compare_to_dist} to stand. t (df={nu})\n" +
+            f"p-value of KS test: {pval:.2e}")
+    else:
+        ax.plot(t, stats.norm.pdf(t, loc=0, scale=1),
+                color="darkred", linestyle="--", label="standard normal")
+        ax.set_title(
+            f"Conditionally standardized distribution of no-abx {which_set}-set.\n"+
+            f"Transformation: cond. {compare_to_dist} to stand. normal\n"+
+            f"p-value of KS test: {pval:.2e}")
     plt.legend()
     plt.tight_layout()
     figpath = f"{path_to_save}cond_std_dist-{compare_to_dist}.pdf"
@@ -237,8 +255,8 @@ def compute_scores(
         dirichlet_use_coord=None,
         aggregation_method='mean',
         scoring_metric='p-value',
-        plot_cond_std_dist=None,
         only_jump_before_abx_exposure=False,
+        plot_cond_standardized_dist=[],
         **options
 ):
     """
@@ -262,7 +280,8 @@ def compute_scores(
         use_replace_values: bool, whether to use replace values for variance
         dirichlet_use_coord: int, which coordinate to use for the dirichlet
             distribution as factor, if None: median of all coordinates is used
-        aggregation_method: str, method to aggregate the scores (if needed)
+        aggregation_method: str, method to aggregate the scores (if needed);
+            one of: 'mean', 'max', 'min', 'coord-n' for n >= 0 integer
         scoring_metric: str, metric to use for scoring. one of:
             - 'two-sided' or 'p-value': use the 2-sided p-value of the distribution
             - 'left-tail': use the left tail of the distribution
@@ -277,6 +296,9 @@ def compute_scores(
             if int, then this is the number of abx exposure until which
             observations are used as input (i.e., model is updated). Hence, True
             has the same effect as 1, False as infinity.
+        plot_cond_standardized_dist: list of str, which distributions to plot
+            for the conditionally standardized distribution.
+            can include: 'normal', 'lognormal', 't-n' for n >= 3 integer
 
     """
     global USE_GPU, N_CPUS, N_DATASET_WORKERS
@@ -303,7 +325,6 @@ def compute_scores(
         "dirichlet_use_coord": dirichlet_use_coord,
         "aggregation_method": aggregation_method,
         "scoring_metric": scoring_metric,
-        "plot_cond_std_dist": plot_cond_std_dist,
         "only_jump_before_abx_exposure": only_jump_before_abx_exposure,
     }
 
@@ -325,22 +346,7 @@ def compute_scores(
     T = dataset_metadata['maturity']
     delta_t = dataset_metadata['dt']  # copy metadata
     starting_date = dataset_metadata['starting_date']
-
-    # get additional plotting information
-    plot_forecast_predictions = False
-    if 'plot_forecast_predictions' in options:
-        plot_forecast_predictions = options['plot_forecast_predictions']
-    std_factor = 1  # factor with which the std is multiplied
-    if 'plot_variance' in options:
-        plot_variance = options['plot_variance']
-    if 'std_factor' in options:
-        std_factor = options['std_factor']
     class_thres = 0.5
-    autom_thres = None
-    if 'class_thres' in options:
-        class_thres = options['class_thres']
-        if 'autom_thres' in options:
-            autom_thres = options['autom_thres']
 
     # get all needed paths
     forecast_model_path = '{}id-{}/'.format(
@@ -445,21 +451,16 @@ def compute_scores(
     df.to_csv(csvpath, index=False)
 
     filepaths = []
-    if plot_cond_std_dist:
+    if plot_cond_standardized_dist is not None:
         dist_path = f'{ad_path}dist/train-noabx/'
         makedirs(dist_path)
-        filepaths += _plot_conditionally_standardized_distribution(
-            cond_moments[:, abx_labels == 0],
-            observed_dates[:, abx_labels == 0],
-            obs[:, abx_labels == 0], output_vars, path_to_save=dist_path,
-            compare_to_dist="normal", replace_values=replace_values,
-            which_set='train')
-        filepaths += _plot_conditionally_standardized_distribution(
-            cond_moments[:, abx_labels == 0],
-            observed_dates[:, abx_labels == 0],
-            obs[:, abx_labels == 0], output_vars, path_to_save=dist_path,
-            compare_to_dist="lognormal", replace_values=replace_values,
-            which_set='train')
+        for dist in plot_cond_standardized_dist:
+            filepaths += _plot_conditionally_standardized_distribution(
+                cond_moments[:, abx_labels == 0],
+                observed_dates[:, abx_labels == 0],
+                obs[:, abx_labels == 0], output_vars, path_to_save=dist_path,
+                compare_to_dist=dist, replace_values=replace_values,
+                which_set='train')
 
     # test data
     cond_moments, observed_dates, true_X, abx_labels, host_id = \
@@ -482,20 +483,15 @@ def compute_scores(
         scores_path, only_jump_before_abx_exposure)
     df.to_csv(csvpath_val, index=False)
     
-    if plot_cond_std_dist:
+    if plot_cond_standardized_dist is not None:
         dist_path = f'{ad_path}dist/val-noabx/'
         makedirs(dist_path)
-        filepaths += _plot_conditionally_standardized_distribution(
-            cond_moments[:, abx_labels==0], observed_dates[:, abx_labels==0],
-            obs[:, abx_labels==0], output_vars, path_to_save=dist_path,
-            compare_to_dist="normal", replace_values=replace_values,
-            which_set='val')
-        filepaths += _plot_conditionally_standardized_distribution(
-            cond_moments[:, abx_labels == 0],
-            observed_dates[:, abx_labels == 0],
-            obs[:, abx_labels == 0], output_vars, path_to_save=dist_path,
-            compare_to_dist="lognormal", replace_values=replace_values,
-            which_set='val')
+        for dist in plot_cond_standardized_dist:
+            filepaths += _plot_conditionally_standardized_distribution(
+                cond_moments[:, abx_labels==0], observed_dates[:, abx_labels==0],
+                obs[:, abx_labels==0], output_vars, path_to_save=dist_path,
+                compare_to_dist=dist, replace_values=replace_values,
+                which_set='val')
 
     if send:
         files_to_send = [csvpath, csvpath_val] + filepaths

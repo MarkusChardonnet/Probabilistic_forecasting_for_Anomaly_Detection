@@ -1446,7 +1446,7 @@ class NJODE(torch.nn.Module):
             delta_t = self.delta_t
         assert(delta_t is not None)
 
-        if only_jump_before_abx_exposure is None:
+        if only_jump_before_abx_exposure in [None, False]:
             only_jump_before_abx_exposure = 0
         else:
             assert ABX_EXPOSURE is not None

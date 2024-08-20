@@ -410,7 +410,8 @@ def compute_scores(
             epsilon=epsilon,
             dirichlet_use_coord=dirichlet_use_coord,
             verbose=verbose)
-    elif scoring_distribution in ['normal', 'lognormal']:
+    elif (scoring_distribution in ['normal', 'lognormal']
+          or scoring_distribution.startswith("t-")):
         ad_module = Simple_AD_module(
             output_vars=output_vars,
             distribution_class=scoring_distribution,

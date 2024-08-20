@@ -182,12 +182,10 @@ def _plot_conditionally_standardized_distribution(
     if compare_to_dist == "normal":
         cond_std = np.sqrt(cond_var)
         standardized_obs = (obs - cond_exp) / cond_std
-        standardized_obs = standardized_obs[observed_dates]
     elif compare_to_dist == "lognormal":
         mu = np.log(cond_exp) - 0.5 * np.log(1 + cond_var / cond_exp ** 2)
         sigma = np.sqrt(np.log(1 + cond_var / cond_exp ** 2))
         standardized_obs = (np.log(obs) - mu)/ sigma
-        standardized_obs = standardized_obs[observed_dates]
     elif compare_to_dist.startswith("t-"):
         nu = int(compare_to_dist.split("-")[1])
         mu = cond_exp
@@ -195,6 +193,7 @@ def _plot_conditionally_standardized_distribution(
         standardized_obs = (obs - mu) / sigma
     else:
         raise ValueError(f"compare_to_dist {compare_to_dist} not implemented")
+    standardized_obs = standardized_obs[observed_dates]
     standardized_obs = np.clip(standardized_obs, -5, 5)
     standardized_obs = standardized_obs[:, which_coord]
 

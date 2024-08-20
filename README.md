@@ -130,6 +130,7 @@ python make_microbial_dataset.py --dataset_config=config_entero_genus_w_geo
 
 python make_microbial_dataset.py --dataset_config=config_novel_alpha_faith_pd_entero_family
 python make_microbial_dataset.py --dataset_config=config_novel_alpha_faith_pd_entero_genus
+python make_microbial_dataset.py --dataset_config=config_novel_alpha_faith_pd_entero_genus_scaled
 ```
 
 #### Training PD-NJODE:
@@ -219,5 +220,9 @@ pip install -e .
 - [x] or no projection at all
 - [x] model the alpha diversity metric -> this leads to best results
 
-- 
+- [x] implement scaling of coords
+- [ ] implement t dist for scoring and plotting
+- [ ] implement coordinate wise scoring
+- [ ] implement plotting of selected (instead of all) dists
+- [ ] run
 

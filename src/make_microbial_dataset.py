@@ -25,6 +25,8 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
                  init_val_method = ('group_feat_mean','delivery_mode'), # method to set per host initial value
                     # choose among ('group_feat_mean','delivery_mode') or ('sample_weighted_sum','time_neg_exp',100.)
                  which_split = 'all',
+                 scaling = False,  # whether to scale the data paths, one of {False, 'mean', 'minmax'}
+                 compute_scaling_on = 'train',  # where to compute the scaling parameters, one of {'train', 'all', 'train-noabx'}
                 ):
     
     df = pandas.read_csv(os.path.join(original_data_path, dataset) ,sep='\t')
@@ -183,7 +185,6 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
 
 
     ### SETTING OF PATH INITIAL VALUES ###
-
     if isinstance(init_val_method, tuple) and init_val_method[0] == 'group_feat_mean':
         grouping_feature = [init_val_method[1]]
         host_data_group = np.array(df[grouping_feature]).reshape(-1)
@@ -229,7 +230,6 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
     nb_steps = int(sample_age_days_max - starting_date)
 
     ### CHECKS ###
-
     print("Check whether the time of samples is more precise than days :")
     # Check if 'age_days' values are just int
     if np.max(np.abs(np.array(df[['age_days']]) - np.array(df[['age_days']]).astype(int))) > 0:
@@ -260,13 +260,64 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
     print(np.min(min_dt_per_host))
 
     ### PATHS ###
-
     dataset_path = os.path.join(train_data_path, dataset_name)
     if not os.path.isdir(dataset_path):
         os.mkdir(dataset_path)
 
-    ### SAVING FILES ###
+    ### CREATE DATASET SUBDIVISION TRAIN/TEST/VAL ###
+    abx_train_idx, abx_val_idx = train_test_split(
+        np.where(abx_observed)[0], test_size=val_size,
+        random_state=seed)
+    noabx_train_idx, noabx_val_idx = train_test_split(
+        np.where(~abx_observed)[0], test_size=val_size,
+        random_state=seed)
+    for split in which_split:
+        if split == 'all':
+            train_idx = np.concatenate((abx_train_idx, noabx_train_idx))
+            val_idx = np.concatenate((abx_val_idx, noabx_val_idx))
+        elif split == 'no_abx':
+            train_idx = noabx_train_idx
+            val_idx = noabx_val_idx
+        elif split == 'abx':
+            train_idx = abx_train_idx
+            val_idx = abx_val_idx
+        else:
+            raise ValueError("Unknown split type")
+        print("train idx:", train_idx)
+        print("val_idx:", val_idx)
 
+        idx_dataset_path = os.path.join(dataset_path, split)
+        if not os.path.isdir(idx_dataset_path):
+            os.mkdir(idx_dataset_path)
+        with open(os.path.join(idx_dataset_path, 'train_idx.npy'), 'wb') as f:
+            np.save(f, train_idx)
+        with open(os.path.join(idx_dataset_path, 'val_idx.npy'), 'wb') as f:
+            np.save(f, val_idx)
+
+    ### SCALING ###
+    if compute_scaling_on == 'train':
+        dat = paths[train_idx]
+        dat_obs = observed_dates[train_idx]
+    elif compute_scaling_on == 'all':
+        dat = paths
+        dat_obs = observed_dates
+    elif compute_scaling_on == 'train-noabx':
+        dat = paths[noabx_train_idx]
+        dat_obs = observed_dates[noabx_train_idx]
+    else:
+        raise ValueError("Unknown scaling computation set")
+    for dim in range(paths.shape[1]):
+        if scaling in ['mean']:
+            mean = np.mean(dat[:, dim, :][dat_obs == 1])
+            paths[:,dim,:] /= mean
+        elif scaling in ['minmax']:
+            min_ = np.min(dat[:, dim, :][dat_obs == 1])
+            max_ = np.max(dat[:, dim, :][dat_obs == 1])
+            paths[:,dim,:] = (paths[:,dim,:] - min_) / (max_ - min_)
+        else:
+            raise ValueError("Unknown scaling method")
+
+    ### SAVING FILES ###
     with open(os.path.join(dataset_path, 'data.npy'), 'wb') as f:
         np.save(f, paths)
         np.save(f, observed_dates)
@@ -303,33 +354,6 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
 
     with open(os.path.join(dataset_path, 'metadata.txt'), 'w') as f:
         json.dump(metadata_dict, f, sort_keys=True)
-
-    ### CREATE DATASET SUBDIVISION TRAIN/TEST/VAL ###
-
-    for split in which_split:
-        abx_train_idx, abx_val_idx = train_test_split(
-            np.where(abx_observed)[0], test_size=val_size, random_state=seed)
-        noabx_train_idx, noabx_val_idx = train_test_split(
-            np.where(~abx_observed)[0], test_size=val_size, random_state=seed)
-        if split == 'all':
-            train_idx = np.concatenate((abx_train_idx, noabx_train_idx))
-            val_idx = np.concatenate((abx_val_idx, noabx_val_idx))
-        if split == 'no_abx':
-            train_idx = noabx_train_idx
-            val_idx = noabx_val_idx
-        print("train idx:", train_idx)
-        print("val_idx:", val_idx)
-
-        idx_dataset_path = os.path.join(dataset_path, split)
-        if not os.path.isdir(idx_dataset_path):
-            os.mkdir(idx_dataset_path)
-        with open(os.path.join(idx_dataset_path, 'train_idx.npy'), 'wb') as f:
-            np.save(f, train_idx)
-        with open(os.path.join(idx_dataset_path, 'val_idx.npy'), 'wb') as f:
-            np.save(f, val_idx)
-    # eval_ad_idx = np.where(abx_observed)[0]
-    # with open(idx_dataset_path + 'eval_ad_idx.npy', 'wb') as f:
-    #     np.save(f, eval_ad_idx)
 
 
 if __name__ == "__main__":

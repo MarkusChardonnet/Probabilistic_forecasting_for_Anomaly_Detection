@@ -223,11 +223,11 @@ def _plot_conditionally_standardized_distribution(
             f"p-value of KS test: {pval:.2e}")
     plt.legend()
     plt.tight_layout()
-    figpath = f"{path_to_save}cond_std_dist-{compare_to_dist}.pdf"
+    figpath = f"{path_to_save}cond_std_dist-{compare_to_dist}-{which_coord}.pdf"
     plt.savefig(figpath)
     plt.close()
 
-    filepath = f"{path_to_save}cond_std_obs-{compare_to_dist}.npy"
+    filepath = f"{path_to_save}cond_std_obs-{compare_to_dist}-{which_coord}.npy"
     with open(filepath, "wb") as f:
         np.save(f, standardized_obs)
 
@@ -452,6 +452,10 @@ def compute_scores(
     df.to_csv(csvpath, index=False)
 
     filepaths = []
+    if aggregation_method.startswith("coord-"):
+        which_coord = int(aggregation_method.split("-")[1])
+    else:
+        which_coord = 0
     if plot_cond_standardized_dist is not None:
         dist_path = f'{ad_path}dist/train-noabx/'
         makedirs(dist_path)
@@ -461,7 +465,7 @@ def compute_scores(
                 observed_dates[:, abx_labels == 0],
                 obs[:, abx_labels == 0], output_vars, path_to_save=dist_path,
                 compare_to_dist=dist, replace_values=replace_values,
-                which_set='train')
+                which_set='train', which_coord=which_coord)
 
     # test data
     cond_moments, observed_dates, true_X, abx_labels, host_id = \
@@ -492,7 +496,7 @@ def compute_scores(
                 cond_moments[:, abx_labels==0], observed_dates[:, abx_labels==0],
                 obs[:, abx_labels==0], output_vars, path_to_save=dist_path,
                 compare_to_dist=dist, replace_values=replace_values,
-                which_set='val')
+                which_set='val', which_coord=which_coord)
 
     if send:
         files_to_send = [csvpath, csvpath_val] + filepaths

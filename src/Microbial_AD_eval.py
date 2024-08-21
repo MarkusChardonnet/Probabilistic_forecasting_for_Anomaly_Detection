@@ -156,7 +156,7 @@ def get_model_predictions(
 def _plot_conditionally_standardized_distribution(
         cond_moments, observed_dates, obs, output_vars, path_to_save,
         compare_to_dist="normal", replace_values=None, which_set='train',
-        which_coord=0,
+        which_coord=0, eps=1e-4,
         **options):
     """
     Plot the conditionally standardized distribution
@@ -178,7 +178,7 @@ def _plot_conditionally_standardized_distribution(
     # cond_var : [nb_steps, nb_samples, dimension]
     cond_exp, cond_var = AD_modules.get_cond_exp_var(cond_moments, output_vars)
     cond_var = AD_modules.get_corrected_var(
-        cond_var, min_var_val=1e-4, replace_var=replace_values)
+        cond_var, min_var_val=eps, replace_var=replace_values)
     if compare_to_dist == "normal":
         cond_std = np.sqrt(cond_var)
         standardized_obs = (obs - cond_exp) / cond_std
@@ -247,7 +247,7 @@ def compute_scores(
         n_dataset_workers=None,
         nb_MC_samples=10**5,
         verbose=False,
-        epsilon=1e-6,
+        epsilon=1e-4,
         seed=333,
         send=False,
         use_replace_values=False,
@@ -429,7 +429,8 @@ def compute_scores(
             aggregation_method=aggregation_method,
             train_labels=abx_labels,
             replace_values=replace_values,
-            class_thres=class_thres,)
+            class_thres=class_thres,
+            epsilon=epsilon,)
     else:
         raise ValueError("scoring_distribution not implemented")
 
@@ -464,7 +465,7 @@ def compute_scores(
                 observed_dates[:, abx_labels == 0],
                 obs[:, abx_labels == 0], output_vars, path_to_save=dist_path,
                 compare_to_dist=dist, replace_values=replace_values,
-                which_set='train', which_coord=which_coord)
+                which_set='train', which_coord=which_coord, eps=epsilon)
 
     # test data
     cond_moments, observed_dates, true_X, abx_labels, host_id = \
@@ -495,7 +496,7 @@ def compute_scores(
                 cond_moments[:, abx_labels==0], observed_dates[:, abx_labels==0],
                 obs[:, abx_labels==0], output_vars, path_to_save=dist_path,
                 compare_to_dist=dist, replace_values=replace_values,
-                which_set='val', which_coord=which_coord)
+                which_set='val', which_coord=which_coord, eps=epsilon)
 
     if send:
         files_to_send = [csvpath, csvpath_val] + filepaths

@@ -534,7 +534,8 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
             scores_valid = gaussian_scoring(
                 obs=obs, cond_exp=cond_exp, cond_var=cond_var,
                 observed_dates=observed_dates,
-                scoring_metric=self.scoring_metric, replace_var=None)
+                scoring_metric=self.scoring_metric, replace_var=None,
+                min_var_val=self.epsilon,)
             # scores : [nb_samples, nb_steps, dimension, steps_ahead=1]
             scores_valid = scores_valid.transpose(1,0,2,3)
         elif (self.distribution_class in ['normal', 'lognormal'] or
@@ -557,7 +558,8 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
                 obs=obs, cond_exp=cond_exp, cond_var=cond_var,
                 observed_dates=observed_dates,
                 scoring_metric=self.scoring_metric,
-                replace_var=self.replace_values, nu=nu)
+                replace_var=self.replace_values,
+                min_var_val=self.epsilon, nu=nu)
             if scores_valid.shape[2] > 1:
                 if self.aggregation_method.startswith("coord-"):
                     coord = int(self.aggregation_method.split('-')[1])
@@ -574,7 +576,7 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
                 obs=obs, cond_exp=cond_exp, cond_var=cond_var,
                 observed_dates=observed_dates,
                 nb_samples=self.nb_samples, replace_var=self.replace_values,
-                min_var_val=0., coord=self.dirichlet_use_coord,
+                min_var_val=self.epsilon, coord=self.dirichlet_use_coord,
                 verbose=self.verbose, seed=self.seed)
             scores_valid = scores_valid.transpose(1,0)
         elif self.distribution_class == 'beta':
@@ -584,7 +586,8 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
             scores_valid = beta_scoring(
                 obs=obs, cond_exp=cond_exp, cond_var=cond_var,
                 observed_dates=observed_dates,
-                scoring_metric=self.scoring_metric, replace_var=None)
+                scoring_metric=self.scoring_metric,
+                min_var_val=self.epsilon, replace_var=None)
             # scores : [nb_samples, nb_steps, dimension, steps_ahead=1]
             scores_valid = scores_valid.transpose(1, 0, 2, 3)
         else:
@@ -623,6 +626,7 @@ class DimAcc_AD_module(torch.nn.Module):
                  class_thres=0.5,
                  aggregation_method='mean',
                  train_labels=None,
+                 epsilon=1e-6,
                  **kwargs,):
         """
         Args:
@@ -646,6 +650,7 @@ class DimAcc_AD_module(torch.nn.Module):
         self.aggregation_method = aggregation_method
         self.train_labels = train_labels
         self.logreg = None
+        self.epsilon = epsilon
 
         if activation_fct == 'sigmoid':
             self.act = torch.nn.Sigmoid()
@@ -683,7 +688,8 @@ class DimAcc_AD_module(torch.nn.Module):
             scores_valid = gaussian_scoring(
                 obs=obs, cond_exp=cond_exp, cond_var=cond_var,
                 observed_dates=observed_dates,
-                scoring_metric=self.scoring_metric, replace_var=None)
+                scoring_metric=self.scoring_metric,
+                min_var_val=self.epsilon, replace_var=None)
             # scores : [nb_samples, nb_steps, dimension]
             scores_valid = scores_valid.squeeze(axis=3).transpose(1,0,2)
         elif self.distribution_class == 'beta':
@@ -693,7 +699,8 @@ class DimAcc_AD_module(torch.nn.Module):
             scores_valid = beta_scoring(
                 obs=obs, cond_exp=cond_exp, cond_var=cond_var,
                 observed_dates=observed_dates,
-                scoring_metric=self.scoring_metric, replace_var=None)
+                scoring_metric=self.scoring_metric,
+                min_var_val=self.epsilon, replace_var=None)
             # scores : [nb_samples, nb_steps, dimension]
             scores_valid = scores_valid.squeeze(axis=3).transpose(1,0,2)
 

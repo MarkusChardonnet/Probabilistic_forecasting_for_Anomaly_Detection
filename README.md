@@ -202,6 +202,7 @@ novel alpha diversity metric datasets:
 ```shell
 python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_novel_alpha_div_ids --ad_params=param_list_AD_microbial_novel_alpha_div --forecast_saved_models_path=AD_microbial_novel_alpha_div --compute_scores=True --evaluate_scores=True
 python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_rel_abund_ids --ad_params=param_list_AD_microbial_rel_abund --forecast_saved_models_path=AD_microbial_novel_alpha_div --compute_scores=True --evaluate_scores=True
+python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_joint_ids --ad_params=param_list_AD_microbial_joint --forecast_saved_models_path=AD_microbial_novel_alpha_div --compute_scores=True --evaluate_scores=True
 ```
 
 

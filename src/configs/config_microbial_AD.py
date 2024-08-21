@@ -215,10 +215,10 @@ param_dict_AD_microbial_joint = {
         'load_best': [True],
         'verbose': [True],
         'seed': [seed],
-        'scoring_distribution': ['normal'],
+        'scoring_distribution': ['t-3'],
         'scoring_metric': ['left-tail'],
         'epsilon': [1e-8],
-        'plot_cond_standardized_dist': [['normal', 'lognormal']],
+        'plot_cond_standardized_dist': [['normal', 't-3']],
         'only_jump_before_abx_exposure': [1,2,3],
         'aggregation_method': ['coord-0'],
 }

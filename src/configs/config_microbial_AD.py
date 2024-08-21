@@ -209,6 +209,33 @@ param_dict_AD_microbial_rel_abund = {
 param_list_AD_microbial_rel_abund += get_parameter_array(
         param_dict=param_dict_AD_microbial_rel_abund)
 
+AD_microbial_joint_ids = [46, 50,]
+param_list_AD_microbial_joint = []
+param_dict_AD_microbial_joint = {
+        'load_best': [True],
+        'verbose': [True],
+        'seed': [seed],
+        'scoring_distribution': ['normal'],
+        'scoring_metric': ['left-tail'],
+        'plot_cond_standardized_dist': [['normal', 'lognormal']],
+        'only_jump_before_abx_exposure': [1,2,3],
+        'aggregation_method': ['coord-0'],
+}
+param_list_AD_microbial_joint += get_parameter_array(
+        param_dict=param_dict_AD_microbial_joint)
+param_dict_AD_microbial_joint_1 = {
+        'load_best': [True],
+        'verbose': [True],
+        'seed': [seed],
+        'scoring_distribution': ['t-3'],
+        'scoring_metric': ['right-tail'],
+        'plot_cond_standardized_dist': [['normal', 't-3']],
+        'only_jump_before_abx_exposure': [1,2,3],
+        'aggregation_method': ['coord-1'],
+}
+param_list_AD_microbial_joint += get_parameter_array(
+        param_dict=param_dict_AD_microbial_joint_1)
+
 
 
 

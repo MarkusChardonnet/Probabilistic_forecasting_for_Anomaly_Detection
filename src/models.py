@@ -374,36 +374,34 @@ def compute_loss_ad_variance_bis2(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size,
     outer = 0
 
     if M_obs is None:
+        M_obs = torch.ones_like(X_obs)
 
-        # fitting true conditional expectation
-        inner = weights[0] * torch.sum(
-            (X_obs[:, idx_id] - Y_obs[:, idx_id]) ** 2, dim=1)
-        inner += weights[1] * torch.sum(
-            (Y_obs_bj[:, idx_id] - X_obs[:, idx_id]) ** 2, dim=1)
+    # fitting true conditional expectation
+    inner = weights[0] * torch.sum(
+        (X_obs[:, idx_id]*M_obs[:, idx_id] - Y_obs[:, idx_id]*M_obs[:, idx_id])** 2, dim=1)
+    inner += weights[1] * torch.sum(
+        (Y_obs_bj[:, idx_id]*M_obs[:, idx_id] - X_obs[:, idx_id]*M_obs[:, idx_id]) ** 2, dim=1)
 
-        # fitting true conditional expectation squared
-        inner += weights[2] * torch.sum(
-            (X_obs[:, idx_power2] - Y_obs[:, idx_power2]) ** 2, dim=1)
-        inner += weights[3] * torch.sum(
-            (Y_obs_bj[:, idx_power2] - X_obs[:, idx_power2]) ** 2, dim=1)
+    # fitting true conditional expectation squared
+    inner += weights[2] * torch.sum(
+        (X_obs[:, idx_power2]*M_obs[:, idx_power2] - Y_obs[:, idx_power2]*M_obs[:, idx_power2]) ** 2, dim=1)
+    inner += weights[3] * torch.sum(
+        (Y_obs_bj[:, idx_power2]*M_obs[:, idx_power2] - X_obs[:, idx_power2]*M_obs[:, idx_power2]) ** 2, dim=1)
 
-        # fitting true conditional variance (with respect to conditional expectation and expectation squared)
-        inner += weights[4] * torch.sum((Y_obs_bj[:, idx_var] - (
-                    Y_obs_bj[:, idx_id].detach() - X_obs[:, idx_id]) ** 2) ** 2,
-                                        dim=1)
-        inner += weights[5] * torch.sum((Y_obs_bj[:, idx_var] - (
-                    Y_obs_bj[:, idx_power2].detach() - Y_obs_bj[:,
-                                                       idx_id].detach() ** 2)) ** 2,
-                                        dim=1)
+    # fitting true conditional variance (with respect to conditional expectation and expectation squared)
+    inner += weights[4] * torch.sum(
+        (Y_obs_bj[:, idx_var]*M_obs[:, idx_var] -
+         ((Y_obs_bj[:, idx_id].detach() - X_obs[:, idx_id])*M_obs[:, idx_id]) ** 2) ** 2, dim=1)
+    inner += weights[5] * torch.sum(
+        (Y_obs_bj[:, idx_var]*M_obs[:, idx_var] -
+         (Y_obs_bj[:, idx_power2].detach() - Y_obs_bj[:,idx_id].detach() ** 2)*M_obs[:, idx_id]) ** 2, dim=1)
 
-        # enforcing conditional variance positiveness
-        inner += weights[6] * torch.sum(F.relu(- Y_obs_bj[:, idx_var]) ** 2,
-                                        dim=1)
+    # enforcing conditional variance positiveness
+    inner += weights[6] * torch.sum(F.relu(- Y_obs_bj[:, idx_var]) ** 2,
+                                    dim=1)
 
-        # enforcing zero conditional variance at observations
-        # inner += weights[7] * torch.sum(Y_obs[:, idx_var] ** 2, dim=1)
-    else:
-        NotImplementedError
+    # enforcing zero conditional variance at observations
+    # inner += weights[7] * torch.sum(Y_obs[:, idx_var] ** 2, dim=1)
 
     outer += torch.sum(inner / n_obs_ot)
     return outer / batch_size
@@ -426,27 +424,27 @@ def compute_loss_val_variance(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=
     inner = torch.zeros(4,X_obs.size(0)).to(device)
 
     if M_obs is None:
+        M_obs = torch.ones_like(X_obs)
 
-        # fitting conditional expectation
+    # fitting conditional expectation
+    # at observations
+    inner[0] += torch.sum(((X_obs[:,idx_id] - Y_obs[:,idx_id])*M_obs[:, idx_id]) ** 2, dim=1)
+    # before observations
+    inner[1] += torch.sum(((Y_obs_bj[:,idx_id] - X_obs[:,idx_id])*M_obs[:, idx_id]) ** 2, dim=1)
+
+    # fitting conditional variance
+    if 'var' in output_vars:
         # at observations
-        inner[0] += torch.sum((X_obs[:,idx_id] - Y_obs[:,idx_id]) ** 2, dim=1)
+        inner[2] += torch.sum((Y_obs[:,idx_var]*M_obs[:, idx_var]) ** 2, dim=1)
         # before observations
-        inner[1] += torch.sum((Y_obs_bj[:,idx_id] - X_obs[:,idx_id]) ** 2, dim=1)
-
-        # fitting conditional variance
-        if 'var' in output_vars:
-            # at observations
-            inner[2] += torch.sum(Y_obs[:,idx_var] ** 2, dim=1)
-            # before observations
-            inner[3] += torch.sum((Y_obs_bj[:,idx_var] - (Y_obs_bj[:,idx_id] - X_obs[:,idx_id]) ** 2) ** 2, dim=1)
-        else:
-            # at observations
-            inner[2] += torch.sum((Y_obs[:,idx_power2] - Y_obs[:,idx_id] ** 2) ** 2, dim=1)
-            # before observations
-            inner[3] += torch.sum(((Y_obs_bj[:,idx_power2] - Y_obs_bj[:,idx_id] ** 2) - (Y_obs_bj[:,idx_id] - X_obs[:,idx_id]) ** 2) ** 2, dim=1)
-
+        inner[3] += torch.sum(((Y_obs_bj[:,idx_var] - (Y_obs_bj[:,idx_id] - X_obs[:,idx_id]) ** 2)*M_obs[:, idx_id]) ** 2, dim=1)
     else:
-        NotImplementedError
+        # at observations
+        inner[2] += torch.sum(((Y_obs[:,idx_power2] - Y_obs[:,idx_id] ** 2)*M_obs[:, idx_id]) ** 2, dim=1)
+        # before observations
+        inner[3] += torch.sum((((Y_obs_bj[:,idx_power2] - Y_obs_bj[:,idx_id] ** 2) - (Y_obs_bj[:,idx_id] - X_obs[:,idx_id]) ** 2)*M_obs[:, idx_id]) ** 2, dim=1)
+
+
 
     outer += torch.sum(inner / n_obs_ot, dim=1)
     return outer / batch_size
@@ -1383,7 +1381,8 @@ class NJODE(torch.nn.Module):
 
     def forward(self, times, time_ptr, X, obs_idx, delta_t, T, start_X, S, start_S,
                 n_obs_ot, return_path=False, get_loss=True, until_T=False,
-                M=None, start_M=None, which_loss=None, dim_to=None,
+                M=None, start_M=None, M_S=None, start_M_S=None,
+                which_loss=None, dim_to=None,
                 predict_labels=None, return_classifier_out=False,
                 return_at_last_obs=False,
                 only_jump_before_abx_exposure=False,
@@ -1415,6 +1414,10 @@ class NJODE(torch.nn.Module):
                 size as X, with 0 or 1 entries
         :param start_M: None or torch.tensor, if not None: the mask for start_X,
                 same size as start_X
+        :param M_S: None or torch.tensor, if not None: the mask for the data, same
+                size as S, with 0 or 1 entries
+        :param start_M_S: None or torch.tensor, if not None: the mask for start_S,
+                same size as start_S
         :param which_loss: see train.train, to overwrite which loss for eval
         :param dim_to: None or int, if given not all coordinates along the
                 data-dimension axis are used but only up to dim_to. this can be
@@ -1469,12 +1472,12 @@ class NJODE(torch.nn.Module):
 
         if self.input_sig:
             if self.masked:
-                Mdc = M.clone()
+                Mdc = M_S.clone()
                 Mdc[Mdc==0] = np.nan
-                X_obs_impute = X * Mdc
+                S_obs_impute = S * Mdc
                 signature = self.get_signature(
-                    times=times, time_ptr=time_ptr, X=X_obs_impute,
-                    obs_idx=obs_idx, start_X=start_X)
+                    times=times, time_ptr=time_ptr, X=S_obs_impute,
+                    obs_idx=obs_idx, start_X=start_S)
             else:
                 signature = self.get_signature(
                     times=times, time_ptr=time_ptr, X=S, obs_idx=obs_idx,
@@ -1697,6 +1700,7 @@ class NJODE(torch.nn.Module):
                  diff_fun=lambda x, y: np.nanmean((x - y) ** 2),
                  diff_fun_std=lambda x, y: np.nanstd((x - y) ** 2),
                  return_paths=False, M=None, true_paths=None, start_M=None,
+                 M_S=None, start_M_S=None,
                  true_mask=None, eval_vars=['exp']):
         """
         evaluate the model at its current training state against the true
@@ -1732,7 +1736,7 @@ class NJODE(torch.nn.Module):
             times, time_ptr, X, obs_idx, delta_t, T, start_X,
             S, start_S, n_obs_ot,
             return_path=True, get_loss=False, until_T=True, M=M,
-            start_M=start_M)
+            start_M=start_M, M_S=M_S, start_M_S=start_M_S)
 
         if true_paths is None:
             if M is not None:
@@ -1830,7 +1834,8 @@ class NJODE(torch.nn.Module):
             return eval_loss
 
     def get_pred(self, times, time_ptr, X, obs_idx, delta_t, T, start_X,
-                 S, start_S, M=None, start_M=None, abx_exposure=None,
+                 S, start_S, M=None, start_M=None, M_S=None, start_M_S=None,
+                 abx_exposure=None,
                  only_jump_before_abx_exposure=False):
         """
         get predicted path
@@ -1854,6 +1859,7 @@ class NJODE(torch.nn.Module):
             delta_t=delta_t, T=T, start_X=start_X, n_obs_ot=None,
             return_path=True, get_loss=False, until_T=True, M=M,
             start_M=start_M, S=S, start_S=start_S,
+            M_S=M_S, start_M_S=start_M_S,
             only_jump_before_abx_exposure=only_jump_before_abx_exposure,
             ABX_EXPOSURE=abx_exposure)
         return {'pred': path_y, 'pred_t': path_t}

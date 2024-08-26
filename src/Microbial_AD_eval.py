@@ -103,11 +103,16 @@ makedirs = config.makedirs
 
 def get_model_predictions(
         dl, device, forecast_model, output_vars, T, delta_t, dimension,
-        only_jump_before_abx_exposure=False):
+        only_jump_before_abx_exposure=False, use_only_dyn_ft_as_input=None,
+        add_dynamic_cov=False,):
     """
     Get the NJODE model predictions for the given dataset
     """
     b = next(iter(dl))
+
+    if use_only_dyn_ft_as_input == "before_nth_abx_exposure":
+        only_jump_before_abx_exposure = False
+        masked = True
 
     times = b["times"]
     time_ptr = b["time_ptr"]
@@ -117,6 +122,27 @@ def get_model_predictions(
     start_X = b["start_X"].to(device)
     start_Z = b["start_Z"].to(device)
     start_S = b["start_S"].to(device)
+    M_X = b["M_X"]
+    M_Z = b["M_Z"]
+    M_S = b["M_S"]
+    start_M_X = b["start_M_X"]
+    start_M_Z = b["start_M_Z"]
+    start_M_S = b["start_M_S"]
+    M = None
+    start_M = None
+    if masked:
+        M_X = M_X.to(device)
+        M_Z = M_Z.to(device)
+        M_S = M_S.to(device)
+        start_M_X = start_M_X.to(device)
+        start_M_Z = start_M_Z.to(device)
+        start_M_S = start_M_S.to(device)
+        if add_dynamic_cov:
+            M = torch.cat((M_X, M_Z), dim=1)
+            start_M = torch.cat((start_M_X, start_M_Z), dim=1)
+        else:
+            M = M_X
+            start_M = start_M_X
     obs_idx = b["obs_idx"]
     n_obs_ot = b["n_obs_ot"].to(device)
     observed_dates = np.transpose(b['observed_dates'], (1, 0)).astype(np.bool)
@@ -125,13 +151,17 @@ def get_model_predictions(
     abx_labels = b["abx_observed"]
     host_id = b["host_id"]
     abx_exposure = b["abx_exposure"]
+    if add_dynamic_cov:
+        X = torch.cat((X, Z), dim=1)
+        start_X = torch.cat((start_X, start_Z), dim=1)
 
     with torch.no_grad():
         res = forecast_model.get_pred(
-            times=times, time_ptr=time_ptr, X=torch.cat((X, Z), dim=1),
+            times=times, time_ptr=time_ptr, X=X,
             obs_idx=obs_idx, delta_t=None, S=S, start_S=start_S,
-            T=T, start_X=torch.cat((start_X, start_Z), dim=1),
+            T=T, start_X=start_X,
             abx_exposure=abx_exposure,
+            M=M, start_M=start_M, M_S=M_S, start_M_S=start_M_S,
             only_jump_before_abx_exposure=only_jump_before_abx_exposure)
         path_y_pred = res['pred'].detach().cpu().numpy()
         path_t_pred = res['pred_t']
@@ -360,9 +390,10 @@ def compute_scores(
     makedirs(scores_path)
 
     # get params_dict
-    forecast_params_dict, collate_fn = get_forecast_model_param_dict(
-        **forecast_param
-    )
+    (forecast_params_dict, collate_fn,
+     use_only_dyn_ft_as_input, add_dynamic_cov) = get_forecast_model_param_dict(
+        **forecast_param,
+        only_jump_before_abx_exposure=only_jump_before_abx_exposure)
     output_vars = forecast_params_dict['output_vars']
 
     forecast_model = models.NJODE(
@@ -389,7 +420,9 @@ def compute_scores(
         get_model_predictions(
             dl_train, device, forecast_model, output_vars, T, delta_t,
             dimension,
-            only_jump_before_abx_exposure=only_jump_before_abx_exposure)
+            only_jump_before_abx_exposure=only_jump_before_abx_exposure,
+            use_only_dyn_ft_as_input=use_only_dyn_ft_as_input,
+            add_dynamic_cov=add_dynamic_cov)
     if use_replace_values:
         replace_values = get_replace_forecast_values(
             cond_moments=cond_moments[abx_labels == 0],
@@ -471,7 +504,9 @@ def compute_scores(
     cond_moments, observed_dates, true_X, abx_labels, host_id = \
         get_model_predictions(
             dl_val, device, forecast_model, output_vars, T, delta_t, dimension,
-            only_jump_before_abx_exposure=only_jump_before_abx_exposure)
+            only_jump_before_abx_exposure=only_jump_before_abx_exposure,
+            use_only_dyn_ft_as_input=use_only_dyn_ft_as_input,
+            add_dynamic_cov=add_dynamic_cov)
     obs = true_X.transpose(2, 0, 1)
     ad_scores = ad_module(obs, cond_moments, observed_dates)
     with open('{}val_ad_scores_{}.npy'.format(
@@ -675,6 +710,7 @@ def get_forecast_model_param_dict(
         solver="euler",
         weight=0.5, 
         weight_decay=1.,
+        only_jump_before_abx_exposure=False,
         **options):
     
     data_train = data_utils.MicrobialDataset(dataset_name=dataset)
@@ -710,22 +746,32 @@ def get_forecast_model_param_dict(
     zero_weight_init = False
     if 'zero_weight_init' in options:
         zero_weight_init = options['zero_weight_init']
+    use_only_dyn_ft_as_input = None
+    if 'use_only_dyn_ft_as_input' in options:
+        use_only_dyn_ft_as_input = options['use_only_dyn_ft_as_input']
+        if use_only_dyn_ft_as_input is not None:
+            use_only_dyn_ft_as_input = "before_nth_abx_exposure"
+    add_dynamic_cov = False
+    if 'add_dynamic_cov' in options:
+        add_dynamic_cov = options['add_dynamic_cov']
 
     # specify the input and output variables of the model, as function of X
     input_vars = ['id']
     output_vars = ['id']
     if 'func_appl_X' in options:  # list of functions to apply to the paths in X
         functions = options['func_appl_X']
-        collate_fn, mult = data_utils.MicrobialCollateFnGen(functions) #, scaling_factor=data_scaling_factor)
-        collate_fn_val, _ = data_utils.MicrobialCollateFnGen(functions)
+        collate_fn, mult = data_utils.MicrobialCollateFnGen(
+            functions, use_only_dyn_ft_as_input=use_only_dyn_ft_as_input,
+            only_jump_before_abx_exposure=only_jump_before_abx_exposure)
         input_size = input_size * mult
         output_size = output_size * mult
         output_vars += functions
         input_vars += functions
     else:
         functions = None
-        collate_fn, mult = data_utils.MicrobialCollateFnGen(None) #, scaling_factor=data_scaling_factor)
-        collate_fn_val, _ = data_utils.MicrobialCollateFnGen(None)
+        collate_fn, mult = data_utils.MicrobialCollateFnGen(
+            None, use_only_dyn_ft_as_input=use_only_dyn_ft_as_input,
+            only_jump_before_abx_exposure=only_jump_before_abx_exposure)
         mult = 1
     # if we predict additional variables (the output size gets bigger than input size)
     if 'add_pred' in options:
@@ -750,7 +796,7 @@ def get_forecast_model_param_dict(
         'sigf_size': dimension_sig_feat,
         'options': options}
 
-    return params_dict, collate_fn
+    return params_dict, collate_fn, use_only_dyn_ft_as_input, add_dynamic_cov
 
 
 

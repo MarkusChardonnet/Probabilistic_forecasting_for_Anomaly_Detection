@@ -997,18 +997,18 @@ def MicrobialCollateFnGen(func_names=None, use_only_dyn_ft_as_input=None,
     mult = len(functions) + 1
 
     if use_only_dyn_ft_as_input is None:
-        use_only_dyn_ft_as_input = None
+        use_only_dyn_ft_as_input_func = None
     elif isinstance(use_only_dyn_ft_as_input, bool):
-        use_only_dyn_ft_as_input = \
+        use_only_dyn_ft_as_input_func = \
             lambda x, y: np.random.random(x) > use_only_dyn_ft_as_input
     elif isinstance(use_only_dyn_ft_as_input, float):
-        use_only_dyn_ft_as_input = \
+        use_only_dyn_ft_as_input_func = \
             lambda x, y: np.random.random(x) > use_only_dyn_ft_as_input
     elif use_only_dyn_ft_as_input == "before_nth_abx_exposure":
         if only_jump_before_abx_exposure in [None, False]:
             only_jump_before_abx_exposure = 0
         only_jump_before_abx_exposure = int(only_jump_before_abx_exposure)
-        use_only_dyn_ft_as_input = \
+        use_only_dyn_ft_as_input_func = \
             lambda x, y: y < only_jump_before_abx_exposure
 
     def microbial_collate_fn(batch):
@@ -1036,7 +1036,7 @@ def MicrobialCollateFnGen(func_names=None, use_only_dyn_ft_as_input=None,
             dim_X = stock_paths.shape[1]
             dim_Z = dynamic_features.shape[1]
             dim_S = signature_features.shape[1]
-            observed_dates_X = use_only_dyn_ft_as_input(
+            observed_dates_X = use_only_dyn_ft_as_input_func(
                 observed_dates.shape, abx_exposure)
             observed_dates_X = observed_dates_X * observed_dates
             observed_dates_X[:, 0] = 1

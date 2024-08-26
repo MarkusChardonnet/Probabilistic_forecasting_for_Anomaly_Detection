@@ -1370,8 +1370,10 @@ class NJODE(torch.nn.Module):
             X_add = torch.tensor(np.random.uniform(size=(batch_size,self.input_size - X_in.size(1)))).to(self.device)
             X_in = torch.cat((X_in, X_add),dim=1)
 
+        M = torch.ones_like(X_in)
+
         h = self.encoder_map(
-                X_in, sig=sig, h=h,
+                X_in, sig=sig, h=h, mask=M,
                 t=torch.cat((tau, t), dim=1))
         Y = self.apply_readout_map(h)
 
@@ -1584,8 +1586,7 @@ class NJODE(torch.nn.Module):
                 X_obs_impute = X_obs
                 temp = h.clone()
                 if self.masked:
-                    X_obs_impute = X_obs * M_obs + (torch.ones_like(
-                        M_obs.long()) - M_obs) * Y_bj[i_obs.long()]
+                    X_obs_impute = X_obs * M_obs
                 c_sig_iobs = None
                 if self.input_sig:
                     c_sig_iobs = c_sig[i_obs]
@@ -1622,10 +1623,7 @@ class NJODE(torch.nn.Module):
             if use_as_input:
                 temp_X = last_X.clone()
                 temp_tau = tau.clone()
-                if self.masked and self.use_y_for_ode:
-                    temp_X[i_obs.long()] = Y[i_obs.long()]
-                else:
-                    temp_X[i_obs.long()] = X_obs_impute
+                temp_X[i_obs.long()] = X_obs_impute
                 if self.coord_wise_tau:
                     _M = torch.zeros_like(temp_tau)
                     _M[i_obs] = M_obs

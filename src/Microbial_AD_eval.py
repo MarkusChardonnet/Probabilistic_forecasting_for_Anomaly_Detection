@@ -283,7 +283,7 @@ def compute_scores(
         send=False,
         use_replace_values=False,
         dirichlet_use_coord=None,
-        aggregation_method='mean',
+        aggregation_method="coord-0",
         scoring_metric='p-value',
         only_jump_before_abx_exposure=False,
         plot_cond_standardized_dist=[],
@@ -471,8 +471,9 @@ def compute_scores(
     # train data
     obs = true_X.transpose(2, 0, 1)
     ad_scores = ad_module(obs, cond_moments, observed_dates)
-    with open('{}train_ad_scores_{}.npy'.format(
-            scores_path, int(only_jump_before_abx_exposure)), 'wb') as f:
+    with open('{}train_ad_scores_{}_{}.npy'.format(
+            scores_path, int(only_jump_before_abx_exposure),
+            aggregation_method), 'wb') as f:
         np.save(f, ad_scores)
         np.save(f, abx_labels)
         np.save(f, host_id)
@@ -481,12 +482,12 @@ def compute_scores(
     cols = ['host_id', 'abx'] + ['ad_score_day-{}'.format(i+starting_date)
                                  for i in range(ad_scores.shape[1])]
     df = pd.DataFrame(data, columns=cols)
-    csvpath = '{}train_ad_scores_{}.csv'.format(
-        scores_path, only_jump_before_abx_exposure)
+    csvpath = '{}train_ad_scores_{}_{}.csv'.format(
+        scores_path, only_jump_before_abx_exposure, aggregation_method)
     df.to_csv(csvpath, index=False)
 
     filepaths = []
-    if aggregation_method.startswith("coord-"):
+    if aggregation_method is not None and aggregation_method.startswith("coord-"):
         which_coord = int(aggregation_method.split("-")[1])
     else:
         which_coord = 0
@@ -510,8 +511,9 @@ def compute_scores(
             add_dynamic_cov=add_dynamic_cov)
     obs = true_X.transpose(2, 0, 1)
     ad_scores = ad_module(obs, cond_moments, observed_dates)
-    with open('{}val_ad_scores_{}.npy'.format(
-            scores_path, only_jump_before_abx_exposure), 'wb') as f:
+    with open('{}val_ad_scores_{}_{}.npy'.format(
+            scores_path, only_jump_before_abx_exposure,
+            aggregation_method), 'wb') as f:
         np.save(f, ad_scores)
         np.save(f, abx_labels)
         np.save(f, host_id)
@@ -520,8 +522,8 @@ def compute_scores(
     cols = ['host_id', 'abx'] + ['ad_score_day-{}'.format(i+starting_date)
                                  for i in range(ad_scores.shape[1])]
     df = pd.DataFrame(data, columns=cols)
-    csvpath_val = '{}val_ad_scores_{}.csv'.format(
-        scores_path, only_jump_before_abx_exposure)
+    csvpath_val = '{}val_ad_scores_{}_{}.csv'.format(
+        scores_path, only_jump_before_abx_exposure, aggregation_method)
     df.to_csv(csvpath_val, index=False)
     
     if plot_cond_standardized_dist is not None:
@@ -577,6 +579,7 @@ def evaluate_scores(
     send=False,
     dataset=None,
     only_jump_before_abx_exposure=False,
+    aggregation_method="coord-0",
     **options,
 ):
     """
@@ -596,8 +599,8 @@ def evaluate_scores(
     ad_path = "{}anomaly_detection/".format(forecast_model_path)
     which = "best" if load_best else "last"
     scores_path = "{}scores_{}/".format(ad_path, which)
-    evaluation_path = "{}evaluation_{}_{}/".format(
-        ad_path, which, only_jump_before_abx_exposure)
+    evaluation_path = "{}evaluation_{}_{}_{}/".format(
+        ad_path, which, only_jump_before_abx_exposure, aggregation_method)
     makedirs(evaluation_path)
 
 
@@ -606,7 +609,8 @@ def evaluate_scores(
     for split in ["train", "val"]:
         # load scores
         ad_scores = pd.read_csv(
-            f"{scores_path}{split}_ad_scores_{only_jump_before_abx_exposure}.csv")
+            f"{scores_path}{split}_ad_scores_{only_jump_before_abx_exposure}"
+            f"_{aggregation_method}.csv")
         score_cols = [x for x in ad_scores.columns if x.startswith("ad_score_day-")]
 
         # plot histograms

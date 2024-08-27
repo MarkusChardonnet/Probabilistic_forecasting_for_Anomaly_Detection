@@ -1,4 +1,4 @@
-import os 
+import os
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -11,7 +11,7 @@ plt.rcParams.update({"font.family": "DejaVu Sans"})
 plt.style.use("tableau-colorblind10")
 
 
-def _transform_scores(scores_wide: pd.DataFrame, days_per_month=30.437) -> pd.DataFrame:
+def _transform_scores(scores_wide: pd.DataFrame) -> pd.DataFrame:
     """Transform scores_wide from wide to long"""
     scores = scores_wide.melt(
         id_vars=["host_id", "abx"], var_name="day", value_name="score"
@@ -19,10 +19,29 @@ def _transform_scores(scores_wide: pd.DataFrame, days_per_month=30.437) -> pd.Da
     scores["day"] = scores["day"].str.extract(r"ad_score_day-(\d+)")[0].astype(int)
     scores.sort_values(["abx", "host_id", "day"], inplace=True)
 
-    # bin by month
+    return scores
+
+
+def _add_month_bins(scores: pd.DataFrame, days_per_month=30.437) -> pd.DataFrame:
+    """Add month bins to scores"""
     scores["month_bin"] = (scores["day"] / days_per_month).round().astype(int)
     scores["month5_bin"] = (scores["day"] / days_per_month * 2).round() / 2
     return scores
+
+
+def _get_all_scores(path_to_scores, split="train"):
+    """Get all split scores for all multi-step predictions from path_to_scores"""
+    scores = []
+    for i in range(1, 4):
+        scores.append(pd.read_csv(f"{path_to_scores}{split}_ad_scores_{i}.csv"))
+    scores_t = [_transform_scores(x) for x in scores]
+    scores_all = scores_t[0].copy()
+    scores_all = scores_all.join(scores_t[1][["score"]], rsuffix="_2", how="left")
+    scores_all = scores_all.join(scores_t[2][["score"]], rsuffix="_3", how="left")
+    scores_all.rename(columns={"score": "score_1"}, inplace=True)
+
+    scores_all = _add_month_bins(scores_all)
+    return scores_all
 
 
 def _create_subplot(
@@ -41,9 +60,7 @@ def _create_subplot(
     min_x = data[x_axis].min()
     max_x = data[x_axis].max()
     range_x = np.arange(min_x, max_x + 1)
-    data[f"{x_axis}_cat"] = pd.Categorical(
-        data[x_axis], categories=range_x
-    )
+    data[f"{x_axis}_cat"] = pd.Categorical(data[x_axis], categories=range_x)
     sns.boxplot(x=f"{x_axis}_cat", y=y_axis, data=data, ax=axs[0], color="skyblue")
 
     axs[0].set_title(title)
@@ -74,7 +91,7 @@ def _create_subplot(
                     sign = "*"
 
                 if p_val < 0.1:
-                    max_y = data["score"].max()
+                    max_y = data[y_axis].max()
                     axs[0].text(
                         t1 + zero_index,
                         y_shift * max_y,
@@ -141,9 +158,10 @@ def _create_subplot(
     return fig, axs
 
 
-def _plot_score_over_age(df: pd.DataFrame, flag: str, path_to_save: str) -> str:
+def _plot_score_over_age(
+    df: pd.DataFrame, y_axis: str, flag: str, path_to_save: str
+) -> str:
     x_axis = "month_bin"
-    y_axis = "score"
 
     title = flag
     ylabel = f"# samples w {y_axis}"
@@ -151,9 +169,8 @@ def _plot_score_over_age(df: pd.DataFrame, flag: str, path_to_save: str) -> str:
 
     fig, _ = _create_subplot(x_axis, y_axis, df, title, ylabel, xlabel)
 
-    path_to_plot = f"{path_to_save}score_over_age_{flag}.pdf"
+    path_to_plot = f"{path_to_save}score_over_age_{flag}_{y_axis}.pdf"
     plt.savefig(path_to_plot)
-    plt.close()
     return path_to_plot
 
 
@@ -166,7 +183,14 @@ def _get_abx_info(path_to_abx_ts: str) -> pd.DataFrame:
 
 
 def _select_samples_around_nth_abx_exposure(
-        md_df, abx_df, n=1, min_samples=-3.0, max_samples=12.0, group_samples=False):
+    md_df,
+    abx_df,
+    n=1,
+    min_samples=-3.0,
+    max_samples=12.0,
+    group_samples=False,
+    score_var="score",
+):
     """
     Get observed samples around n-th abx exposure (n=1 is first abx exposure, n=2 is
     second etc.)
@@ -179,6 +203,7 @@ def _select_samples_around_nth_abx_exposure(
         max_samples (float, optional): Maximum months after n-th abx exposure.
         group_samples (bool, optional): If True, group samples from min_samples to
         -1 to one bucket.
+        score_var (str, optional): Column name of score value to be used.
 
     Returns:
         pd.DataFrame: Dataframe with observed samples around n-th abx exposure.
@@ -224,23 +249,34 @@ def _select_samples_around_nth_abx_exposure(
         {-0.0: 0.0}
     )
     # remove samples with no observed features
-    abx_nth_samples = abx_nth_samples.dropna(subset=["score"])
+    abx_nth_samples = abx_nth_samples.dropna(subset=[score_var])
 
     # select last sample prior to abx exposure in range_to_group
     if group_samples:
         range_to_group = [float(x) for x in range(int(min_samples), 0, 1)]
         # select samples to group + to keep
-        scores_to_keep = abx_nth_samples[~abx_nth_samples["diff_age_nth_abx"].isin(range_to_group)].copy()
-        scores_to_group = abx_nth_samples[abx_nth_samples["diff_age_nth_abx"].isin(range_to_group)].copy()
-        assert(scores_to_keep.shape[0] + scores_to_group.shape[0] == abx_nth_samples.shape[0])
+        scores_to_keep = abx_nth_samples[
+            ~abx_nth_samples["diff_age_nth_abx"].isin(range_to_group)
+        ].copy()
+        scores_to_group = abx_nth_samples[
+            abx_nth_samples["diff_age_nth_abx"].isin(range_to_group)
+        ].copy()
+        assert (
+            scores_to_keep.shape[0] + scores_to_group.shape[0]
+            == abx_nth_samples.shape[0]
+        )
 
         # in scores_to_group select last sample prior to abx expsosure per host_id
         scores_to_group.sort_values(by=["host_id", "diff_age_nth_abx"], inplace=True)
-        selected_samples = scores_to_group.loc[scores_to_group.groupby('host_id')['diff_age_nth_abx'].idxmax()]
+        selected_samples = scores_to_group.loc[
+            scores_to_group.groupby("host_id")["diff_age_nth_abx"].idxmax()
+        ]
         # replace all values from range_to_group with -1
         for i in range_to_group:
-            selected_samples["diff_age_nth_abx"] = selected_samples["diff_age_nth_abx"].replace(i, -1.0)
-        
+            selected_samples["diff_age_nth_abx"] = selected_samples[
+                "diff_age_nth_abx"
+            ].replace(i, -1.0)
+
         # append both groups and resort
         abx_nth_samples = pd.concat([scores_to_keep, selected_samples])
         abx_nth_samples.sort_values(["abx", "host_id", "day"], inplace=True)
@@ -342,10 +378,10 @@ def _plot_score_after_nth_abx_exposure(
 
     # perform paired/unpaired significance tests
     if grouped_samples:
-        t1_values = [x for x in range(int(-1.0), int(max_samples+1))]
+        t1_values = [x for x in range(int(-1.0), int(max_samples + 1))]
     else:
-        t1_values = [x for x in range(int(min_samples), int(max_samples+1))]
-    significance_df = perform_significance_tests(data, -1.0, t1_values, "score")
+        t1_values = [x for x in range(int(min_samples), int(max_samples + 1))]
+    significance_df = perform_significance_tests(data, -1.0, t1_values, y_axis)
 
     title = f"Score before/after {n}{suff} abx exposure: {tag}"
     ylabel = f"# samples w {y_axis}"
@@ -366,17 +402,18 @@ def _plot_score_after_nth_abx_exposure(
 
 def display_scatterplot_w_scores(dic_to_plot, hide_ylabel_thickmarks=True):
     """
-    dic_to_plot: dictionary with label and two dataframes as values (md + abx)
+    dic_to_plot: dictionary with label and as values: one score_col str and two
+    dataframes(md + abx)
     hide_ylabel_thickmarks: hiding thickmarks of y-axis for slides
     """
-
+    n_subplots = len(dic_to_plot)
     if hide_ylabel_thickmarks:
         plt.rcParams.update({"font.size": 6.5})
-        fig, axs = plt.subplots(1, 3, figsize=(8, 6), sharex=True, dpi=400)
+        fig, axs = plt.subplots(1, n_subplots, figsize=(8, 6), sharex=True, dpi=400)
         markersize = 8
     else:
         plt.rcParams.update({"font.size": 6})
-        fig, axs = plt.subplots(1, 3, figsize=(9, 10), sharex=True, dpi=400)
+        fig, axs = plt.subplots(1, n_subplots, figsize=(9, 10), sharex=True, dpi=400)
         markersize = 10
 
     i = 0
@@ -384,23 +421,28 @@ def display_scatterplot_w_scores(dic_to_plot, hide_ylabel_thickmarks=True):
     # Create a custom colormap that goes from green to red
     cmap = LinearSegmentedColormap.from_list("green_to_red", ["green", "yellow", "red"])
 
-    for title, df in dic_to_plot.items():
+    ls_score_cols = []
+    for title, v in dic_to_plot.items():
+        score_col = v[0]
+        ls_score_cols.append(score_col)
+        df = v[1]
+        abx = v[2]
         # samples
         scatter1 = sns.scatterplot(
             x="month5_bin",
             y="host_id",
-            hue="score",
-            data=df[0],
+            hue=score_col,
+            data=df,
             ax=axs[i],
             s=markersize,
             palette=cmap,
         )
-        if df[1] is not None:
+        if abx is not None:
             # abx events
             sns.scatterplot(
                 x="abx_start_age_months",
                 y="host_id",
-                data=df[1],
+                data=abx,
                 ax=axs[i],
                 s=markersize * 1.5,
                 marker="x",
@@ -408,7 +450,7 @@ def display_scatterplot_w_scores(dic_to_plot, hide_ylabel_thickmarks=True):
                 label="abx event",
             )
 
-        axs[i].set_title(f"Hosts {title} ({df[0].host_id.nunique()})")
+        axs[i].set_title(f"Hosts {title} ({df.host_id.nunique()}) - {score_col}")
         axs[i].set_xlabel("Age [months]")
         axs[i].set_ylabel("Host ID")
         axs[i].margins(y=0.005)
@@ -421,7 +463,9 @@ def display_scatterplot_w_scores(dic_to_plot, hide_ylabel_thickmarks=True):
         i += 1
 
     # Create a colorbar legend
-    norm = plt.Normalize(df[0]["score"].min(), df[0]["score"].max())
+    # # ! note all scores have same range (min-max) here - so one legend is enough
+    # TODO: verify it this remains true
+    norm = plt.Normalize(df[score_col].min(), df[score_col].max())
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
     sm.set_array([])
 
@@ -429,7 +473,7 @@ def display_scatterplot_w_scores(dic_to_plot, hide_ylabel_thickmarks=True):
     scatter1.get_legend().remove()
 
     # Add the colorbar legend
-    axs[2].figure.colorbar(sm, ax=axs[2], label="Inferred score")
+    axs[2].figure.colorbar(sm, ax=axs[2], label="Inferred scores")
 
     plt.suptitle("Inferred scores over time", fontsize=10, y=1.0)
     plt.tight_layout()
@@ -441,11 +485,33 @@ def display_scatterplot_w_scores(dic_to_plot, hide_ylabel_thickmarks=True):
     plt.show()
 
 
-def plot_trajectory(df, abx_events, host_id, y_axis):
+def plot_trajectory(df, abx_events, host_id, score_cols=["score"], jitter=False):
     host_data = df[df["host_id"] == host_id]
 
     plt.figure(figsize=(10, 6))
-    sns.lineplot(x="month5_bin", y=y_axis, data=host_data, marker="o")
+    for score_col in score_cols:
+        if jitter:
+            jitter_amount = 0.11
+            jittered_y = host_data[score_col] + np.random.normal(
+                0, jitter_amount, size=host_data.shape[0]
+            )
+            sns.lineplot(
+                x="month5_bin",
+                y=jittered_y,
+                data=host_data,
+                marker="o",
+                label=score_col,
+                alpha=0.7,
+            )
+        else:
+            sns.lineplot(
+                x="month5_bin",
+                y=score_col,
+                data=host_data,
+                marker="o",
+                label=score_col,
+                alpha=0.7,
+            )
 
     # Plot ABX events
     if abx_events is not None:
@@ -458,9 +524,9 @@ def plot_trajectory(df, abx_events, host_id, y_axis):
                 label="abx event" if idx == 0 else None,
             )
 
-    plt.title(f"{y_axis} Trajectory Over Time for Host ID: {host_id}")
+    plt.title(f"Trajectory Over Time for Host ID: {host_id}")
     plt.xlabel("Age [months]")
-    plt.ylabel(y_axis)
+    plt.ylabel("Score")
     plt.grid(True)
 
     # Add legend manually

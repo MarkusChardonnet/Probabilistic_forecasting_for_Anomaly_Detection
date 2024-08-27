@@ -1567,8 +1567,8 @@ class NJODE(torch.nn.Module):
 
             # update signature
             if self.input_sig:
-                for j in i_obs:
-                    if M_S_obs is None or M_S_obs[j].sum() > 0:
+                for ij, j in enumerate(i_obs):
+                    if M_S_obs is None or M_S_obs[ij].sum() > 0:
                         current_sig[j, :] = signature[j][current_sig_nb[j]]
                         current_sig_nb[j] += 1
                 if use_as_input:

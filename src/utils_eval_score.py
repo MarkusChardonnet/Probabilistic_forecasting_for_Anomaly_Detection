@@ -230,7 +230,9 @@ def _select_samples_around_nth_abx_exposure(
     abx_nth_samples = all_samples.loc[
         np.logical_and(
             ~all_samples["diff_age_nth_abx"].isna(),
-            all_samples["abx_any_cumcount"] <= (n + 1),
+            # really only samples around this n-th exposure
+            np.logical_and(all_samples["abx_any_cumcount"] <= (n + 1),
+                           all_samples["abx_any_cumcount"] >= n)
         ),
         :,
     ]

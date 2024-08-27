@@ -295,27 +295,28 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
             np.save(f, val_idx)
 
     ### SCALING ###
-    if compute_scaling_on == 'train':
-        dat = paths[train_idx]
-        dat_obs = observed_dates[train_idx]
-    elif compute_scaling_on == 'all':
-        dat = paths
-        dat_obs = observed_dates
-    elif compute_scaling_on == 'train-noabx':
-        dat = paths[noabx_train_idx]
-        dat_obs = observed_dates[noabx_train_idx]
-    else:
-        raise ValueError("Unknown scaling computation set")
-    for dim in range(paths.shape[1]):
-        if scaling in ['mean']:
-            mean = np.mean(dat[:, dim, :][dat_obs == 1])
-            paths[:,dim,:] /= mean
-        elif scaling in ['minmax']:
-            min_ = np.min(dat[:, dim, :][dat_obs == 1])
-            max_ = np.max(dat[:, dim, :][dat_obs == 1])
-            paths[:,dim,:] = (paths[:,dim,:] - min_) / (max_ - min_)
+    if scaling:
+        if compute_scaling_on == 'train':
+            dat = paths[train_idx]
+            dat_obs = observed_dates[train_idx]
+        elif compute_scaling_on == 'all':
+            dat = paths
+            dat_obs = observed_dates
+        elif compute_scaling_on == 'train-noabx':
+            dat = paths[noabx_train_idx]
+            dat_obs = observed_dates[noabx_train_idx]
         else:
-            raise ValueError("Unknown scaling method")
+            raise ValueError("Unknown scaling computation set")
+        for dim in range(paths.shape[1]):
+            if scaling in ['mean']:
+                mean = np.mean(dat[:, dim, :][dat_obs == 1])
+                paths[:,dim,:] /= mean
+            elif scaling in ['minmax']:
+                min_ = np.min(dat[:, dim, :][dat_obs == 1])
+                max_ = np.max(dat[:, dim, :][dat_obs == 1])
+                paths[:,dim,:] = (paths[:,dim,:] - min_) / (max_ - min_)
+            else:
+                raise ValueError("Unknown scaling method")
 
     ### SAVING FILES ###
     with open(os.path.join(dataset_path, 'data.npy'), 'wb') as f:

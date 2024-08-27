@@ -1542,10 +1542,13 @@ class NJODE(torch.nn.Module):
             if self.masked:
                 if isinstance(M, np.ndarray):
                     M_obs = torch.from_numpy(M[start:end]).to(self.device)
+                    M_S_obs = torch.from_numpy(M_S[start:end]).to(self.device)
                 else:
                     M_obs = M[start:end]
+                    M_S_obs = M_S[start:end]
             else:
                 M_obs = None
+                M_S_obs = None
 
             # only update the model before the n-th antibiotics exposure
             if only_jump_before_abx_exposure > 0:
@@ -1565,8 +1568,9 @@ class NJODE(torch.nn.Module):
             # update signature
             if self.input_sig:
                 for j in i_obs:
-                    current_sig[j, :] = signature[j][current_sig_nb[j]]
-                current_sig_nb[i_obs] += 1
+                    if M_S_obs is None or M_S_obs[j].sum() > 0:
+                        current_sig[j, :] = signature[j][current_sig_nb[j]]
+                        current_sig_nb[j] += 1
                 if use_as_input:
                     # TODO: this is not fully correct, since if we didn't
                     #   use some intermediate observations, the signature still

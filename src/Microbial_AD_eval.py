@@ -110,6 +110,7 @@ def get_model_predictions(
     """
     b = next(iter(dl))
 
+    masked = False
     if use_only_dyn_ft_as_input == "before_nth_abx_exposure":
         only_jump_before_abx_exposure = False
         masked = True

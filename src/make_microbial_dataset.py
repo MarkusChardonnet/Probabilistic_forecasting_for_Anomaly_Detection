@@ -137,7 +137,7 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
 
     abx_any = np.zeros(nb_host, dtype=np.bool_)  # whether the host has any abx exposure
     abx_observed = np.zeros(nb_host, dtype=np.bool_)  # whether the abx exposure was observed, i.e., at least one sample was taken after the exposure
-    abx_exposure = np.zeros((nb_host,sample_age_days_max+1), dtype=np.bool_)  # whether the host has already been exposed to abx at a given observation time (0 if not an observation time, i.e., if no sample was taken at this time)
+    abx_exposure = np.zeros((nb_host,sample_age_days_max+1), dtype=np.int32)  # whether the host has already been exposed to abx at a given observation time (0 if not an observation time, i.e., if no sample was taken at this time)
 
     # Time series creation
 

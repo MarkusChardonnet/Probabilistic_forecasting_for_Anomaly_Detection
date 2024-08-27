@@ -967,7 +967,8 @@ def CustomCollateFnGen(func_names=None, obs_perc = None, scaling_factor = 1):
     return custom_collate_fn, mult
 
 
-def MicrobialCollateFnGen(func_names=None):
+def MicrobialCollateFnGen(func_names=None, use_only_dyn_ft_as_input=None,
+                          only_jump_before_abx_exposure=None):
     """
     a function to get the costume collate function that can be used in
     torch.DataLoader with the wanted functions applied to the data as new
@@ -976,6 +977,13 @@ def MicrobialCollateFnGen(func_names=None):
     data doesn't have to be saved
 
     :param func_names: list of str, with all function names, see _get_func
+    :param use_only_dyn_ft_as_input: None, bool, float or str, if None, the
+            observation is always used, if bool, it is used or not used for
+            all samples, if float, it is used with the given probability
+    :param only_jump_before_abx_exposure: None or int, only used if
+            use_only_dyn_ft_as_input=='before_nth_abx_exposure', then it
+            specifies the number of abx exposures before which the observation
+            is used
     :return: collate function, int (multiplication factor of dimension before
                 and after applying the functions)
     """
@@ -987,6 +995,21 @@ def MicrobialCollateFnGen(func_names=None):
             if f is not None:
                 functions.append(f)
     mult = len(functions) + 1
+
+    if use_only_dyn_ft_as_input is None:
+        use_only_dyn_ft_as_input_func = None
+    elif isinstance(use_only_dyn_ft_as_input, bool):
+        use_only_dyn_ft_as_input_func = \
+            lambda x, y: np.random.random(x) > use_only_dyn_ft_as_input
+    elif isinstance(use_only_dyn_ft_as_input, float):
+        use_only_dyn_ft_as_input_func = \
+            lambda x, y: np.random.random(x) > use_only_dyn_ft_as_input
+    elif use_only_dyn_ft_as_input == "before_nth_abx_exposure":
+        if only_jump_before_abx_exposure in [None, False]:
+            only_jump_before_abx_exposure = 0
+        only_jump_before_abx_exposure = int(only_jump_before_abx_exposure)
+        use_only_dyn_ft_as_input_func = \
+            lambda x, y: y < only_jump_before_abx_exposure
 
     def microbial_collate_fn(batch):
         dt = batch[0]['dt']
@@ -1008,6 +1031,23 @@ def MicrobialCollateFnGen(func_names=None):
             masked = True
             mask = observed_dates
             observed_dates = observed_dates.max(axis=1)
+        if use_only_dyn_ft_as_input is not None:
+            masked = 2
+            dim_X = stock_paths.shape[1]
+            dim_Z = dynamic_features.shape[1]
+            dim_S = signature_features.shape[1]
+            observed_dates_X = use_only_dyn_ft_as_input_func(
+                observed_dates.shape, abx_exposure)
+            observed_dates_X = observed_dates_X * observed_dates
+            observed_dates_X[:, 0] = 1
+            # mask for X has shape [batch_size, X_dimension, time_steps]
+            mask_X = np.expand_dims(observed_dates_X, axis=1).repeat(
+                dim_X, axis=1)
+            mask_S = np.expand_dims(observed_dates_X, axis=1).repeat(
+                dim_S, axis=1)
+            mask_Z = np.expand_dims(observed_dates, axis=1).repeat(
+                dim_Z, axis=1)
+            mask = np.concatenate([mask_X, mask_Z, mask_S], axis=1)
         nb_obs = torch.tensor(np.concatenate([b['nb_obs'] for b in batch], axis=0))
 
         # here axis=1, since we have elements of dim
@@ -1022,7 +1062,19 @@ def MicrobialCollateFnGen(func_names=None):
         Z = []
         S = []
         ABX_EXP = []
-        if masked:
+        M_X, M_Z, M_S = None, None, None
+        start_M_X, start_M_Z, start_M_S = None, None, None
+        if masked == 2:
+            M_X = []
+            start_M_X = torch.tensor(mask_X[:, :, 0], dtype=torch.float32).repeat(
+                (1, mult))
+            M_Z = []
+            start_M_Z = torch.tensor(mask_Z[:, :, 0], dtype=torch.float32)
+            M_S = []
+            start_M_S = torch.tensor(mask_S[:, :, 0], dtype=torch.float32)
+            M = None
+            start_M = None
+        elif masked:
             M = []
             start_M = torch.tensor(mask[:,:,0], dtype=torch.float32).repeat(
                 (1,mult))
@@ -1049,13 +1101,21 @@ def MicrobialCollateFnGen(func_names=None):
                         Z.append(dynamic_features[i, :, t])
                         S.append(signature_features[i, :, t])
                         ABX_EXP.append(abx_exposure[i, t])
-                        if masked:
+                        if masked == 2:
+                            M_X.append(np.tile(mask_X[i, :, t], reps=mult))
+                            M_Z.append(mask_Z[i, :, t])
+                            M_S.append(mask_S[i, :, t])
+                        elif masked:
                             M.append(np.tile(mask[i, :, t], reps=mult))
                         obs_idx.append(i)
                 time_ptr.append(counter)
 
         assert len(obs_idx) == observed_dates[:, 1:].sum()
-        if masked:
+        if masked == 2:
+            M_X = torch.tensor(M_X, dtype=torch.float32)
+            M_Z = torch.tensor(M_Z, dtype=torch.float32)
+            M_S = torch.tensor(M_S, dtype=torch.float32)
+        elif masked:
             M = torch.tensor(M, dtype=torch.float32)
         res = {'times': np.array(times), 'time_ptr': np.array(time_ptr),
                'obs_idx': torch.tensor(obs_idx, dtype=torch.long),
@@ -1066,6 +1126,8 @@ def MicrobialCollateFnGen(func_names=None):
                'Z': torch.tensor(np.array(Z), dtype=torch.float32), 'start_Z': start_Z,
                'S': torch.tensor(np.array(S), dtype=torch.float32), 'start_S': start_S,
                'M': M, 'start_M': start_M, 'abx_observed': abx_observed,
+               'M_X': M_X, 'start_M_X': start_M_X, 'M_Z': M_Z, 'start_M_Z': start_M_Z,
+               'M_S': M_S, 'start_M_S': start_M_S,
                'host_id': host_id,
                'abx_exposure': torch.tensor(np.array(ABX_EXP), dtype=torch.int)}
         return res

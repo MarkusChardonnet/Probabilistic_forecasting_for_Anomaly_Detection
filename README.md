@@ -130,6 +130,7 @@ python make_microbial_dataset.py --dataset_config=config_entero_genus_w_geo
 
 python make_microbial_dataset.py --dataset_config=config_novel_alpha_faith_pd_entero_family
 python make_microbial_dataset.py --dataset_config=config_novel_alpha_faith_pd_entero_genus
+python make_microbial_dataset.py --dataset_config=config_novel_alpha_faith_pd_entero_genus_scaled
 ```
 
 #### Training PD-NJODE:
@@ -200,6 +201,8 @@ python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_alpha_div_ids_3 --
 novel alpha diversity metric datasets:
 ```shell
 python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_novel_alpha_div_ids --ad_params=param_list_AD_microbial_novel_alpha_div --forecast_saved_models_path=AD_microbial_novel_alpha_div --compute_scores=True --evaluate_scores=True
+python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_rel_abund_ids --ad_params=param_list_AD_microbial_rel_abund --forecast_saved_models_path=AD_microbial_novel_alpha_div --compute_scores=True --evaluate_scores=True
+python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_joint_ids --ad_params=param_list_AD_microbial_joint --forecast_saved_models_path=AD_microbial_novel_alpha_div --compute_scores=True --evaluate_scores=True
 ```
 
 
@@ -219,5 +222,9 @@ pip install -e .
 - [x] or no projection at all
 - [x] model the alpha diversity metric -> this leads to best results
 
-- 
+- [x] implement scaling of coords
+- [x] implement t dist for scoring and plotting
+- [x] implement coordinate wise scoring
+- [x] implement plotting of selected (instead of all) dists
+- [ ] run
 

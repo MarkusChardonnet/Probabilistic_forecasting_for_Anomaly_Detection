@@ -23,7 +23,8 @@ def gaussian_scoring(
         observed_dates=None,
         scoring_metric = 'p-value', 
         min_var_val = 1e-4,
-        replace_var = None):
+        replace_var = None,
+        **kwargs):
     # obs : [nb_steps, nb_samples, dimension]
     # cond_exp : [nb_steps, nb_samples, dimension, steps_ahead]
     # cond_var : [nb_steps, nb_samples, dimension, steps_ahead]
@@ -54,7 +55,8 @@ def lognorm_scoring(
         observed_dates=None,
         scoring_metric = 'p-value',
         min_var_val = 1e-4,
-        replace_var = None):
+        replace_var = None,
+        **kwargs):
     # obs : [nb_steps, nb_samples, dimension]
     # cond_exp : [nb_steps, nb_samples, dimension, steps_ahead]
     # cond_var : [nb_steps, nb_samples, dimension, steps_ahead]
@@ -83,6 +85,39 @@ def lognorm_scoring(
     if observed_dates is not None:
         scores[~observed_dates] = np.nan
     return scores
+
+
+def t_scoring(
+        obs, cond_exp, cond_var,
+        observed_dates=None,
+        scoring_metric = 'p-value',
+        min_var_val = 1e-4,
+        replace_var = None,
+        nu=3,
+        **kwargs):
+    # obs : [nb_steps, nb_samples, dimension]
+    # cond_exp : [nb_steps, nb_samples, dimension, steps_ahead]
+    # cond_var : [nb_steps, nb_samples, dimension, steps_ahead]
+
+    nb_steps_ahead = cond_exp.shape[3]
+    cond_var = get_corrected_var(cond_var, min_var_val, replace_var)
+    cond_std = np.sqrt(cond_var/(nu/(nu-2)))
+    z_scores = (np.tile(np.expand_dims(obs,axis=3),(1,1,1,nb_steps_ahead)) - cond_exp) / cond_std
+    if scoring_metric in ['p-value', 'two-sided']:
+        p_vals = 2*scipy.stats.t.sf(np.abs(z_scores), df=nu) # computes survival function, 2 factor for two sided
+    elif scoring_metric == 'left-tail':
+        p_vals = scipy.stats.t.cdf(z_scores, df=nu)
+    elif scoring_metric == 'right-tail':
+        p_vals = scipy.stats.t.sf(z_scores, df=nu)
+    else:
+        raise ValueError('scoring_metric not supported')
+    scores = -np.log(p_vals + 1e-10)
+
+    # scores : [nb_steps, nb_samples, dimension, steps_ahead]
+    if observed_dates is not None:
+        scores[~observed_dates] = np.nan
+    return scores
+
 
 
 def beta_scoring(
@@ -499,14 +534,21 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
             scores_valid = gaussian_scoring(
                 obs=obs, cond_exp=cond_exp, cond_var=cond_var,
                 observed_dates=observed_dates,
-                scoring_metric=self.scoring_metric, replace_var=None)
+                scoring_metric=self.scoring_metric, replace_var=None,
+                min_var_val=self.epsilon,)
             # scores : [nb_samples, nb_steps, dimension, steps_ahead=1]
             scores_valid = scores_valid.transpose(1,0,2,3)
-        elif self.distribution_class in ['normal', 'lognormal']:
+        elif (self.distribution_class in ['normal', 'lognormal'] or
+              self.distribution_class.startswith("t-")):
             scoring_methods = {
                 'normal': gaussian_scoring,
                 'lognormal': lognorm_scoring,
             }
+            nu = None
+            if self.distribution_class.startswith("t-"):
+                nu = int(self.distribution_class.split('-')[1])
+                scoring_methods[self.distribution_class] = t_scoring
+
             cond_exp = np.expand_dims(cond_exp, 3)
             cond_var = np.expand_dims(cond_var, 3)
             if self.replace_values is not None:
@@ -516,10 +558,15 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
                 obs=obs, cond_exp=cond_exp, cond_var=cond_var,
                 observed_dates=observed_dates,
                 scoring_metric=self.scoring_metric,
-                replace_var=self.replace_values,)
+                replace_var=self.replace_values,
+                min_var_val=self.epsilon, nu=nu)
             if scores_valid.shape[2] > 1:
-                scores_valid = AGGREGATION_METHODS[self.aggregation_method](
-                    scores_valid, axis=2, keepdims=True)
+                if self.aggregation_method.startswith("coord-"):
+                    coord = int(self.aggregation_method.split('-')[1])
+                    scores_valid = scores_valid[:, :, coord:coord + 1]
+                else:
+                    scores_valid = AGGREGATION_METHODS[self.aggregation_method](
+                        scores_valid, axis=2, keepdims=True)
             assert scores_valid.shape[2] == 1 and scores_valid.shape[3] == 1
             # scores : [nb_samples, nb_steps]
             scores_valid = scores_valid.squeeze(3).squeeze(2).transpose(1,0)
@@ -529,7 +576,7 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
                 obs=obs, cond_exp=cond_exp, cond_var=cond_var,
                 observed_dates=observed_dates,
                 nb_samples=self.nb_samples, replace_var=self.replace_values,
-                min_var_val=0., coord=self.dirichlet_use_coord,
+                min_var_val=self.epsilon, coord=self.dirichlet_use_coord,
                 verbose=self.verbose, seed=self.seed)
             scores_valid = scores_valid.transpose(1,0)
         elif self.distribution_class == 'beta':
@@ -539,7 +586,8 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
             scores_valid = beta_scoring(
                 obs=obs, cond_exp=cond_exp, cond_var=cond_var,
                 observed_dates=observed_dates,
-                scoring_metric=self.scoring_metric, replace_var=None)
+                scoring_metric=self.scoring_metric,
+                min_var_val=self.epsilon, replace_var=None)
             # scores : [nb_samples, nb_steps, dimension, steps_ahead=1]
             scores_valid = scores_valid.transpose(1, 0, 2, 3)
         else:
@@ -578,6 +626,7 @@ class DimAcc_AD_module(torch.nn.Module):
                  class_thres=0.5,
                  aggregation_method='mean',
                  train_labels=None,
+                 epsilon=1e-6,
                  **kwargs,):
         """
         Args:
@@ -601,6 +650,7 @@ class DimAcc_AD_module(torch.nn.Module):
         self.aggregation_method = aggregation_method
         self.train_labels = train_labels
         self.logreg = None
+        self.epsilon = epsilon
 
         if activation_fct == 'sigmoid':
             self.act = torch.nn.Sigmoid()
@@ -638,7 +688,8 @@ class DimAcc_AD_module(torch.nn.Module):
             scores_valid = gaussian_scoring(
                 obs=obs, cond_exp=cond_exp, cond_var=cond_var,
                 observed_dates=observed_dates,
-                scoring_metric=self.scoring_metric, replace_var=None)
+                scoring_metric=self.scoring_metric,
+                min_var_val=self.epsilon, replace_var=None)
             # scores : [nb_samples, nb_steps, dimension]
             scores_valid = scores_valid.squeeze(axis=3).transpose(1,0,2)
         elif self.distribution_class == 'beta':
@@ -648,7 +699,8 @@ class DimAcc_AD_module(torch.nn.Module):
             scores_valid = beta_scoring(
                 obs=obs, cond_exp=cond_exp, cond_var=cond_var,
                 observed_dates=observed_dates,
-                scoring_metric=self.scoring_metric, replace_var=None)
+                scoring_metric=self.scoring_metric,
+                min_var_val=self.epsilon, replace_var=None)
             # scores : [nb_samples, nb_steps, dimension]
             scores_valid = scores_valid.squeeze(axis=3).transpose(1,0,2)
 

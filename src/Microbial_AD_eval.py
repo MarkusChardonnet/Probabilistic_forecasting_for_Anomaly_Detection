@@ -103,11 +103,17 @@ makedirs = config.makedirs
 
 def get_model_predictions(
         dl, device, forecast_model, output_vars, T, delta_t, dimension,
-        only_jump_before_abx_exposure=False):
+        only_jump_before_abx_exposure=False, use_only_dyn_ft_as_input=None,
+        add_dynamic_cov=False,):
     """
     Get the NJODE model predictions for the given dataset
     """
     b = next(iter(dl))
+
+    masked = False
+    if use_only_dyn_ft_as_input == "before_nth_abx_exposure":
+        only_jump_before_abx_exposure = False
+        masked = True
 
     times = b["times"]
     time_ptr = b["time_ptr"]
@@ -117,6 +123,27 @@ def get_model_predictions(
     start_X = b["start_X"].to(device)
     start_Z = b["start_Z"].to(device)
     start_S = b["start_S"].to(device)
+    M_X = b["M_X"]
+    M_Z = b["M_Z"]
+    M_S = b["M_S"]
+    start_M_X = b["start_M_X"]
+    start_M_Z = b["start_M_Z"]
+    start_M_S = b["start_M_S"]
+    M = None
+    start_M = None
+    if masked:
+        M_X = M_X.to(device)
+        M_Z = M_Z.to(device)
+        M_S = M_S.to(device)
+        start_M_X = start_M_X.to(device)
+        start_M_Z = start_M_Z.to(device)
+        start_M_S = start_M_S.to(device)
+        if add_dynamic_cov:
+            M = torch.cat((M_X, M_Z), dim=1)
+            start_M = torch.cat((start_M_X, start_M_Z), dim=1)
+        else:
+            M = M_X
+            start_M = start_M_X
     obs_idx = b["obs_idx"]
     n_obs_ot = b["n_obs_ot"].to(device)
     observed_dates = np.transpose(b['observed_dates'], (1, 0)).astype(np.bool)
@@ -125,13 +152,17 @@ def get_model_predictions(
     abx_labels = b["abx_observed"]
     host_id = b["host_id"]
     abx_exposure = b["abx_exposure"]
+    if add_dynamic_cov:
+        X = torch.cat((X, Z), dim=1)
+        start_X = torch.cat((start_X, start_Z), dim=1)
 
     with torch.no_grad():
         res = forecast_model.get_pred(
-            times=times, time_ptr=time_ptr, X=torch.cat((X, Z), dim=1),
+            times=times, time_ptr=time_ptr, X=X,
             obs_idx=obs_idx, delta_t=None, S=S, start_S=start_S,
-            T=T, start_X=torch.cat((start_X, start_Z), dim=1),
+            T=T, start_X=start_X,
             abx_exposure=abx_exposure,
+            M=M, start_M=start_M, M_S=M_S, start_M_S=start_M_S,
             only_jump_before_abx_exposure=only_jump_before_abx_exposure)
         path_y_pred = res['pred'].detach().cpu().numpy()
         path_t_pred = res['pred_t']
@@ -156,6 +187,7 @@ def get_model_predictions(
 def _plot_conditionally_standardized_distribution(
         cond_moments, observed_dates, obs, output_vars, path_to_save,
         compare_to_dist="normal", replace_values=None, which_set='train',
+        which_coord=0, eps=1e-4,
         **options):
     """
     Plot the conditionally standardized distribution
@@ -177,39 +209,55 @@ def _plot_conditionally_standardized_distribution(
     # cond_var : [nb_steps, nb_samples, dimension]
     cond_exp, cond_var = AD_modules.get_cond_exp_var(cond_moments, output_vars)
     cond_var = AD_modules.get_corrected_var(
-        cond_var, min_var_val=1e-4, replace_var=replace_values)
-    cond_std = np.sqrt(cond_var)
+        cond_var, min_var_val=eps, replace_var=replace_values)
     if compare_to_dist == "normal":
+        cond_std = np.sqrt(cond_var)
         standardized_obs = (obs - cond_exp) / cond_std
-        standardized_obs = standardized_obs[observed_dates]
     elif compare_to_dist == "lognormal":
         mu = np.log(cond_exp) - 0.5 * np.log(1 + cond_var / cond_exp ** 2)
         sigma = np.sqrt(np.log(1 + cond_var / cond_exp ** 2))
         standardized_obs = (np.log(obs) - mu)/ sigma
-        standardized_obs = standardized_obs[observed_dates]
+    elif compare_to_dist.startswith("t-"):
+        nu = int(compare_to_dist.split("-")[1])
+        mu = cond_exp
+        sigma = np.sqrt(cond_var/(nu/(nu-2)))
+        standardized_obs = (obs - mu) / sigma
     else:
         raise ValueError(f"compare_to_dist {compare_to_dist} not implemented")
+    standardized_obs = standardized_obs[observed_dates]
     standardized_obs = np.clip(standardized_obs, -5, 5)
+    standardized_obs = standardized_obs[:, which_coord]
 
-    pval = stats.kstest(standardized_obs.flatten(), "norm")[1]
+    if compare_to_dist.startswith("t-"):
+        pval = stats.kstest(standardized_obs.flatten(), "t", args=(nu,))[1]
+    else:
+        pval = stats.kstest(standardized_obs.flatten(), "norm")[1]
 
     fig, ax = plt.subplots(1, 1, figsize=(6, 4))
     sns.histplot(x=standardized_obs.flatten(), bins=50, kde=True,
                  ax=ax, stat="density", color="skyblue", label="observed")
     t = np.linspace(-5, 5, 1000)
-    ax.plot(t, stats.norm.pdf(t, loc=0, scale=1),
-            color="darkred", linestyle="--", label="standard normal")
-    ax.set_title(
-        f"Conditionally standardized distribution of no-abx {which_set}-set.\n"+
-        f"Transformation: cond. {compare_to_dist} to stand. normal\n"+
-        f"p-value of KS test: {pval:.2e}")
+    if compare_to_dist.startswith("t-"):
+        ax.plot(t, stats.t.pdf(t, nu), color="darkred", linestyle="--",
+                label=f"student-t (df={nu})")
+        ax.set_title(
+            f"Conditionally standardized distribution of no-abx {which_set}-set.\n" +
+            f"Transformation: cond. {compare_to_dist} to stand. t (df={nu})\n" +
+            f"p-value of KS test: {pval:.2e}")
+    else:
+        ax.plot(t, stats.norm.pdf(t, loc=0, scale=1),
+                color="darkred", linestyle="--", label="standard normal")
+        ax.set_title(
+            f"Conditionally standardized distribution of no-abx {which_set}-set.\n"+
+            f"Transformation: cond. {compare_to_dist} to stand. normal\n"+
+            f"p-value of KS test: {pval:.2e}")
     plt.legend()
     plt.tight_layout()
-    figpath = f"{path_to_save}cond_std_dist-{compare_to_dist}.pdf"
+    figpath = f"{path_to_save}cond_std_dist-{compare_to_dist}-{which_coord}.pdf"
     plt.savefig(figpath)
     plt.close()
 
-    filepath = f"{path_to_save}cond_std_obs-{compare_to_dist}.npy"
+    filepath = f"{path_to_save}cond_std_obs-{compare_to_dist}-{which_coord}.npy"
     with open(filepath, "wb") as f:
         np.save(f, standardized_obs)
 
@@ -230,15 +278,15 @@ def compute_scores(
         n_dataset_workers=None,
         nb_MC_samples=10**5,
         verbose=False,
-        epsilon=1e-6,
+        epsilon=1e-4,
         seed=333,
         send=False,
         use_replace_values=False,
         dirichlet_use_coord=None,
         aggregation_method='mean',
         scoring_metric='p-value',
-        plot_cond_std_dist=None,
         only_jump_before_abx_exposure=False,
+        plot_cond_standardized_dist=[],
         **options
 ):
     """
@@ -262,7 +310,8 @@ def compute_scores(
         use_replace_values: bool, whether to use replace values for variance
         dirichlet_use_coord: int, which coordinate to use for the dirichlet
             distribution as factor, if None: median of all coordinates is used
-        aggregation_method: str, method to aggregate the scores (if needed)
+        aggregation_method: str, method to aggregate the scores (if needed);
+            one of: 'mean', 'max', 'min', 'coord-n' for n >= 0 integer
         scoring_metric: str, metric to use for scoring. one of:
             - 'two-sided' or 'p-value': use the 2-sided p-value of the distribution
             - 'left-tail': use the left tail of the distribution
@@ -277,6 +326,9 @@ def compute_scores(
             if int, then this is the number of abx exposure until which
             observations are used as input (i.e., model is updated). Hence, True
             has the same effect as 1, False as infinity.
+        plot_cond_standardized_dist: list of str, which distributions to plot
+            for the conditionally standardized distribution.
+            can include: 'normal', 'lognormal', 't-n' for n >= 3 integer
 
     """
     global USE_GPU, N_CPUS, N_DATASET_WORKERS
@@ -303,7 +355,6 @@ def compute_scores(
         "dirichlet_use_coord": dirichlet_use_coord,
         "aggregation_method": aggregation_method,
         "scoring_metric": scoring_metric,
-        "plot_cond_std_dist": plot_cond_std_dist,
         "only_jump_before_abx_exposure": only_jump_before_abx_exposure,
     }
 
@@ -325,22 +376,7 @@ def compute_scores(
     T = dataset_metadata['maturity']
     delta_t = dataset_metadata['dt']  # copy metadata
     starting_date = dataset_metadata['starting_date']
-
-    # get additional plotting information
-    plot_forecast_predictions = False
-    if 'plot_forecast_predictions' in options:
-        plot_forecast_predictions = options['plot_forecast_predictions']
-    std_factor = 1  # factor with which the std is multiplied
-    if 'plot_variance' in options:
-        plot_variance = options['plot_variance']
-    if 'std_factor' in options:
-        std_factor = options['std_factor']
     class_thres = 0.5
-    autom_thres = None
-    if 'class_thres' in options:
-        class_thres = options['class_thres']
-        if 'autom_thres' in options:
-            autom_thres = options['autom_thres']
 
     # get all needed paths
     forecast_model_path = '{}id-{}/'.format(
@@ -355,9 +391,10 @@ def compute_scores(
     makedirs(scores_path)
 
     # get params_dict
-    forecast_params_dict, collate_fn = get_forecast_model_param_dict(
-        **forecast_param
-    )
+    (forecast_params_dict, collate_fn,
+     use_only_dyn_ft_as_input, add_dynamic_cov) = get_forecast_model_param_dict(
+        **forecast_param,
+        only_jump_before_abx_exposure=only_jump_before_abx_exposure)
     output_vars = forecast_params_dict['output_vars']
 
     forecast_model = models.NJODE(
@@ -384,7 +421,9 @@ def compute_scores(
         get_model_predictions(
             dl_train, device, forecast_model, output_vars, T, delta_t,
             dimension,
-            only_jump_before_abx_exposure=only_jump_before_abx_exposure)
+            only_jump_before_abx_exposure=only_jump_before_abx_exposure,
+            use_only_dyn_ft_as_input=use_only_dyn_ft_as_input,
+            add_dynamic_cov=add_dynamic_cov)
     if use_replace_values:
         replace_values = get_replace_forecast_values(
             cond_moments=cond_moments[abx_labels == 0],
@@ -404,7 +443,8 @@ def compute_scores(
             epsilon=epsilon,
             dirichlet_use_coord=dirichlet_use_coord,
             verbose=verbose)
-    elif scoring_distribution in ['normal', 'lognormal']:
+    elif (scoring_distribution in ['normal', 'lognormal']
+          or scoring_distribution.startswith("t-")):
         ad_module = Simple_AD_module(
             output_vars=output_vars,
             distribution_class=scoring_distribution,
@@ -423,7 +463,8 @@ def compute_scores(
             aggregation_method=aggregation_method,
             train_labels=abx_labels,
             replace_values=replace_values,
-            class_thres=class_thres,)
+            class_thres=class_thres,
+            epsilon=epsilon,)
     else:
         raise ValueError("scoring_distribution not implemented")
 
@@ -445,27 +486,28 @@ def compute_scores(
     df.to_csv(csvpath, index=False)
 
     filepaths = []
-    if plot_cond_std_dist:
+    if aggregation_method.startswith("coord-"):
+        which_coord = int(aggregation_method.split("-")[1])
+    else:
+        which_coord = 0
+    if plot_cond_standardized_dist is not None:
         dist_path = f'{ad_path}dist/train-noabx/'
         makedirs(dist_path)
-        filepaths += _plot_conditionally_standardized_distribution(
-            cond_moments[:, abx_labels == 0],
-            observed_dates[:, abx_labels == 0],
-            obs[:, abx_labels == 0], output_vars, path_to_save=dist_path,
-            compare_to_dist="normal", replace_values=replace_values,
-            which_set='train')
-        filepaths += _plot_conditionally_standardized_distribution(
-            cond_moments[:, abx_labels == 0],
-            observed_dates[:, abx_labels == 0],
-            obs[:, abx_labels == 0], output_vars, path_to_save=dist_path,
-            compare_to_dist="lognormal", replace_values=replace_values,
-            which_set='train')
+        for dist in plot_cond_standardized_dist:
+            filepaths += _plot_conditionally_standardized_distribution(
+                cond_moments[:, abx_labels == 0],
+                observed_dates[:, abx_labels == 0],
+                obs[:, abx_labels == 0], output_vars, path_to_save=dist_path,
+                compare_to_dist=dist, replace_values=replace_values,
+                which_set='train', which_coord=which_coord, eps=epsilon)
 
     # test data
     cond_moments, observed_dates, true_X, abx_labels, host_id = \
         get_model_predictions(
             dl_val, device, forecast_model, output_vars, T, delta_t, dimension,
-            only_jump_before_abx_exposure=only_jump_before_abx_exposure)
+            only_jump_before_abx_exposure=only_jump_before_abx_exposure,
+            use_only_dyn_ft_as_input=use_only_dyn_ft_as_input,
+            add_dynamic_cov=add_dynamic_cov)
     obs = true_X.transpose(2, 0, 1)
     ad_scores = ad_module(obs, cond_moments, observed_dates)
     with open('{}val_ad_scores_{}.npy'.format(
@@ -482,20 +524,15 @@ def compute_scores(
         scores_path, only_jump_before_abx_exposure)
     df.to_csv(csvpath_val, index=False)
     
-    if plot_cond_std_dist:
+    if plot_cond_standardized_dist is not None:
         dist_path = f'{ad_path}dist/val-noabx/'
         makedirs(dist_path)
-        filepaths += _plot_conditionally_standardized_distribution(
-            cond_moments[:, abx_labels==0], observed_dates[:, abx_labels==0],
-            obs[:, abx_labels==0], output_vars, path_to_save=dist_path,
-            compare_to_dist="normal", replace_values=replace_values,
-            which_set='val')
-        filepaths += _plot_conditionally_standardized_distribution(
-            cond_moments[:, abx_labels == 0],
-            observed_dates[:, abx_labels == 0],
-            obs[:, abx_labels == 0], output_vars, path_to_save=dist_path,
-            compare_to_dist="lognormal", replace_values=replace_values,
-            which_set='val')
+        for dist in plot_cond_standardized_dist:
+            filepaths += _plot_conditionally_standardized_distribution(
+                cond_moments[:, abx_labels==0], observed_dates[:, abx_labels==0],
+                obs[:, abx_labels==0], output_vars, path_to_save=dist_path,
+                compare_to_dist=dist, replace_values=replace_values,
+                which_set='val', which_coord=which_coord, eps=epsilon)
 
     if send:
         files_to_send = [csvpath, csvpath_val] + filepaths
@@ -674,6 +711,7 @@ def get_forecast_model_param_dict(
         solver="euler",
         weight=0.5, 
         weight_decay=1.,
+        only_jump_before_abx_exposure=False,
         **options):
     
     data_train = data_utils.MicrobialDataset(dataset_name=dataset)
@@ -709,22 +747,32 @@ def get_forecast_model_param_dict(
     zero_weight_init = False
     if 'zero_weight_init' in options:
         zero_weight_init = options['zero_weight_init']
+    use_only_dyn_ft_as_input = None
+    if 'use_only_dyn_ft_as_input' in options:
+        use_only_dyn_ft_as_input = options['use_only_dyn_ft_as_input']
+        if use_only_dyn_ft_as_input is not None:
+            use_only_dyn_ft_as_input = "before_nth_abx_exposure"
+    add_dynamic_cov = False
+    if 'add_dynamic_cov' in options:
+        add_dynamic_cov = options['add_dynamic_cov']
 
     # specify the input and output variables of the model, as function of X
     input_vars = ['id']
     output_vars = ['id']
     if 'func_appl_X' in options:  # list of functions to apply to the paths in X
         functions = options['func_appl_X']
-        collate_fn, mult = data_utils.MicrobialCollateFnGen(functions) #, scaling_factor=data_scaling_factor)
-        collate_fn_val, _ = data_utils.MicrobialCollateFnGen(functions)
+        collate_fn, mult = data_utils.MicrobialCollateFnGen(
+            functions, use_only_dyn_ft_as_input=use_only_dyn_ft_as_input,
+            only_jump_before_abx_exposure=only_jump_before_abx_exposure)
         input_size = input_size * mult
         output_size = output_size * mult
         output_vars += functions
         input_vars += functions
     else:
         functions = None
-        collate_fn, mult = data_utils.MicrobialCollateFnGen(None) #, scaling_factor=data_scaling_factor)
-        collate_fn_val, _ = data_utils.MicrobialCollateFnGen(None)
+        collate_fn, mult = data_utils.MicrobialCollateFnGen(
+            None, use_only_dyn_ft_as_input=use_only_dyn_ft_as_input,
+            only_jump_before_abx_exposure=only_jump_before_abx_exposure)
         mult = 1
     # if we predict additional variables (the output size gets bigger than input size)
     if 'add_pred' in options:
@@ -749,7 +797,7 @@ def get_forecast_model_param_dict(
         'sigf_size': dimension_sig_feat,
         'options': options}
 
-    return params_dict, collate_fn
+    return params_dict, collate_fn, use_only_dyn_ft_as_input, add_dynamic_cov
 
 
 

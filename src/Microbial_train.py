@@ -201,6 +201,9 @@ def train(
             'ode_input_scaling_func'    None or str in {'id', 'tanh'}, the
                             function used to scale inputs to the neuralODE.
                             default: tanh
+            'use_only_dyn_ft_as_input'  bool, float, whether to use only the
+                            dynamic features as input to the model. If float,
+                            then this happens with this probability.
             -> 'GRU_ODE_Bayes' has the following extra options with the
                 names 'GRU_ODE_Bayes'+<option_name>, for the following list
                 of possible choices for <options_name>:
@@ -333,23 +336,32 @@ def train(
     zero_weight_init = False
     if 'zero_weight_init' in options:
         zero_weight_init = options['zero_weight_init']
-
+    use_only_dyn_ft_as_input = None
+    if 'use_only_dyn_ft_as_input' in options:
+        use_only_dyn_ft_as_input = options['use_only_dyn_ft_as_input']
+    if use_only_dyn_ft_as_input is not None:
+        options['masked'] = True
+        masked = True
 
     # specify the input and output variables of the model, as function of X
     input_vars = ['id']
     output_vars = ['id']
     if 'func_appl_X' in options:  # list of functions to apply to the paths in X
         functions = options['func_appl_X']
-        collate_fn, mult = data_utils.MicrobialCollateFnGen(functions) #, scaling_factor=data_scaling_factor)
-        collate_fn_val, _ = data_utils.MicrobialCollateFnGen(functions)
+        collate_fn, mult = data_utils.MicrobialCollateFnGen(
+            functions, use_only_dyn_ft_as_input=use_only_dyn_ft_as_input) #, scaling_factor=data_scaling_factor)
+        collate_fn_val, _ = data_utils.MicrobialCollateFnGen(
+            functions, use_only_dyn_ft_as_input=use_only_dyn_ft_as_input)
         input_size = input_size * mult
         output_size = output_size * mult
         output_vars += functions
         input_vars += functions
     else:
         functions = None
-        collate_fn, mult = data_utils.MicrobialCollateFnGen(None) #, scaling_factor=data_scaling_factor)
-        collate_fn_val, _ = data_utils.MicrobialCollateFnGen(None)
+        collate_fn, mult = data_utils.MicrobialCollateFnGen(
+            None, use_only_dyn_ft_as_input=use_only_dyn_ft_as_input) #, scaling_factor=data_scaling_factor)
+        collate_fn_val, _ = data_utils.MicrobialCollateFnGen(
+            None, use_only_dyn_ft_as_input=use_only_dyn_ft_as_input)
         mult = 1
     # if we predict additional variables (the output size gets bigger than input size)
     if 'add_pred' in options:
@@ -559,7 +571,9 @@ def train(
             functions=input_vars, std_factor=std_factor,
             model_name=model_name, save_extras=save_extras, ylabels=ylabels,
             same_yaxis=plot_same_yaxis, plot_obs_prob=plot_obs_prob,
-            dataset_metadata=dataset_metadata)
+            dataset_metadata=dataset_metadata,
+            add_dynamic_cov=('add_dynamic_cov' in options and options['add_dynamic_cov']),
+            masked=masked)
         if SEND:
             files_to_send = []
             caption = "{} - id={}".format(model_name, model_id)
@@ -635,24 +649,43 @@ def train(
             X = b["X"].to(device)
             Z = b["Z"].to(device)
             S = b["S"].to(device)
-
             start_X = b["start_X"].to(device)
             start_Z = b["start_Z"].to(device)
             start_S = b["start_S"].to(device)
+            M_X = b["M_X"]
+            M_Z = b["M_Z"]
+            M_S = b["M_S"]
+            start_M_X = b["start_M_X"]
+            start_M_Z = b["start_M_Z"]
+            start_M_S = b["start_M_S"]
+            M = None
+            start_M = None
+            if masked:
+                M_X = M_X.to(device)
+                M_Z = M_Z.to(device)
+                M_S = M_S.to(device)
+                start_M_X = start_M_X.to(device)
+                start_M_Z = start_M_Z.to(device)
+                start_M_S = start_M_S.to(device)
+                if 'add_dynamic_cov' in options and options['add_dynamic_cov']:
+                    M = torch.cat((M_X, M_Z), dim=1)
+                    start_M = torch.cat((start_M_X, start_M_Z), dim=1)
+                else:
+                    M = M_X
+                    start_M = start_M_X
             obs_idx = b["obs_idx"]
             n_obs_ot = b["n_obs_ot"].to(device)
+            if 'add_dynamic_cov' in options and options['add_dynamic_cov']:
+                X = torch.cat((X, Z), dim=1)
+                start_X = torch.cat((start_X, start_Z), dim=1)
 
             if 'other_model' not in options:
-                if 'add_dynamic_cov' in options and options['add_dynamic_cov']:
-                    hT, loss = model(
-                        times=times, time_ptr=time_ptr, X=torch.cat((X,Z),dim=1), obs_idx=obs_idx,
-                        delta_t=None, T=T, start_X=torch.cat((start_X,start_Z),dim=1), n_obs_ot=n_obs_ot,
-                        S=S, start_S=start_S, return_path=False, get_loss=True)
-                else:
-                    hT, loss = model(
-                        times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx,
-                        delta_t=None, T=T, start_X=start_X, n_obs_ot=n_obs_ot,
-                        S=S, start_S=start_S, return_path=False, get_loss=True)
+                hT, loss = model(
+                    times=times, time_ptr=time_ptr,
+                    X=X, obs_idx=obs_idx, delta_t=None, T=T,
+                    start_X=start_X, n_obs_ot=n_obs_ot,
+                    M=M, start_M=start_M, M_S=M_S, start_M_S=start_M_S,
+                    S=S, start_S=start_S, return_path=False, get_loss=True)
             else:
                 raise ValueError
             loss.backward()  # compute gradient of each weight regarding loss function
@@ -692,62 +725,74 @@ def train(
                     X = b["X"].to(device)
                     Z = b["Z"].to(device)
                     S = b["S"].to(device)
-
                     start_X = b["start_X"].to(device)
                     start_Z = b["start_Z"].to(device)
                     start_S = b["start_S"].to(device)
+                    M_X = b["M_X"]
+                    M_Z = b["M_Z"]
+                    M_S = b["M_S"]
+                    start_M_X = b["start_M_X"]
+                    start_M_Z = b["start_M_Z"]
+                    start_M_S = b["start_M_S"]
+                    M = None
+                    start_M = None
+                    if masked:
+                        M_X = M_X.to(device)
+                        M_Z = M_Z.to(device)
+                        M_S = M_S.to(device)
+                        start_M_X = start_M_X.to(device)
+                        start_M_Z = start_M_Z.to(device)
+                        start_M_S = start_M_S.to(device)
+                        if 'add_dynamic_cov' in options and options[
+                            'add_dynamic_cov']:
+                            M = torch.cat((M_X, M_Z), dim=1)
+                            start_M = torch.cat((start_M_X, start_M_Z), dim=1)
+                        else:
+                            M = M_X
+                            start_M = start_M_X
                     obs_idx = b["obs_idx"]
                     n_obs_ot = b["n_obs_ot"].to(device)
                     true_paths = b["true_paths"]
                     true_mask = b["true_mask"]
+                    if 'add_dynamic_cov' in options and options[
+                        'add_dynamic_cov']:
+                        X = torch.cat((X, Z), dim=1)
+                        start_X = torch.cat((start_X, start_Z), dim=1)
 
                     if 'other_model' not in options:
-                        if 'add_dynamic_cov' in options and options['add_dynamic_cov']:
-                            hT, c_loss = model(
-                                times=times, time_ptr=time_ptr, X=torch.cat((X,Z),dim=1), obs_idx=obs_idx, delta_t=None, T=T, 
-                                start_X=torch.cat((start_X,start_Z),dim=1), n_obs_ot=n_obs_ot, return_path=False, get_loss=True,
-                                S=S, start_S=start_S, which_loss=which_eval_loss) # which_loss='standard'
-                        else:
-                            hT, c_loss = model(
-                                times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx, delta_t=None, T=T, start_X=start_X,
-                                n_obs_ot=n_obs_ot, return_path=False, get_loss=True,
-                                S=S, start_S=start_S, which_loss=which_eval_loss) # which_loss='standard'
+                        hT, c_loss = model(
+                            times=times, time_ptr=time_ptr,
+                            X=X, obs_idx=obs_idx, delta_t=None, T=T,
+                            start_X=start_X,
+                            n_obs_ot=n_obs_ot, return_path=False, get_loss=True,
+                            S=S, start_S=start_S, which_loss=which_eval_loss,
+                            M=M, start_M=start_M, M_S=M_S, start_M_S=start_M_S)
                     else:
                         raise ValueError
                     loss_vals += c_loss.detach().cpu().numpy()
                     num_obs += 1  # count number of observations
 
                     if 'other_model' not in options:
-                        if 'add_dynamic_cov' in options and options['add_dynamic_cov']:
-                            hT, c2_loss = model(
-                                times=times, time_ptr=time_ptr, X=torch.cat((X,Z),dim=1), obs_idx=obs_idx, delta_t=None, T=T, 
-                                S=S, start_S=start_S, start_X=torch.cat((start_X,start_Z),dim=1),
-                                n_obs_ot=n_obs_ot, return_path=False, get_loss=True,)
-                        else:
-                            hT, c2_loss = model(
-                                times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx, delta_t=None, T=T, start_X=start_X,
-                                S=S, start_S=start_S, n_obs_ot=n_obs_ot, return_path=False,
-                                get_loss=True,)
+                        hT, c2_loss = model(
+                            times=times, time_ptr=time_ptr, X=X,
+                            obs_idx=obs_idx, delta_t=None, T=T,
+                            S=S, start_S=start_S, start_X=start_X,
+                            n_obs_ot=n_obs_ot, return_path=False, get_loss=True,
+                            M=M, start_M=start_M, M_S=M_S, start_M_S=start_M_S)
                     else:
                         raise ValueError
                     eval_loss += c2_loss.detach().cpu().numpy()
 
                     # mean squared difference evaluation
                     if 'evaluate' in options and options['evaluate']:
-                        if 'add_dynamic_cov' in options and options['add_dynamic_cov']:
-                            _eval_msd = model.evaluate(
-                                times=times, time_ptr=time_ptr, X=torch.cat((X,Z),dim=1),
-                                obs_idx=obs_idx, delta_t=delta_t, T=T, S=S, start_S=start_S,
-                                start_X=torch.cat((start_X,start_Z),dim=1), n_obs_ot=n_obs_ot,
-                                return_paths=False, true_paths=true_paths,
-                                true_mask=true_mask, eval_vars=eval_metrics,) # mult=mult)
-                        else:
-                            _eval_msd = model.evaluate(
-                                times=times, time_ptr=time_ptr, X=X,
-                                obs_idx=obs_idx, delta_t=delta_t, T=T,
-                                start_X=start_X, n_obs_ot=n_obs_ot, S=S, start_S=start_S,
-                                return_paths=False, true_paths=true_paths,
-                                true_mask=true_mask, eval_vars=eval_metrics,) # mult=mult)
+                        _eval_msd = model.evaluate(
+                            times=times, time_ptr=time_ptr, X=X,
+                            obs_idx=obs_idx, delta_t=delta_t, T=T,
+                            S=S, start_S=start_S,
+                            start_X=start_X, n_obs_ot=n_obs_ot,
+                            return_paths=False, true_paths=true_paths,
+                            true_mask=true_mask, eval_vars=eval_metrics,
+                            M=M, start_M=start_M, M_S=M_S, start_M_S=start_M_S) # mult=mult)
                         eval_msd += _eval_msd
 
                 eval_time = time.time() - t
@@ -799,7 +844,8 @@ def train(
                     ylabels=ylabels,
                     same_yaxis=plot_same_yaxis, plot_obs_prob=plot_obs_prob,
                     dataset_metadata=dataset_metadata,
-                    )
+                    add_dynamic_cov=('add_dynamic_cov' in options and options['add_dynamic_cov']),
+                    masked=masked)
                 # plot_weights_filename = 'epoch-{}'.format(model.epoch) + '_input_ode_nn_weights'
                 # model.ode_f.plot_input_weights(os.path.join(plot_save_path, plot_weights_filename)) # plot weights
                 # plot_features_filename = 'epoch-{}'.format(model.epoch) + '_input_ode_nn_features'
@@ -819,7 +865,8 @@ def train(
                         ylabels=ylabels,
                         same_yaxis=plot_same_yaxis, plot_obs_prob=plot_obs_prob,
                         dataset_metadata=dataset_metadata,
-                        )
+                        add_dynamic_cov=('add_dynamic_cov' in options and options['add_dynamic_cov']),
+                        masked=masked)
                 del batch
             print('save model ...', end="")
             print("mode id:", model_id)
@@ -889,6 +936,7 @@ def plot_one_path_with_pred(
         same_yaxis=False,
         plot_obs_prob=False, dataset_metadata=None,
         output_vars=None, max_dim_per_plot=5,
+        add_dynamic_cov=False, masked=False,
 ):
     """
     plot one path of the stockmodel together with optimal cond. exp. and its
@@ -938,15 +986,33 @@ def plot_one_path_with_pred(
     X = batch["X"].to(device)
     Z = batch["Z"].to(device)
     S = batch["S"].to(device)
-    M = batch["M"]
-    if M is not None:
-        M = M.to(device)
     start_X = batch["start_X"].to(device)
     start_Z = batch["start_Z"].to(device)
     start_S = batch["start_S"].to(device)
-    start_M = batch["start_M"]
-    if start_M is not None:
-        start_M = start_M.to(device)
+    M_X = batch["M_X"]
+    M_Z = batch["M_Z"]
+    M_S = batch["M_S"]
+    start_M_X = batch["start_M_X"]
+    start_M_Z = batch["start_M_Z"]
+    start_M_S = batch["start_M_S"]
+    M = None
+    start_M = None
+    if masked:
+        M_X = M_X.to(device)
+        M_Z = M_Z.to(device)
+        M_S = M_S.to(device)
+        start_M_X = start_M_X.to(device)
+        start_M_Z = start_M_Z.to(device)
+        start_M_S = start_M_S.to(device)
+        if add_dynamic_cov:
+            M = torch.cat((M_X, M_Z), dim=1)
+            start_M = torch.cat((start_M_X, start_M_Z), dim=1)
+        else:
+            M = M_X
+            start_M = start_M_X
+    if add_dynamic_cov:
+        X = torch.cat((X, Z), dim=1)
+        start_X = torch.cat((start_X, start_Z), dim=1)
     obs_idx = batch["obs_idx"]
     n_obs_ot = batch["n_obs_ot"].to(device)
     true_X = batch["true_paths"]
@@ -960,8 +1026,9 @@ def plot_one_path_with_pred(
         times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx, delta_t=None,
         T=T, start_X=start_X, M=M, start_M=start_M)"""
     res = model.get_pred(
-        times=times, time_ptr=time_ptr, X=torch.cat((X,Z),dim=1), obs_idx=obs_idx, delta_t=None,
-        T=T, start_X=torch.cat((start_X,start_Z),dim=1), S=S, start_S=start_S)
+        times=times, time_ptr=time_ptr, X=X, obs_idx=obs_idx, delta_t=None,
+        T=T, start_X=start_X, S=S, start_S=start_S,
+        M=M, start_M=start_M, M_S=M_S, start_M_S=start_M_S)
     path_y_pred = res['pred'].detach().cpu().numpy()
     path_t_pred = res['pred_t']
 

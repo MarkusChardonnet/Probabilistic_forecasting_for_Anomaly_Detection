@@ -756,6 +756,7 @@ def get_forecast_model_param_dict(
         use_only_dyn_ft_as_input = options['use_only_dyn_ft_as_input']
         if use_only_dyn_ft_as_input is not None:
             use_only_dyn_ft_as_input = "after_nth_abx_exposure"
+            options['masked'] = True
     add_dynamic_cov = False
     if 'add_dynamic_cov' in options:
         add_dynamic_cov = options['add_dynamic_cov']

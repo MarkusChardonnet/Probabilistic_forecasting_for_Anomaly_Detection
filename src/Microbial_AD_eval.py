@@ -111,7 +111,7 @@ def get_model_predictions(
     b = next(iter(dl))
 
     masked = False
-    if use_only_dyn_ft_as_input == "before_nth_abx_exposure":
+    if use_only_dyn_ft_as_input == "after_nth_abx_exposure":
         only_jump_before_abx_exposure = False
         masked = True
 
@@ -755,7 +755,7 @@ def get_forecast_model_param_dict(
     if 'use_only_dyn_ft_as_input' in options:
         use_only_dyn_ft_as_input = options['use_only_dyn_ft_as_input']
         if use_only_dyn_ft_as_input is not None:
-            use_only_dyn_ft_as_input = "before_nth_abx_exposure"
+            use_only_dyn_ft_as_input = "after_nth_abx_exposure"
     add_dynamic_cov = False
     if 'add_dynamic_cov' in options:
         add_dynamic_cov = options['add_dynamic_cov']

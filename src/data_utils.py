@@ -981,7 +981,7 @@ def MicrobialCollateFnGen(func_names=None, use_only_dyn_ft_as_input=None,
             observation is always used, if bool, it is used or not used for
             all samples, if float, it is used with the given probability
     :param only_jump_before_abx_exposure: None or int, only used if
-            use_only_dyn_ft_as_input=='before_nth_abx_exposure', then it
+            use_only_dyn_ft_as_input=='after_nth_abx_exposure', then it
             specifies the number of abx exposures before which the observation
             is used
     :return: collate function, int (multiplication factor of dimension before
@@ -1004,7 +1004,7 @@ def MicrobialCollateFnGen(func_names=None, use_only_dyn_ft_as_input=None,
     elif isinstance(use_only_dyn_ft_as_input, float):
         use_only_dyn_ft_as_input_func = \
             lambda x, y: np.random.random(x) > use_only_dyn_ft_as_input
-    elif use_only_dyn_ft_as_input == "before_nth_abx_exposure":
+    elif use_only_dyn_ft_as_input == "after_nth_abx_exposure":
         if only_jump_before_abx_exposure in [None, False]:
             only_jump_before_abx_exposure = 0
         only_jump_before_abx_exposure = int(only_jump_before_abx_exposure)

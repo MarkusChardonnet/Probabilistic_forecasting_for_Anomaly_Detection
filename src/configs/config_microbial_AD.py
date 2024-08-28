@@ -181,7 +181,7 @@ param_list_AD_microbial_alpha_div_4 += get_parameter_array(
 # AD for novel alpha diversity metric models
 # TODO: best AD results for id 2 & 37 at best with normal
 AD_microbial_novel_alpha_div = "{}saved_models_microbial_novel_alpha_div/".format(data_path)
-AD_microbial_novel_alpha_div_ids = [2,]
+AD_microbial_novel_alpha_div_ids = [2,54]
 param_list_AD_microbial_novel_alpha_div = []
 param_dict_AD_microbial_novel_alpha_div = {
         'load_best': [True],
@@ -195,7 +195,7 @@ param_dict_AD_microbial_novel_alpha_div = {
 param_list_AD_microbial_novel_alpha_div += get_parameter_array(
         param_dict=param_dict_AD_microbial_novel_alpha_div)
 
-AD_microbial_rel_abund_ids = [37,]
+AD_microbial_rel_abund_ids = [37,57]
 param_list_AD_microbial_rel_abund = []
 param_dict_AD_microbial_rel_abund = {
         'load_best': [True],

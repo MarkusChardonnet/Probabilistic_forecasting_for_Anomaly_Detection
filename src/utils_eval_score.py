@@ -33,7 +33,7 @@ def _get_all_scores(path_to_scores, split="train"):
     """Get all split scores for all multi-step predictions from path_to_scores"""
     scores = []
     for i in range(1, 4):
-        scores.append(pd.read_csv(f"{path_to_scores}{split}_ad_scores_{i}.csv"))
+        scores.append(pd.read_csv(f"{path_to_scores}{split}_ad_scores_{i}_coord-0.csv"))
     scores_t = [_transform_scores(x) for x in scores]
     scores_all = scores_t[0].copy()
     scores_all = scores_all.join(scores_t[1][["score"]], rsuffix="_2", how="left")

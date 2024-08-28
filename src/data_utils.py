@@ -1010,6 +1010,9 @@ def MicrobialCollateFnGen(func_names=None, use_only_dyn_ft_as_input=None,
         only_jump_before_abx_exposure = int(only_jump_before_abx_exposure)
         use_only_dyn_ft_as_input_func = \
             lambda x, y: y < only_jump_before_abx_exposure
+    elif isinstance(use_only_dyn_ft_as_input, str):
+        use_only_dyn_ft_as_input_func = \
+            lambda x, y: np.ones(x).astype(bool)
 
     def microbial_collate_fn(batch):
         dt = batch[0]['dt']

@@ -342,6 +342,9 @@ def train(
     if use_only_dyn_ft_as_input is not None:
         options['masked'] = True
         masked = True
+        use_only_dyn_ft_as_input_func = None
+        if isinstance(use_only_dyn_ft_as_input, str):
+            use_only_dyn_ft_as_input_func = eval(use_only_dyn_ft_as_input)
 
     # specify the input and output variables of the model, as function of X
     input_vars = ['id']
@@ -661,6 +664,10 @@ def train(
             M = None
             start_M = None
             if masked:
+                if use_only_dyn_ft_as_input_func is not None:
+                    M_X = use_only_dyn_ft_as_input_func(
+                        model.epoch, M_X.shape[0]).reshape(-1, 1).repeat(
+                        1, M_X.shape[1])
                 M_X = M_X.to(device)
                 M_Z = M_Z.to(device)
                 M_S = M_S.to(device)

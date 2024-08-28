@@ -1838,7 +1838,6 @@ for add_pred, which_loss in [
             }
         param_list_microbial_novel_alpha_div_dyn_ft += get_parameter_array(
                 param_dict=param_dict_microbial_sig_rnn_novel_alpha_div)
-param_list_microbial_novel_alpha_div += param_list_microbial_novel_alpha_div_dyn_ft
 
 def masking_func1(t,x):
     if t < 2000:
@@ -1897,6 +1896,8 @@ for add_pred, which_loss in [
             }
         param_list_microbial_novel_alpha_div_dyn_ft += get_parameter_array(
                 param_dict=param_dict_microbial_sig_rnn_novel_alpha_div)
+param_list_microbial_novel_alpha_div += param_list_microbial_novel_alpha_div_dyn_ft
+
 
 overview_dict_microbial_novel_alpha_div = dict(
     ids_from=1, ids_to=len(param_list_microbial_novel_alpha_div),

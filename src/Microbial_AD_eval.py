@@ -104,7 +104,7 @@ makedirs = config.makedirs
 def get_model_predictions(
         dl, device, forecast_model, output_vars, T, delta_t, dimension,
         only_jump_before_abx_exposure=False, use_only_dyn_ft_as_input=None,
-        add_dynamic_cov=False,):
+        add_dynamic_cov=False, use_dyn_cov_after_abx=True):
     """
     Get the NJODE model predictions for the given dataset
     """
@@ -112,8 +112,9 @@ def get_model_predictions(
 
     masked = False
     if use_only_dyn_ft_as_input == "after_nth_abx_exposure":
-        only_jump_before_abx_exposure = False
         masked = True
+        if use_dyn_cov_after_abx:
+            only_jump_before_abx_exposure = False
 
     times = b["times"]
     time_ptr = b["time_ptr"]
@@ -287,6 +288,7 @@ def compute_scores(
         scoring_metric='p-value',
         only_jump_before_abx_exposure=False,
         plot_cond_standardized_dist=[],
+        use_dyn_cov_after_abx=True,
         **options
 ):
     """
@@ -329,6 +331,11 @@ def compute_scores(
         plot_cond_standardized_dist: list of str, which distributions to plot
             for the conditionally standardized distribution.
             can include: 'normal', 'lognormal', 't-n' for n >= 3 integer
+        use_dyn_cov_after_abx: bool, whether to use the dynamic covariates after
+            the abx exposure as input to the model. only applies for those
+            models, which were trained with use_only_dyn_ft_as_input!=None. all
+            other models cannot use the dynamic covariates after the
+            abx exposure.
 
     """
     global USE_GPU, N_CPUS, N_DATASET_WORKERS
@@ -356,6 +363,7 @@ def compute_scores(
         "aggregation_method": aggregation_method,
         "scoring_metric": scoring_metric,
         "only_jump_before_abx_exposure": only_jump_before_abx_exposure,
+        "use_dyn_cov_after_abx": use_dyn_cov_after_abx,
     }
 
     # load dataset-metadata
@@ -423,7 +431,8 @@ def compute_scores(
             dimension,
             only_jump_before_abx_exposure=only_jump_before_abx_exposure,
             use_only_dyn_ft_as_input=use_only_dyn_ft_as_input,
-            add_dynamic_cov=add_dynamic_cov)
+            add_dynamic_cov=add_dynamic_cov,
+            use_dyn_cov_after_abx=use_dyn_cov_after_abx)
     if use_replace_values:
         replace_values = get_replace_forecast_values(
             cond_moments=cond_moments[abx_labels == 0],

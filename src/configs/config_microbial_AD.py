@@ -191,6 +191,7 @@ param_dict_AD_microbial_novel_alpha_div = {
         'scoring_metric': ['left-tail'],
         'plot_cond_standardized_dist': [['normal', 'lognormal']],
         'only_jump_before_abx_exposure': [1,2,3],
+        'use_dyn_cov_after_abx': [True],
 }
 param_list_AD_microbial_novel_alpha_div += get_parameter_array(
         param_dict=param_dict_AD_microbial_novel_alpha_div)
@@ -205,6 +206,7 @@ param_dict_AD_microbial_rel_abund = {
         'scoring_metric': ['right-tail'],
         'plot_cond_standardized_dist': [['normal', 't-3']],
         'only_jump_before_abx_exposure': [1,2,3],
+        'use_dyn_cov_after_abx': [True],
 }
 param_list_AD_microbial_rel_abund += get_parameter_array(
         param_dict=param_dict_AD_microbial_rel_abund)

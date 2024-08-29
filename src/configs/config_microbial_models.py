@@ -1842,7 +1842,7 @@ for add_pred, which_loss in [
             }
         param_list_microbial_novel_alpha_div_dyn_ft += get_parameter_array(
                 param_dict=param_dict_microbial_sig_rnn_novel_alpha_div)
-param_list_microbial_novel_alpha_div = param_list_microbial_novel_alpha_div_dyn_ft
+param_list_microbial_novel_alpha_div += param_list_microbial_novel_alpha_div_dyn_ft
 
 # train without dyn cov
 for add_pred, which_loss in [

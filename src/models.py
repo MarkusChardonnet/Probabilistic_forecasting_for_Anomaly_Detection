@@ -390,11 +390,12 @@ def compute_loss_ad_variance_bis2(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size,
 
     # fitting true conditional variance (with respect to conditional expectation and expectation squared)
     inner += weights[4] * torch.sum(
-        (Y_obs_bj[:, idx_var]*M_obs[:, idx_var] -
+        (Y_obs_bj[:, idx_var]*M_obs[:, idx_id] -
          ((Y_obs_bj[:, idx_id].detach() - X_obs[:, idx_id])*M_obs[:, idx_id]) ** 2) ** 2, dim=1)
+    # this term does not need an observation => no M_obs multiplication
     inner += weights[5] * torch.sum(
-        (Y_obs_bj[:, idx_var]*M_obs[:, idx_var] -
-         (Y_obs_bj[:, idx_power2].detach() - Y_obs_bj[:,idx_id].detach() ** 2)*M_obs[:, idx_id]) ** 2, dim=1)
+        (Y_obs_bj[:, idx_var] -
+         (Y_obs_bj[:, idx_power2].detach() - Y_obs_bj[:,idx_id].detach() ** 2)) ** 2, dim=1)
 
     # enforcing conditional variance positiveness
     inner += weights[6] * torch.sum(F.relu(- Y_obs_bj[:, idx_var]) ** 2,
@@ -793,7 +794,7 @@ class NJODE(torch.nn.Module):
             bias=True, dropout_rate=0, solver="euler",
             weight=0.5, weight_evolve=None, t_period=1.,       ###
             input_vars=None, output_vars=None, 
-            delta_t = None, **options
+            delta_t = None, size_X=0, **options
     ):
         """
         init the model
@@ -837,6 +838,7 @@ class NJODE(torch.nn.Module):
                 self.weight_target = weight_evolve['target']
                 self.weight_reach = weight_evolve['reach']
         self.use_rnn = use_rnn  # use RNN for jumps
+        self.size_X = size_X
 
         # get options from the options of train input
         options1 = options['options']
@@ -847,6 +849,7 @@ class NJODE(torch.nn.Module):
         assert self.which_loss in LOSS_FUN_DICT
         print('using loss: {}'.format(self.which_loss))
 
+        self.output_vars = None
         if output_vars is not None:
             self.output_vars = output_vars
         if input_vars is not None:
@@ -1591,6 +1594,10 @@ class NJODE(torch.nn.Module):
                 temp = h.clone()
                 if self.masked:
                     X_obs_impute = X_obs * M_obs
+                    # size_X is the size of the X part of the input (X,Z)
+                    X_obs_impute[:, :self.size_X] += (
+                            Y_bj[i_obs.long(), :self.size_X] *
+                            (1. - M_obs[:, :self.size_X]))
                 c_sig_iobs = None
                 if self.input_sig:
                     c_sig_iobs = c_sig[i_obs]

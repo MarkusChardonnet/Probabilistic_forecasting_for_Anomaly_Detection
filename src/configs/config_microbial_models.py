@@ -1782,7 +1782,9 @@ for add_pred, which_loss in [
             'add_dynamic_cov': [True],
             'pre-train': [10000],
             'zero_weight_init': [False],
-            'use_only_dyn_ft_as_input': [False, 0.25, 0.5]
+            'use_only_dyn_ft_as_input': [
+                False, 0.25, 0.5,
+                "lambda t,x: (torch.rand(x) < 1-t/6000)*1."]
             }
         param_list_microbial_novel_alpha_div_dyn_ft += get_parameter_array(
                 param_dict=param_dict_microbial_sig_rnn_novel_alpha_div)
@@ -1834,17 +1836,15 @@ for add_pred, which_loss in [
             'add_dynamic_cov': [True],
             'pre-train': [10000],
             'zero_weight_init': [False],
-            'use_only_dyn_ft_as_input': [False, 0.25, 0.5]
+            'use_only_dyn_ft_as_input': [
+                False, 0.25, 0.5,
+                "lambda t,x: (torch.rand(x) < 1-t/6000)*1."]
             }
         param_list_microbial_novel_alpha_div_dyn_ft += get_parameter_array(
                 param_dict=param_dict_microbial_sig_rnn_novel_alpha_div)
+param_list_microbial_novel_alpha_div = param_list_microbial_novel_alpha_div_dyn_ft
 
-def masking_func1(t,x):
-    if t < 2000:
-        return torch.ones(x)
-    else:
-        return (torch.rand(x) < 1-t/6000)*1.
-
+# train without dyn cov
 for add_pred, which_loss in [
         [["var"], "variance_bis2"],
 ]:
@@ -1889,14 +1889,12 @@ for add_pred, which_loss in [
             'scale_dt': [scale_dt],
             'enc_input_t': [enc_input_t],
             # 'add_readout_activation': [(None, [])], # add_readout_activation # ('softmax',['id']) ('sum2one',['id'])
-            'add_dynamic_cov': [True],
+            'add_dynamic_cov': [False],
             'pre-train': [10000],
             'zero_weight_init': [False],
-            'use_only_dyn_ft_as_input': ["config.masking_func1"]
             }
-        param_list_microbial_novel_alpha_div_dyn_ft += get_parameter_array(
+        param_list_microbial_novel_alpha_div += get_parameter_array(
                 param_dict=param_dict_microbial_sig_rnn_novel_alpha_div)
-param_list_microbial_novel_alpha_div += param_list_microbial_novel_alpha_div_dyn_ft
 
 
 overview_dict_microbial_novel_alpha_div = dict(

@@ -1391,7 +1391,7 @@ class NJODE(torch.nn.Module):
                 predict_labels=None, return_classifier_out=False,
                 return_at_last_obs=False,
                 only_jump_before_abx_exposure=False,
-                ABX_EXPOSURE=None):
+                ABX_EXPOSURE=None, use_obs_until_t=None):
         """
         the forward run of this module class, used when calling the module
         instance without a method
@@ -1443,6 +1443,8 @@ class NJODE(torch.nn.Module):
         :param ABX_EXPOSURE: None or torch.tensor, whether the patient had
                 antibiotics exposure anytime before an observation time, or
                 amount of exposures before an observation time.
+        :param use_obs_until_t: None or float, if not None, only use
+                observations until this time as inputs to the model.
 
         :return: torch.tensor (hidden state at final time), torch.tensor (loss),
                     if wanted the paths of t (np.array) and h, y (torch.tensors)
@@ -1516,6 +1518,8 @@ class NJODE(torch.nn.Module):
         assert len(times) + 1 == len(time_ptr)
 
         for i, obs_time in enumerate(times):
+            if use_obs_until_t is not None and obs_time > use_obs_until_t:
+                break
             # Propagation of the ODE until next observation
             while current_time < (obs_time - 1e-10 * delta_t):  # 0.0001 delta_t used for numerical consistency.
                 if current_time < obs_time - delta_t:
@@ -1845,7 +1849,7 @@ class NJODE(torch.nn.Module):
     def get_pred(self, times, time_ptr, X, obs_idx, delta_t, T, start_X,
                  S, start_S, M=None, start_M=None, M_S=None, start_M_S=None,
                  abx_exposure=None,
-                 only_jump_before_abx_exposure=False):
+                 only_jump_before_abx_exposure=False, use_obs_until_t=None):
         """
         get predicted path
         :param times: see forward
@@ -1870,7 +1874,7 @@ class NJODE(torch.nn.Module):
             start_M=start_M, S=S, start_S=start_S,
             M_S=M_S, start_M_S=start_M_S,
             only_jump_before_abx_exposure=only_jump_before_abx_exposure,
-            ABX_EXPOSURE=abx_exposure)
+            ABX_EXPOSURE=abx_exposure, use_obs_until_t=use_obs_until_t)
         return {'pred': path_y, 'pred_t': path_t}
 
 

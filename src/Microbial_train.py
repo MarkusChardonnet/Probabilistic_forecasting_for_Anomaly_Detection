@@ -342,6 +342,9 @@ def train(
     if use_only_dyn_ft_as_input is not None:
         options['masked'] = True
         masked = True
+        use_only_dyn_ft_as_input_func = None
+        if isinstance(use_only_dyn_ft_as_input, str):
+            use_only_dyn_ft_as_input_func = eval(use_only_dyn_ft_as_input)
 
     # specify the input and output variables of the model, as function of X
     input_vars = ['id']
@@ -371,7 +374,10 @@ def train(
         output_size += nb_pred_add * dimension
         output_vars += add_pred
 
-    input_size += dimension_dyn_feat
+    add_dynamic_cov = False
+    if 'add_dynamic_cov' in options and options['add_dynamic_cov']:
+        add_dynamic_cov = True
+        input_size += dimension_dyn_feat
     
     # in case we want to evaluate the predictions, specifies the output variables
     eval_metrics = None
@@ -495,7 +501,7 @@ def train(
 
     # get the model & optimizer
     if 'other_model' not in options:  # take NJODE model if not specified otherwise
-        model = models.NJODE(**params_dict)  # get NJODE model class from
+        model = models.NJODE(**params_dict, size_X=dimension*mult)  # get NJODE model class from
         model_name = 'NJODE'
     else:
         raise ValueError("Invalid argument for (option) parameter 'other_model'."
@@ -661,13 +667,17 @@ def train(
             M = None
             start_M = None
             if masked:
+                if use_only_dyn_ft_as_input_func is not None:
+                    M_X = use_only_dyn_ft_as_input_func(
+                        model.epoch, M_X.shape[0]).reshape(-1, 1).repeat(
+                        1, M_X.shape[1])
                 M_X = M_X.to(device)
                 M_Z = M_Z.to(device)
                 M_S = M_S.to(device)
                 start_M_X = start_M_X.to(device)
                 start_M_Z = start_M_Z.to(device)
                 start_M_S = start_M_S.to(device)
-                if 'add_dynamic_cov' in options and options['add_dynamic_cov']:
+                if add_dynamic_cov:
                     M = torch.cat((M_X, M_Z), dim=1)
                     start_M = torch.cat((start_M_X, start_M_Z), dim=1)
                 else:
@@ -675,7 +685,7 @@ def train(
                     start_M = start_M_X
             obs_idx = b["obs_idx"]
             n_obs_ot = b["n_obs_ot"].to(device)
-            if 'add_dynamic_cov' in options and options['add_dynamic_cov']:
+            if add_dynamic_cov:
                 X = torch.cat((X, Z), dim=1)
                 start_X = torch.cat((start_X, start_Z), dim=1)
 

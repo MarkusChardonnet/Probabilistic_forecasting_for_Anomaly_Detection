@@ -203,6 +203,9 @@ novel alpha diversity metric datasets:
 python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_novel_alpha_div_ids --ad_params=param_list_AD_microbial_novel_alpha_div --forecast_saved_models_path=AD_microbial_novel_alpha_div --compute_scores=True --evaluate_scores=True
 python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_rel_abund_ids --ad_params=param_list_AD_microbial_rel_abund --forecast_saved_models_path=AD_microbial_novel_alpha_div --compute_scores=True --evaluate_scores=True
 python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_joint_ids --ad_params=param_list_AD_microbial_joint --forecast_saved_models_path=AD_microbial_novel_alpha_div --compute_scores=True --evaluate_scores=True
+
+# reliability evaluation
+python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_novel_alpha_div_ids_reliability_eval --ad_params=param_list_AD_microbial_novel_alpha_div_reliability_eval --forecast_saved_models_path=AD_microbial_novel_alpha_div --compute_scores=True --evaluate_scores=True
 ```
 
 
@@ -216,7 +219,7 @@ pip install -e .
 
 # TODOs and Possible Improvements
 - [x] different AD scoring method: using coordinate wise p-values based on beta distribution 
-- [ ] weighting of coordinates in the loss s.t. they have approx. same sizes
+- [x] weighting of coordinates in the loss s.t. they have approx. same sizes
 - [x] reducing learning rate during training as @Jakob_Heiss suggested
 - [ ] using a different projection approach for NJODE
 - [x] or no projection at all
@@ -226,5 +229,5 @@ pip install -e .
 - [x] implement t dist for scoring and plotting
 - [x] implement coordinate wise scoring
 - [x] implement plotting of selected (instead of all) dists
-- [ ] run
+- [x] run
 

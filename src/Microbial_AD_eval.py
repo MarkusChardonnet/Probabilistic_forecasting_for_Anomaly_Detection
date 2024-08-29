@@ -104,16 +104,20 @@ makedirs = config.makedirs
 def get_model_predictions(
         dl, device, forecast_model, output_vars, T, delta_t, dimension,
         only_jump_before_abx_exposure=False, use_only_dyn_ft_as_input=None,
-        add_dynamic_cov=False,):
+        add_dynamic_cov=False, use_dyn_cov_after_abx=True,
+        use_obs_until_t=None):
     """
     Get the NJODE model predictions for the given dataset
     """
     b = next(iter(dl))
 
     masked = False
-    if use_only_dyn_ft_as_input == "before_nth_abx_exposure":
-        only_jump_before_abx_exposure = False
+    if use_only_dyn_ft_as_input == "after_nth_abx_exposure":
         masked = True
+        if use_dyn_cov_after_abx:
+            # set this to false, s.t. the dynamic covariates are actually used
+            #   after the nth abx exposure
+            only_jump_before_abx_exposure = False
 
     times = b["times"]
     time_ptr = b["time_ptr"]
@@ -163,7 +167,8 @@ def get_model_predictions(
             T=T, start_X=start_X,
             abx_exposure=abx_exposure,
             M=M, start_M=start_M, M_S=M_S, start_M_S=start_M_S,
-            only_jump_before_abx_exposure=only_jump_before_abx_exposure)
+            only_jump_before_abx_exposure=only_jump_before_abx_exposure,
+            use_obs_until_t=use_obs_until_t)
         path_y_pred = res['pred'].detach().cpu().numpy()
         path_t_pred = res['pred_t']
         torch.cuda.empty_cache()
@@ -287,6 +292,8 @@ def compute_scores(
         scoring_metric='p-value',
         only_jump_before_abx_exposure=False,
         plot_cond_standardized_dist=[],
+        use_dyn_cov_after_abx=True,
+        reliability_eval_start_times=None,
         **options
 ):
     """
@@ -329,6 +336,16 @@ def compute_scores(
         plot_cond_standardized_dist: list of str, which distributions to plot
             for the conditionally standardized distribution.
             can include: 'normal', 'lognormal', 't-n' for n >= 3 integer
+        use_dyn_cov_after_abx: bool, whether to use the dynamic covariates after
+            the abx exposure as input to the model. only applies for those
+            models, which were trained with use_only_dyn_ft_as_input!=None. all
+            other models cannot use the dynamic covariates after the
+            abx exposure.
+        reliability_eval_start_times: None or list of int, start times to
+            evaluate the reliability of the scores. In particular, for each
+            start time, the model uses the inputs up to this time and afterwards
+            predicts without further inputs. This evaluation is done on the
+            no-abx validation samples. Start times are given in days.
 
     """
     global USE_GPU, N_CPUS, N_DATASET_WORKERS
@@ -356,6 +373,7 @@ def compute_scores(
         "aggregation_method": aggregation_method,
         "scoring_metric": scoring_metric,
         "only_jump_before_abx_exposure": only_jump_before_abx_exposure,
+        "use_dyn_cov_after_abx": use_dyn_cov_after_abx,
     }
 
     # load dataset-metadata
@@ -365,11 +383,16 @@ def compute_scores(
     val_idx = np.load(os.path.join(
         train_data_path, dataset, "all", 'val_idx.npy'
     ), allow_pickle=True)
+    val_idx_noabx = np.load(os.path.join(
+        train_data_path, dataset, "no_abx", 'val_idx.npy'
+    ), allow_pickle=True)
 
     data_train = data_utils.MicrobialDataset(
         dataset_name=dataset, idx=train_idx)
     data_val = data_utils.MicrobialDataset(
         dataset_name=dataset, idx=val_idx)
+    data_val_noabx = data_utils.MicrobialDataset(
+        dataset_name=dataset, idx=val_idx_noabx)
 
     dataset_metadata = data_train.get_metadata()
     dimension = dataset_metadata['dimension']
@@ -416,6 +439,9 @@ def compute_scores(
     dl_val = DataLoader(
         dataset=data_val, collate_fn=collate_fn, shuffle=False,
         batch_size=len(val_idx))
+    dl_val_noabx = DataLoader(
+        dataset=data_val_noabx, collate_fn=collate_fn, shuffle=False,
+        batch_size=len(val_idx_noabx))
 
     cond_moments, observed_dates, true_X, abx_labels, host_id = \
         get_model_predictions(
@@ -423,7 +449,8 @@ def compute_scores(
             dimension,
             only_jump_before_abx_exposure=only_jump_before_abx_exposure,
             use_only_dyn_ft_as_input=use_only_dyn_ft_as_input,
-            add_dynamic_cov=add_dynamic_cov)
+            add_dynamic_cov=add_dynamic_cov,
+            use_dyn_cov_after_abx=use_dyn_cov_after_abx)
     if use_replace_values:
         replace_values = get_replace_forecast_values(
             cond_moments=cond_moments[abx_labels == 0],
@@ -508,7 +535,8 @@ def compute_scores(
             dl_val, device, forecast_model, output_vars, T, delta_t, dimension,
             only_jump_before_abx_exposure=only_jump_before_abx_exposure,
             use_only_dyn_ft_as_input=use_only_dyn_ft_as_input,
-            add_dynamic_cov=add_dynamic_cov)
+            add_dynamic_cov=add_dynamic_cov,
+            use_dyn_cov_after_abx=use_dyn_cov_after_abx,)
     obs = true_X.transpose(2, 0, 1)
     ad_scores = ad_module(obs, cond_moments, observed_dates)
     with open('{}val_ad_scores_{}_{}.npy'.format(
@@ -535,6 +563,37 @@ def compute_scores(
                 obs[:, abx_labels==0], output_vars, path_to_save=dist_path,
                 compare_to_dist=dist, replace_values=replace_values,
                 which_set='val', which_coord=which_coord, eps=epsilon)
+
+    if reliability_eval_start_times is not None:
+        reli_eval_path = f'{ad_path}reliability_eval-val-noabx/'
+        makedirs(reli_eval_path)
+        data_collect = []
+        for start_time in reliability_eval_start_times:
+            print(f"compute reliability eval scores for start_time={start_time}")
+            cond_moments, observed_dates, true_X, abx_labels, host_id = \
+                get_model_predictions(
+                    dl_val_noabx, device, forecast_model, output_vars,
+                    T, delta_t, dimension,
+                    only_jump_before_abx_exposure=False,
+                    use_only_dyn_ft_as_input=use_only_dyn_ft_as_input,
+                    add_dynamic_cov=add_dynamic_cov,
+                    use_dyn_cov_after_abx=use_dyn_cov_after_abx,
+                    use_obs_until_t=start_time*delta_t)
+            obs = true_X.transpose(2, 0, 1)
+            ad_scores = ad_module(obs, cond_moments, observed_dates)
+            use_obs_until_day = start_time * np.ones((ad_scores.shape[0], 1))
+            data = np.concatenate(
+                [host_id.reshape(-1, 1), abx_labels.reshape(-1, 1),
+                 use_obs_until_day, ad_scores],
+                axis=1)
+            cols = ['host_id', 'abx', 'use_obs_until_day'] + [
+                'ad_score_day-{}'.format(i + starting_date)
+                for i in range(ad_scores.shape[1])]
+            # data_collect.append(data)
+            df = pd.DataFrame(data, columns=cols)
+            csvpath_val = '{}val_noabx_ad_scores_{}_{}.csv'.format(
+                reli_eval_path, start_time, aggregation_method)
+            df.to_csv(csvpath_val, index=False)
 
     if send:
         files_to_send = [csvpath, csvpath_val] + filepaths
@@ -755,7 +814,8 @@ def get_forecast_model_param_dict(
     if 'use_only_dyn_ft_as_input' in options:
         use_only_dyn_ft_as_input = options['use_only_dyn_ft_as_input']
         if use_only_dyn_ft_as_input is not None:
-            use_only_dyn_ft_as_input = "before_nth_abx_exposure"
+            use_only_dyn_ft_as_input = "after_nth_abx_exposure"
+            options['masked'] = True
     add_dynamic_cov = False
     if 'add_dynamic_cov' in options:
         add_dynamic_cov = options['add_dynamic_cov']
@@ -799,6 +859,7 @@ def get_forecast_model_param_dict(
         't_period': t_period, 'delta_t': model_delta_t,
         'output_vars': output_vars, 'input_vars': input_vars,
         'sigf_size': dimension_sig_feat,
+        'size_X': dimension*mult,
         'options': options}
 
     return params_dict, collate_fn, use_only_dyn_ft_as_input, add_dynamic_cov

@@ -390,11 +390,12 @@ def compute_loss_ad_variance_bis2(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size,
 
     # fitting true conditional variance (with respect to conditional expectation and expectation squared)
     inner += weights[4] * torch.sum(
-        (Y_obs_bj[:, idx_var]*M_obs[:, idx_var] -
+        (Y_obs_bj[:, idx_var]*M_obs[:, idx_id] -
          ((Y_obs_bj[:, idx_id].detach() - X_obs[:, idx_id])*M_obs[:, idx_id]) ** 2) ** 2, dim=1)
+    # this term does not need an observation => no M_obs multiplication
     inner += weights[5] * torch.sum(
-        (Y_obs_bj[:, idx_var]*M_obs[:, idx_var] -
-         (Y_obs_bj[:, idx_power2].detach() - Y_obs_bj[:,idx_id].detach() ** 2)*M_obs[:, idx_id]) ** 2, dim=1)
+        (Y_obs_bj[:, idx_var] -
+         (Y_obs_bj[:, idx_power2].detach() - Y_obs_bj[:,idx_id].detach() ** 2)) ** 2, dim=1)
 
     # enforcing conditional variance positiveness
     inner += weights[6] * torch.sum(F.relu(- Y_obs_bj[:, idx_var]) ** 2,
@@ -793,7 +794,7 @@ class NJODE(torch.nn.Module):
             bias=True, dropout_rate=0, solver="euler",
             weight=0.5, weight_evolve=None, t_period=1.,       ###
             input_vars=None, output_vars=None, 
-            delta_t = None, **options
+            delta_t = None, size_X=0, **options
     ):
         """
         init the model
@@ -837,6 +838,7 @@ class NJODE(torch.nn.Module):
                 self.weight_target = weight_evolve['target']
                 self.weight_reach = weight_evolve['reach']
         self.use_rnn = use_rnn  # use RNN for jumps
+        self.size_X = size_X
 
         # get options from the options of train input
         options1 = options['options']
@@ -847,6 +849,7 @@ class NJODE(torch.nn.Module):
         assert self.which_loss in LOSS_FUN_DICT
         print('using loss: {}'.format(self.which_loss))
 
+        self.output_vars = None
         if output_vars is not None:
             self.output_vars = output_vars
         if input_vars is not None:
@@ -1388,7 +1391,7 @@ class NJODE(torch.nn.Module):
                 predict_labels=None, return_classifier_out=False,
                 return_at_last_obs=False,
                 only_jump_before_abx_exposure=False,
-                ABX_EXPOSURE=None):
+                ABX_EXPOSURE=None, use_obs_until_t=None):
         """
         the forward run of this module class, used when calling the module
         instance without a method
@@ -1440,6 +1443,8 @@ class NJODE(torch.nn.Module):
         :param ABX_EXPOSURE: None or torch.tensor, whether the patient had
                 antibiotics exposure anytime before an observation time, or
                 amount of exposures before an observation time.
+        :param use_obs_until_t: None or float, if not None, only use
+                observations until this time as inputs to the model.
 
         :return: torch.tensor (hidden state at final time), torch.tensor (loss),
                     if wanted the paths of t (np.array) and h, y (torch.tensors)
@@ -1513,6 +1518,8 @@ class NJODE(torch.nn.Module):
         assert len(times) + 1 == len(time_ptr)
 
         for i, obs_time in enumerate(times):
+            if use_obs_until_t is not None and obs_time > use_obs_until_t:
+                break
             # Propagation of the ODE until next observation
             while current_time < (obs_time - 1e-10 * delta_t):  # 0.0001 delta_t used for numerical consistency.
                 if current_time < obs_time - delta_t:
@@ -1591,6 +1598,10 @@ class NJODE(torch.nn.Module):
                 temp = h.clone()
                 if self.masked:
                     X_obs_impute = X_obs * M_obs
+                    # size_X is the size of the X part of the input (X,Z)
+                    X_obs_impute[:, :self.size_X] += (
+                            Y_bj[i_obs.long(), :self.size_X] *
+                            (1. - M_obs[:, :self.size_X]))
                 c_sig_iobs = None
                 if self.input_sig:
                     c_sig_iobs = c_sig[i_obs]
@@ -1838,7 +1849,7 @@ class NJODE(torch.nn.Module):
     def get_pred(self, times, time_ptr, X, obs_idx, delta_t, T, start_X,
                  S, start_S, M=None, start_M=None, M_S=None, start_M_S=None,
                  abx_exposure=None,
-                 only_jump_before_abx_exposure=False):
+                 only_jump_before_abx_exposure=False, use_obs_until_t=None):
         """
         get predicted path
         :param times: see forward
@@ -1863,7 +1874,7 @@ class NJODE(torch.nn.Module):
             start_M=start_M, S=S, start_S=start_S,
             M_S=M_S, start_M_S=start_M_S,
             only_jump_before_abx_exposure=only_jump_before_abx_exposure,
-            ABX_EXPOSURE=abx_exposure)
+            ABX_EXPOSURE=abx_exposure, use_obs_until_t=use_obs_until_t)
         return {'pred': path_y, 'pred_t': path_t}
 
 

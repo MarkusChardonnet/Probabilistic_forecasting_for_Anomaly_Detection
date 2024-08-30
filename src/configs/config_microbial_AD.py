@@ -251,7 +251,7 @@ param_dict_AD_microbial_novel_alpha_div = {
         'plot_cond_standardized_dist': [['normal',]],
         'only_jump_before_abx_exposure': [False],
         'use_dyn_cov_after_abx': [False],
-        'reliability_eval_start_times': [[30*6, 30*12]],
+        'reliability_eval_start_times': [list(range(0, 1162, 30))],
 }
 param_list_AD_microbial_novel_alpha_div_reliability_eval += get_parameter_array(
         param_dict=param_dict_AD_microbial_novel_alpha_div)

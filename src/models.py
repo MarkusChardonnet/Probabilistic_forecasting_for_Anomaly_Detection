@@ -436,7 +436,7 @@ def compute_loss_val_variance(X_obs, Y_obs, Y_obs_bj, n_obs_ot, batch_size, eps=
     # fitting conditional variance
     if 'var' in output_vars:
         # at observations
-        inner[2] += torch.sum((Y_obs[:,idx_var]*M_obs[:, idx_var]) ** 2, dim=1)
+        inner[2] += torch.sum((Y_obs[:,idx_var]*M_obs[:, idx_id]) ** 2, dim=1)
         # before observations
         inner[3] += torch.sum(((Y_obs_bj[:,idx_var] - (Y_obs_bj[:,idx_id] - X_obs[:,idx_id]) ** 2)*M_obs[:, idx_id]) ** 2, dim=1)
     else:

@@ -591,9 +591,9 @@ def compute_scores(
                 for i in range(ad_scores.shape[1])]
             # data_collect.append(data)
             df = pd.DataFrame(data, columns=cols)
-            csvpath_val = '{}val_noabx_ad_scores_{}_{}.csv'.format(
+            csvpath_val_releval = '{}val_noabx_ad_scores_{}_{}.csv'.format(
                 reli_eval_path, start_time, aggregation_method)
-            df.to_csv(csvpath_val, index=False)
+            df.to_csv(csvpath_val_releval, index=False)
 
     if send:
         files_to_send = [csvpath, csvpath_val] + filepaths

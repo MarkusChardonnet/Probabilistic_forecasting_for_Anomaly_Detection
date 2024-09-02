@@ -1518,7 +1518,8 @@ class NJODE(torch.nn.Module):
         assert len(times) + 1 == len(time_ptr)
 
         for i, obs_time in enumerate(times):
-            if use_obs_until_t is not None and obs_time > use_obs_until_t:
+            if ((not self.masked) and use_obs_until_t is not None
+                    and obs_time > use_obs_until_t):
                 break
             # Propagation of the ODE until next observation
             while current_time < (obs_time - 1e-10 * delta_t):  # 0.0001 delta_t used for numerical consistency.
@@ -1565,6 +1566,12 @@ class NJODE(torch.nn.Module):
                 i_obs = i_obs[which]
                 if self.masked:
                     M_obs = M_obs[which]
+
+            # only update the model before use_obs_until_t
+            if (self.masked and use_obs_until_t is not None
+                    and obs_time > use_obs_until_t):
+                M_obs[:, :self.size_X] = 0
+                M_S_obs[:, :] = 0
 
             # decide whether to use observation as input
             if self.training:  # check whether model is in training or eval mode

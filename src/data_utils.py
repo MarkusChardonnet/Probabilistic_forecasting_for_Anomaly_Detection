@@ -1005,9 +1005,11 @@ def MicrobialCollateFnGen(func_names=None, use_only_dyn_ft_as_input=None,
         use_only_dyn_ft_as_input_func = \
             lambda x, y: np.random.random(x) > use_only_dyn_ft_as_input
     elif use_only_dyn_ft_as_input == "after_nth_abx_exposure":
-        if only_jump_before_abx_exposure in [None, False]:
-            only_jump_before_abx_exposure = 0
-        only_jump_before_abx_exposure = int(only_jump_before_abx_exposure)
+        if (only_jump_before_abx_exposure in [None, False]
+                or only_jump_before_abx_exposure <= 0):
+            only_jump_before_abx_exposure = np.infty
+        else:
+            only_jump_before_abx_exposure = int(only_jump_before_abx_exposure)
         use_only_dyn_ft_as_input_func = \
             lambda x, y: y < only_jump_before_abx_exposure
     elif isinstance(use_only_dyn_ft_as_input, str):

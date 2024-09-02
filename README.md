@@ -206,6 +206,7 @@ python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_joint_ids --ad_par
 
 # reliability evaluation
 python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_novel_alpha_div_ids_reliability_eval --ad_params=param_list_AD_microbial_novel_alpha_div_reliability_eval --forecast_saved_models_path=AD_microbial_novel_alpha_div --compute_scores=True --evaluate_scores=True
+python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_novel_alpha_div_ids_reliability_eval_2 --ad_params=param_list_AD_microbial_novel_alpha_div_reliability_eval_2 --forecast_saved_models_path=AD_microbial_novel_alpha_div --compute_scores=True --evaluate_scores=True
 ```
 
 

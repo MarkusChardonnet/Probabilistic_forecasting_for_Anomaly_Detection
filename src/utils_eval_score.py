@@ -29,18 +29,27 @@ def _add_month_bins(scores: pd.DataFrame, days_per_month=30.437) -> pd.DataFrame
     return scores
 
 
-def _get_all_scores(path_to_scores, split="train"):
-    """Get all split scores for all multi-step predictions from path_to_scores"""
+def _get_all_scores(path_to_scores, split="train", limit_months=None):
+    """
+    Get all split scores for all multi-step predictions from path_to_scores. If
+    limit_months is set, only returns scores up to this months limit.
+    """
     scores = []
     for i in range(1, 4):
         scores.append(pd.read_csv(f"{path_to_scores}{split}_ad_scores_{i}_coord-0.csv"))
-    scores_t = [_transform_scores(x) for x in scores]
-    scores_all = scores_t[0].copy()
-    scores_all = scores_all.join(scores_t[1][["score"]], rsuffix="_2", how="left")
-    scores_all = scores_all.join(scores_t[2][["score"]], rsuffix="_3", how="left")
+
+    scores_list = [_transform_scores(x) for x in scores]
+
+    scores_all = scores_list[0].copy()
+    scores_all = scores_all.join(scores_list[1][["score"]], rsuffix="_2", how="left")
+    scores_all = scores_all.join(scores_list[2][["score"]], rsuffix="_3", how="left")
     scores_all.rename(columns={"score": "score_1"}, inplace=True)
 
     scores_all = _add_month_bins(scores_all)
+
+    if limit_months is not None:
+        scores_all = scores_all[scores_all["month5_bin"] <= limit_months].copy()
+
     return scores_all
 
 

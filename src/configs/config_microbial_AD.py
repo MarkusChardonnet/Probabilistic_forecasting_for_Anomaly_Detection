@@ -170,7 +170,7 @@ param_dict_AD_microbial_alpha_div_4 = {
         'seed': [seed],
         'scoring_distribution': ['lognormal'],
         'scoring_metric': ['left-tail'],
-        'plot_cond_std_dist': [True],
+        'plot_cond_standardized_dist': [['normal', 'lognormal']],
         'only_jump_before_abx_exposure': [True],
 }
 param_list_AD_microbial_alpha_div_4 += get_parameter_array(
@@ -179,8 +179,9 @@ param_list_AD_microbial_alpha_div_4 += get_parameter_array(
 
 # ------------------------------------------------------------------------------
 # AD for novel alpha diversity metric models
+# TODO: best AD results for id 2 & 37 at best with normal
 AD_microbial_novel_alpha_div = "{}saved_models_microbial_novel_alpha_div/".format(data_path)
-AD_microbial_novel_alpha_div_ids = [2,5]
+AD_microbial_novel_alpha_div_ids = [2,55,56]
 param_list_AD_microbial_novel_alpha_div = []
 param_dict_AD_microbial_novel_alpha_div = {
         'load_best': [True],
@@ -188,13 +189,95 @@ param_dict_AD_microbial_novel_alpha_div = {
         'seed': [seed],
         'scoring_distribution': ['normal'],
         'scoring_metric': ['left-tail'],
-        'plot_cond_std_dist': [True],
-        'only_jump_before_abx_exposure': [True],
+        'plot_cond_standardized_dist': [['normal', ]],
+        'only_jump_before_abx_exposure': [1,2,3],
+        'use_dyn_cov_after_abx': [True],
 }
 param_list_AD_microbial_novel_alpha_div += get_parameter_array(
         param_dict=param_dict_AD_microbial_novel_alpha_div)
 
-# TODO: best AD results for id 2 at best with normal
+AD_microbial_rel_abund_ids = [37,59, 60]
+param_list_AD_microbial_rel_abund = []
+param_dict_AD_microbial_rel_abund = {
+        'load_best': [True],
+        'verbose': [True],
+        'seed': [seed],
+        'scoring_distribution': ['t-3'],
+        'scoring_metric': ['right-tail'],
+        'plot_cond_standardized_dist': [['t-3']],
+        'only_jump_before_abx_exposure': [1,2,3],
+        'use_dyn_cov_after_abx': [True],
+}
+param_list_AD_microbial_rel_abund += get_parameter_array(
+        param_dict=param_dict_AD_microbial_rel_abund)
+
+
+AD_microbial_joint_ids = [46, 50,]
+param_list_AD_microbial_joint = []
+param_dict_AD_microbial_joint = {
+        'load_best': [True],
+        'verbose': [True],
+        'seed': [seed],
+        'scoring_distribution': ['t-3'],
+        'scoring_metric': ['left-tail'],
+        'epsilon': [1e-8],
+        'plot_cond_standardized_dist': [['normal', 't-3']],
+        'only_jump_before_abx_exposure': [1,2,3],
+        'aggregation_method': ['coord-0'],
+}
+param_list_AD_microbial_joint += get_parameter_array(
+        param_dict=param_dict_AD_microbial_joint)
+param_dict_AD_microbial_joint_1 = {
+        'load_best': [True],
+        'verbose': [True],
+        'seed': [seed],
+        'scoring_distribution': ['t-3'],
+        'scoring_metric': ['right-tail'],
+        'epsilon': [1e-8],
+        'plot_cond_standardized_dist': [['normal', 't-3']],
+        'only_jump_before_abx_exposure': [1,2,3],
+        'aggregation_method': ['coord-1'],
+}
+param_list_AD_microbial_joint += get_parameter_array(
+        param_dict=param_dict_AD_microbial_joint_1)
+
+# ------------------------------------------------------------------------------
+# reliability evaluation
+AD_microbial_novel_alpha_div_ids_reliability_eval = [2, 56]
+param_list_AD_microbial_novel_alpha_div_reliability_eval = []
+param_dict_AD_microbial_novel_alpha_div = {
+        'load_best': [True],
+        'verbose': [True],
+        'seed': [seed],
+        'scoring_distribution': ['normal'],
+        'scoring_metric': ['left-tail'],
+        'plot_cond_standardized_dist': [None],
+        'only_jump_before_abx_exposure': [False],
+        'use_dyn_cov_after_abx': [True],
+        'reliability_eval_start_times': [list(range(0, 1162, 30))],
+}
+param_list_AD_microbial_novel_alpha_div_reliability_eval += get_parameter_array(
+        param_dict=param_dict_AD_microbial_novel_alpha_div)
+
+AD_microbial_novel_alpha_div_ids_reliability_eval_2 = [37, 60]
+param_list_AD_microbial_novel_alpha_div_reliability_eval_2 = []
+param_dict_AD_microbial_novel_alpha_div = {
+        'load_best': [True],
+        'verbose': [True],
+        'seed': [seed],
+        'scoring_distribution': ['t-3'],
+        'scoring_metric': ['right-tail'],
+        'plot_cond_standardized_dist': [None],
+        'only_jump_before_abx_exposure': [False],
+        'use_dyn_cov_after_abx': [True],
+        'reliability_eval_start_times': [list(range(0, 1162, 30))],
+}
+param_list_AD_microbial_novel_alpha_div_reliability_eval_2 += get_parameter_array(
+        param_dict=param_dict_AD_microbial_novel_alpha_div)
+
+
+
+
 
 
 

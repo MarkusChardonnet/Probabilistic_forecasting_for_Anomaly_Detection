@@ -167,6 +167,19 @@ def _create_subplot(
     return fig, axs
 
 
+def _filter_samples_by_max_abx_w_microbiome(df, score_col):
+    """
+    Select only samples from hosts with at least score_col suffix abx exposures
+    with microbial samples
+    """
+
+    # select only hosts with at least x-th abx exposures with microbial samples
+    nth_exposure_nb = float(score_col.split("_")[1])
+    df_f = df[df["max_abx_w_microbiome"] >= nth_exposure_nb].copy()
+
+    return df_f
+
+
 def _plot_score_over_age(
     df: pd.DataFrame, y_axis: str, flag: str, path_to_save: str
 ) -> str:
@@ -176,6 +189,16 @@ def _plot_score_over_age(
     ylabel = f"# samples w {y_axis}"
     xlabel = f"age in {x_axis}"
 
+    if "noabx" not in flag:
+        # select only hosts with at least x-th abx exposures with microbial samples
+        df = _filter_samples_by_max_abx_w_microbiome(df, y_axis)
+
+    # remove 0 month_bin in case there are no actual scores for it
+    all_zero_month_nan = bool(df.loc[df["month_bin"] == 0, y_axis].isna().all())
+    if all_zero_month_nan:
+        df = df[df["month_bin"] != 0].copy()
+
+    # plot
     fig, _ = _create_subplot(x_axis, y_axis, df, title, ylabel, xlabel)
 
     path_to_plot = f"{path_to_save}score_over_age_{flag}_{y_axis}.pdf"
@@ -183,11 +206,15 @@ def _plot_score_over_age(
     return path_to_plot
 
 
-def _get_abx_info(path_to_abx_ts: str) -> pd.DataFrame:
+def _get_abx_info(path_to_abx_ts: str, limit_months: float = None) -> pd.DataFrame:
     abx_df = pd.read_csv(path_to_abx_ts, sep="\t", index_col=0)
     cols_to_keep = ["abx_start_age_months", "abx_type", "abx_reason"]
     abx_df = abx_df[cols_to_keep].reset_index()
     abx_df.sort_values(["host_id", "abx_start_age_months"], inplace=True)
+
+    if limit_months is not None:
+        abx_df = abx_df[abx_df["abx_start_age_months"] <= limit_months].copy()
+
     return abx_df
 
 
@@ -240,8 +267,10 @@ def _select_samples_around_nth_abx_exposure(
         np.logical_and(
             ~all_samples["diff_age_nth_abx"].isna(),
             # really only samples around this n-th exposure
-            np.logical_and(all_samples["abx_any_cumcount"] <= (n + 1),
-                           all_samples["abx_any_cumcount"] >= n)
+            np.logical_and(
+                all_samples["abx_any_cumcount"] <= (n + 1),
+                all_samples["abx_any_cumcount"] >= n,
+            ),
         ),
         :,
     ]
@@ -411,7 +440,9 @@ def _plot_score_after_nth_abx_exposure(
         return path_to_plot
 
 
-def display_scatterplot_w_scores(dic_to_plot, hide_ylabel_thickmarks=True):
+def display_scatterplot_w_scores(
+    dic_to_plot, hide_ylabel_thickmarks=True, sharey=False
+):
     """
     dic_to_plot: dictionary with label and as values: one score_col str and two
     dataframes(md + abx)
@@ -420,11 +451,15 @@ def display_scatterplot_w_scores(dic_to_plot, hide_ylabel_thickmarks=True):
     n_subplots = len(dic_to_plot)
     if hide_ylabel_thickmarks:
         plt.rcParams.update({"font.size": 6.5})
-        fig, axs = plt.subplots(1, n_subplots, figsize=(8, 6), sharex=True, dpi=400)
+        fig, axs = plt.subplots(
+            1, n_subplots, figsize=(8, 6), sharex=True, sharey=sharey, dpi=400
+        )
         markersize = 8
     else:
         plt.rcParams.update({"font.size": 6})
-        fig, axs = plt.subplots(1, n_subplots, figsize=(9, 10), sharex=True, dpi=400)
+        fig, axs = plt.subplots(
+            1, n_subplots, figsize=(9, 10), sharex=True, sharey=sharey, dpi=400
+        )
         markersize = 10
 
     i = 0
@@ -433,11 +468,50 @@ def display_scatterplot_w_scores(dic_to_plot, hide_ylabel_thickmarks=True):
     cmap = LinearSegmentedColormap.from_list("green_to_red", ["green", "yellow", "red"])
 
     ls_score_cols = []
+    # Calculate global min and max scores for legend
+    global_min_score = float("inf")
+    global_max_score = float("-inf")
+
     for title, v in dic_to_plot.items():
         score_col = v[0]
         ls_score_cols.append(score_col)
         df = v[1]
         abx = v[2]
+
+        # remove all scores with value NaN
+        df = df.dropna(subset=[score_col])
+
+        # store min and max scores for legend reference
+        global_min_score = min(global_min_score, df[score_col].min())
+        global_max_score = max(global_max_score, df[score_col].max())
+
+        # filter if needed
+        if abx is not None:
+            # remove scores for samples where it is not relevant (e.g. only 1
+            # abx exposure, score_2 and score_3 re not relevant)
+            nth_exposure_nb = float(score_col.split("_")[1])
+            cond_relevant = df["max_abx_w_microbiome"] >= nth_exposure_nb
+            df.loc[~cond_relevant, score_col] = np.nan
+
+            # filter abx events by filtered df
+            abx_filtered = abx.copy()
+            hosts_not_relevant = df[~cond_relevant].host_id.unique().tolist()
+            abx_filtered.loc[
+                abx_filtered.host_id.isin(hosts_not_relevant), "abx_start_age_months"
+            ] = np.nan
+
+            # abx events
+            sns.scatterplot(
+                x="abx_start_age_months",
+                y="host_id",
+                data=abx_filtered,
+                ax=axs[i],
+                s=markersize * 1.5,
+                marker="x",
+                color="darkred",
+                label="abx event",
+            )
+
         # samples
         scatter1 = sns.scatterplot(
             x="month5_bin",
@@ -448,18 +522,6 @@ def display_scatterplot_w_scores(dic_to_plot, hide_ylabel_thickmarks=True):
             s=markersize,
             palette=cmap,
         )
-        if abx is not None:
-            # abx events
-            sns.scatterplot(
-                x="abx_start_age_months",
-                y="host_id",
-                data=abx,
-                ax=axs[i],
-                s=markersize * 1.5,
-                marker="x",
-                color="darkred",
-                label="abx event",
-            )
 
         axs[i].set_title(f"Hosts {title} ({df.host_id.nunique()}) - {score_col}")
         axs[i].set_xlabel("Age [months]")
@@ -474,20 +536,19 @@ def display_scatterplot_w_scores(dic_to_plot, hide_ylabel_thickmarks=True):
         i += 1
 
     # Create a colorbar legend
-    # # ! note all scores have same range (min-max) here - so one legend is enough
-    # TODO: verify it this remains true
-    norm = plt.Normalize(df[score_col].min(), df[score_col].max())
+    norm = plt.Normalize(global_min_score, global_max_score)
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
     sm.set_array([])
 
     # Remove the legend created by seaborn
     scatter1.get_legend().remove()
 
-    # Add the colorbar legend
-    axs[2].figure.colorbar(sm, ax=axs[2], label="Inferred scores")
+    # Add the colorbar legend to the right of the subplots
+    cbar_ax = fig.add_axes([0.92, 0.15, 0.02, 0.7])
+    fig.colorbar(sm, cax=cbar_ax, label="Inferred scores")
 
     plt.suptitle("Inferred scores over time", fontsize=10, y=1.0)
-    plt.tight_layout()
+    plt.tight_layout(rect=[0, 0, 0.9, 1])
     # filename = os.path.join(
     #     path_to_output,
     #     f"overall_distribution_samples_t{hide_ylabel_thickmarks}.png",

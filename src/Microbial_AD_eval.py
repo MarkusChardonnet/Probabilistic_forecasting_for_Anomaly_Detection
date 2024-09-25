@@ -27,7 +27,7 @@ from torch.utils.data import DataLoader
 # since this is not a package - add src to path
 src_dir = os.path.abspath("src")
 sys.path.append(src_dir)
-from utils_eval_score import _plot_score_over_age, _transform_scores
+from utils_eval_score import _transform_scores
 
 try:
     from telegram_notifications import send_bot_message as SBM
@@ -694,38 +694,6 @@ def evaluate_scores(
             files=[impath_hist],
             text_for_files=caption
         )
-
-    noabx_train = all_scores["train"][~all_scores["train"]["abx"]].copy()
-    noabx_val = all_scores["val"][~all_scores["val"]["abx"]].copy()
-
-    abx_scores_train = all_scores["train"][all_scores["train"]["abx"]].copy()
-    abx_scores_val = all_scores["val"][all_scores["val"]["abx"]].copy()
-    abx_scores = pd.concat([abx_scores_train, abx_scores_val])
-    abx_scores = abx_scores[abx_scores.score.notnull()].copy()
-
-    all_scores_split = {
-        "train_noabx_t": noabx_train,
-        "val_noabx_t": noabx_val,
-        "abx_t": abx_scores,
-    }
-
-    dic_img_age = {}
-    for flag, scores in all_scores_split.items():
-        # plot scores over age
-        dic_img_age[flag] = _plot_score_over_age(scores, flag, evaluation_path)
-
-    # send to telegram
-    if send:
-        # scores over age
-        for k, v in dic_img_age.items():
-            caption = "scores-over-age {} - {} - id={}".format(
-                k, which, forecast_model_id)
-            SBM.send_notification(
-                text=None, chat_id=config.CHAT_ID, files=[v], text_for_files=caption
-            )
-
-        # print(np.all(np.isnan(abx_samples), axis=1).sum())
-        # print(np.all(np.isnan(non_abx_samples), axis=1).sum())
 
     # train_score = metrics.roc_auc_score(train_abx_labels, train_ad_scores)
     # val_score = metrics.roc_auc_score(val_abx_labels, val_ad_scores)

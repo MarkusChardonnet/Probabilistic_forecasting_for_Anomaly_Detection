@@ -54,19 +54,25 @@ def _get_all_scores(path_to_scores, split="train", limit_months=None):
 
 
 def _create_subplot(
-    x_axis, y_axis, data, title, ylabel, xlabel, n=None, result_df=None
+    x_axis, y_axis, data, title, ylabel, xlabel, n=None, result_df=None, nb_subplots=2
 ):
     """Creates boxplot and barplot"""
-    try:
-        fig, axs = plt.subplots(
-            2, 1, figsize=(10, 6), height_ratios=[1, 0.5], sharex=True, dpi=400
-        )
-    except:
-        fig, axs = plt.subplots(2, 1, figsize=(10, 6), sharex=True, dpi=400)
+
+    height_ratios = [1] + (nb_subplots - 1) * [0.5]
+    fig, axs = plt.subplots(
+        nb_subplots,
+        1,
+        figsize=(10, 6),
+        height_ratios=height_ratios,
+        sharex=True,
+        dpi=400,
+    )
 
     # axs[0] is the boxplot
     # category used to have consistent x-axis
     min_x = data[x_axis].min()
+    if min_x > 0:
+        min_x = 0  # start at zero for consistency
     max_x = data[x_axis].max()
     range_x = np.arange(min_x, max_x + 1)
     data[f"{x_axis}_cat"] = pd.Categorical(data[x_axis], categories=range_x)
@@ -181,7 +187,11 @@ def _filter_samples_by_max_abx_w_microbiome(df, score_col):
 
 
 def _plot_score_over_age(
-    df: pd.DataFrame, y_axis: str, flag: str, path_to_save: str
+    df: pd.DataFrame,
+    y_axis: str,
+    flag: str,
+    path_to_save: str,
+    abx_age_values: pd.Series = None,
 ) -> str:
     x_axis = "month_bin"
 
@@ -192,14 +202,56 @@ def _plot_score_over_age(
     if "noabx" not in flag:
         # select only hosts with at least x-th abx exposures with microbial samples
         df = _filter_samples_by_max_abx_w_microbiome(df, y_axis)
+        # filter abx_age also by same hosts
+        hosts_relevant = df.host_id.unique().tolist()
 
-    # remove 0 month_bin in case there are no actual scores for it
-    all_zero_month_nan = bool(df.loc[df["month_bin"] == 0, y_axis].isna().all())
-    if all_zero_month_nan:
-        df = df[df["month_bin"] != 0].copy()
+        if abx_age_values is not None:
+            abx_age_values_f = abx_age_values[
+                abx_age_values.index.isin(hosts_relevant)
+            ].copy()
+            nb_subplots = 3
+    else:
+        nb_subplots = 2
 
     # plot
-    fig, _ = _create_subplot(x_axis, y_axis, df, title, ylabel, xlabel)
+    fig, axs = _create_subplot(
+        x_axis, y_axis, df, title, ylabel, xlabel, nb_subplots=nb_subplots
+    )
+
+    # display age at abx exposure boxplot
+    if ("noabx" not in flag) and (abx_age_values is not None):
+        # print(abx_age_values_f.describe())
+
+        # # below line is to verify if axes align
+        ax2 = axs[2].twiny()
+        sns.swarmplot(
+            data=abx_age_values_f, ax=ax2, color="gray", alpha=0.5, size=4, orient="h"
+        )
+        color_lines = "steelblue"
+        sns.boxplot(
+            data=abx_age_values_f,
+            ax=ax2,
+            orient="h",
+            showfliers=True,
+            color="white",
+            saturation=1.0,
+            boxprops=dict(facecolor="white", edgecolor=color_lines),
+            whiskerprops=dict(color=color_lines),
+            capprops=dict(color=color_lines),
+            medianprops=dict(color=color_lines),
+            linewidth=1,
+            width=0.3,
+        )
+        # abx_age_values_f.plot.box(vert=False, ax=ax2, showfliers=False)
+        ax2.set_xlim(-0.5, 24.5)
+        ax2.set_ylim(axs[2].get_ylim())
+        # ax2 only needs to be visible if we want to verify the axes align
+        ax2.axis("off")
+
+        axs[2].set_yticklabels([])
+        axs[2].set_ylabel(f"Age at {title} \nexposure")
+
+        axs[2].set_xlabel(axs[1].get_xlabel(), labelpad=10)
 
     path_to_plot = f"{path_to_save}score_over_age_{flag}_{y_axis}.pdf"
     plt.savefig(path_to_plot)
@@ -500,7 +552,18 @@ def display_scatterplot_w_scores(
                 abx_filtered.host_id.isin(hosts_not_relevant), "abx_start_age_months"
             ] = np.nan
 
-            # abx events
+        # PLOT: samples first
+        scatter1 = sns.scatterplot(
+            x="month5_bin",
+            y="host_id",
+            hue=score_col,
+            data=df,
+            ax=axs[i],
+            s=markersize,
+            palette=cmap,
+        )
+        # abx events second if available
+        if abx is not None:
             sns.scatterplot(
                 x="abx_start_age_months",
                 y="host_id",
@@ -511,17 +574,6 @@ def display_scatterplot_w_scores(
                 color="darkred",
                 label="abx event",
             )
-
-        # samples
-        scatter1 = sns.scatterplot(
-            x="month5_bin",
-            y="host_id",
-            hue=score_col,
-            data=df,
-            ax=axs[i],
-            s=markersize,
-            palette=cmap,
-        )
 
         axs[i].set_title(f"Hosts {title} ({df.host_id.nunique()}) - {score_col}")
         axs[i].set_xlabel("Age [months]")
@@ -609,3 +661,42 @@ def plot_trajectory(df, abx_events, host_id, score_cols=["score"], jitter=False)
     plt.legend(handles=handles, labels=labels)
 
     plt.show()
+
+
+def get_age_at_1st_2nd_3rd_abx_exposure(abx_df):
+    """
+    Retrieve age at 1st, 2nd and 3rd abx exposure for each host in abx_df
+    """
+    i_dic = {1: "1st", 2: "2nd", 3: "3rd"}
+    abx_age_at_all = pd.DataFrame(abx_df["host_id"].unique(), columns=["host_id"])
+
+    for i, i_label in i_dic.items():
+        # indexing starts at zero
+        i -= 1
+        abx_age_at_i = abx_df.groupby("host_id").nth(i)
+        new_col_i = f"age_{i_label}_abx"
+        abx_age_at_i = abx_age_at_i.rename(columns={"abx_start_age_months": new_col_i})
+        abx_age_at_all = pd.merge(
+            abx_age_at_all,
+            abx_age_at_i[["host_id", new_col_i]],
+            on="host_id",
+            how="left",
+        )
+    abx_age_at_all.set_index("host_id", inplace=True)
+
+    return abx_age_at_all
+
+
+def plot_time_between_abx_exposures(abx_age_at_all, n0_label="1st", n1_label="2nd"):
+    """
+    Visualize time between n0_label and n1_label abx exposure
+    """
+    col_n0 = f"age_{n0_label}_abx"
+    col_n1 = f"age_{n1_label}_abx"
+    # add this column to all_samples
+    both_age = abx_age_at_all.copy()
+    both_age["diff_age"] = both_age[col_n1] - both_age[col_n0]
+
+    fig, ax = plt.subplots(dpi=400, figsize=(4, 5))
+    both_age[["diff_age"]].boxplot(ax=ax)
+    ax.set_title(f"Time between {n0_label} and {n1_label} abx exposure")

@@ -610,7 +610,7 @@ def display_scatterplot_w_scores(
     if path_to_output is not None:
         filename = os.path.join(
             path_to_output,
-            f"overall_distribution_samples_t{hide_ylabel_thickmarks}_{flag}.png",
+            f"overall_distribution_samples_t{hide_ylabel_thickmarks}_{flag}.pdf",
         )
         plt.savefig(filename, dpi=400, bbox_inches="tight")
     plt.show()
@@ -678,7 +678,7 @@ def plot_trajectory(
     if path_to_output is not None:
         filename = os.path.join(
             path_to_output,
-            f"indv_trajectory_{host_id}_{flag}.png",
+            f"indv_trajectory_{host_id}_{flag}.pdf",
         )
         plt.savefig(filename, dpi=400, bbox_inches="tight")
     plt.show()

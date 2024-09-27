@@ -687,7 +687,9 @@ def get_age_at_1st_2nd_3rd_abx_exposure(abx_df):
     return abx_age_at_all
 
 
-def plot_time_between_abx_exposures(abx_age_at_all, n0_label="1st", n1_label="2nd"):
+def plot_time_between_abx_exposures(
+    abx_age_at_all, n0_label="1st", n1_label="2nd", path_to_save=None
+):
     """
     Visualize time between n0_label and n1_label abx exposure
     """
@@ -700,3 +702,9 @@ def plot_time_between_abx_exposures(abx_age_at_all, n0_label="1st", n1_label="2n
     fig, ax = plt.subplots(dpi=400, figsize=(4, 5))
     both_age[["diff_age"]].boxplot(ax=ax)
     ax.set_title(f"Time between {n0_label} and {n1_label} abx exposure")
+
+    if path_to_save is not None:
+        if not os.path.exists(path_to_save):
+            os.makedirs(path_to_save)
+        path_to_plot = f"{path_to_save}time_between_{n0_label}_{n1_label}.pdf"
+        plt.savefig(path_to_plot)

@@ -11,10 +11,16 @@ plt.rcParams.update({"font.family": "DejaVu Sans"})
 plt.style.use("tableau-colorblind10")
 
 
-def _transform_scores(scores_wide: pd.DataFrame) -> pd.DataFrame:
+def _transform_scores(
+    scores_wide: pd.DataFrame, add_col_not_melt: list = None
+) -> pd.DataFrame:
     """Transform scores_wide from wide to long"""
+    ls_cols_not_to_melt = ["host_id", "abx"]
+    if add_col_not_melt is not None:
+        ls_cols_not_to_melt += add_col_not_melt
+
     scores = scores_wide.melt(
-        id_vars=["host_id", "abx"], var_name="day", value_name="score"
+        id_vars=ls_cols_not_to_melt, var_name="day", value_name="score"
     )
     scores["day"] = scores["day"].str.extract(r"ad_score_day-(\d+)")[0].astype(int)
     scores.sort_values(["abx", "host_id", "day"], inplace=True)
@@ -493,7 +499,7 @@ def _plot_score_after_nth_abx_exposure(
 
 
 def display_scatterplot_w_scores(
-    dic_to_plot, hide_ylabel_thickmarks=True, sharey=False
+    dic_to_plot, hide_ylabel_thickmarks=True, sharey=False, path_to_output=None, flag=""
 ):
     """
     dic_to_plot: dictionary with label and as values: one score_col str and two
@@ -601,15 +607,24 @@ def display_scatterplot_w_scores(
 
     plt.suptitle("Inferred scores over time", fontsize=10, y=1.0)
     plt.tight_layout(rect=[0, 0, 0.9, 1])
-    # filename = os.path.join(
-    #     path_to_output,
-    #     f"overall_distribution_samples_t{hide_ylabel_thickmarks}.png",
-    # )
-    # plt.savefig(filename, dpi=400, bbox_inches="tight")
+    if path_to_output is not None:
+        filename = os.path.join(
+            path_to_output,
+            f"overall_distribution_samples_t{hide_ylabel_thickmarks}_{flag}.png",
+        )
+        plt.savefig(filename, dpi=400, bbox_inches="tight")
     plt.show()
 
 
-def plot_trajectory(df, abx_events, host_id, score_cols=["score"], jitter=False):
+def plot_trajectory(
+    df,
+    abx_events,
+    host_id,
+    score_cols=["score"],
+    jitter=False,
+    path_to_output=None,
+    flag="",
+):
     host_data = df[df["host_id"] == host_id]
 
     plt.figure(figsize=(10, 6))
@@ -660,6 +675,12 @@ def plot_trajectory(df, abx_events, host_id, score_cols=["score"], jitter=False)
         labels.append("abx event")
     plt.legend(handles=handles, labels=labels)
 
+    if path_to_output is not None:
+        filename = os.path.join(
+            path_to_output,
+            f"indv_trajectory_{host_id}_{flag}.png",
+        )
+        plt.savefig(filename, dpi=400, bbox_inches="tight")
     plt.show()
 
 

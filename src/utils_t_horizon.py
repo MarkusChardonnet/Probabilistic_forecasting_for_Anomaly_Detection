@@ -83,3 +83,33 @@ def plot_cutoff_date_distribution(c_scores_all, flag=""):
     plt.xlabel("cutoff (days)")
     plt.ylabel("Count")
     plt.show()
+
+
+def sample_from_each_group(group, sample_sizes, seed):
+    """Sample sample_sizes.values rows from each group based on the column."""
+    # Get the sample size for this group from the sample_sizes dictionary
+    n = sample_sizes.get(group.name, 0)
+    # Ensure there are enough rows to sample
+    if len(group) < n:
+        raise ValueError(
+            f"Not enough rows to sample for cutoff_month {group.name}. Needed {n}, but only {len(group)} available."
+        )
+    # Sample n rows from the group
+    return group.sample(n=n, random_state=seed)
+
+
+def display_two_distributions(orig_values, sampled_values):
+    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(12, 5))
+
+    # original
+    axes[0].hist(orig_values, bins=30, edgecolor="black", color="blue")
+    axes[0].set_title("Original distribution")
+    axes[0].set_ylabel("Frequency")
+
+    # sampled
+    axes[1].hist(sampled_values, bins=30, edgecolor="black", color="orange")
+    axes[1].set_title("Sampled distribution")
+    axes[1].set_ylabel("Frequency")
+
+    plt.tight_layout()
+    plt.show()

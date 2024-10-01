@@ -24,3 +24,4 @@ test.py
 *.egg-info/
 .installed.cfg
 *.egg
+x_*

@@ -59,6 +59,36 @@ def _get_all_scores(path_to_scores, split="train", limit_months=None):
     return scores_all
 
 
+def _add_md_from_ft(abx_scores_flat, ft_name):
+    """
+    Add metadata matching samples over time from ft to abx_scores_flat
+    """
+    ft_df = pd.read_csv(f"../data/original_data/{ft_name}.tsv", sep="\t", index_col=0)
+    ft_df["age_days"] = ft_df["age_days"].astype(int)
+    ft_df.rename(columns={"age_days": "day"}, inplace=True)
+
+    cols_to_evaluate = [
+        "abx_any_cumcount",
+        "abx_max_count_ever",
+        "abx_any_last_t_dmonths",
+        "abx_any_last_dur_days",
+        "geo_location_name",
+    ]
+    ft_df = ft_df[["day", "host_id"] + cols_to_evaluate].copy()
+    ft_df = ft_df.assign(
+        max_abx_w_microbiome=lambda df: df.groupby("host_id")[
+            "abx_any_cumcount"
+        ].transform("max"),
+    )
+    # add additional information to inferred scores
+    abx_scores_flat = abx_scores_flat.merge(ft_df, on=["host_id", "day"], how="left")
+
+    # drop all rows with no observations available
+    abx_scores_flat = abx_scores_flat.dropna(subset=["score_1"]).copy()
+
+    return abx_scores_flat
+
+
 def _create_subplot(
     x_axis, y_axis, data, title, ylabel, xlabel, n=None, result_df=None, nb_subplots=2
 ):
@@ -405,18 +435,30 @@ def _get_ordinal_suffix(n):
 
 
 def perform_significance_tests(
-    df, t0, t1_values, metric_to_evaluate="diff_metric", x_axis="diff_age_nth_abx"
+    df,
+    t0,
+    t1_values,
+    metric_to_evaluate="diff_metric",
+    x_axis="diff_age_nth_abx",
+    uniqueness_var_ls=None,
 ):
     results = []
 
+    if uniqueness_var_ls is not None:
+        # add another columns to identify unique samples for paired tests
+        unique_vars = ["host_id"] + uniqueness_var_ls
+    else:
+        unique_vars = ["host_id"]
+
     # Filter the DataFrame for t0
-    df_t0 = df.loc[(df[x_axis] == t0), ["host_id", metric_to_evaluate]]
+    cols_to_keep = unique_vars + [metric_to_evaluate]
+    df_t0 = df.loc[(df[x_axis] == t0), cols_to_keep]
     df_t0.rename(columns={metric_to_evaluate: "t0"}, inplace=True)
 
     t1_values.remove(t0)  # no comparison to itself
     for t1 in t1_values:
         # Filter the DataFrame for each t1
-        df_t1 = df.loc[(df[x_axis] == t1), ["host_id", metric_to_evaluate]]
+        df_t1 = df.loc[(df[x_axis] == t1), cols_to_keep]
         df_t1.rename(columns={metric_to_evaluate: "t1"}, inplace=True)
 
         # perform the mann-whitney u-test (unpaired/independent)
@@ -433,7 +475,7 @@ def perform_significance_tests(
             h_stat_unpair, p_val_unpair = np.nan, np.nan
 
         # Perform the wilcoxon test (paired)
-        df_t0_t1 = pd.merge(df_t0, df_t1, on="host_id", how="inner")
+        df_t0_t1 = pd.merge(df_t0, df_t1, on=unique_vars, how="inner")
         df_t0_t1.dropna(inplace=True)
         n_paired_samples = df_t0_t1.shape[0]
         if n_paired_samples > 0:
@@ -484,6 +526,7 @@ def _plot_score_after_nth_abx_exposure(
     min_samples: float = -3.0,
     max_samples: float = 12.0,
     grouped_samples: bool = False,
+    uniqueness_var_ls: list = None,
 ) -> str:
     suff = _get_ordinal_suffix(n)
 
@@ -493,7 +536,12 @@ def _plot_score_after_nth_abx_exposure(
     else:
         t1_values = [x for x in range(int(min_samples), int(max_samples + 1))]
     significance_df = perform_significance_tests(
-        data, -1.0, t1_values, y_axis, x_axis=x_axis
+        data,
+        -1.0,
+        t1_values,
+        y_axis,
+        x_axis=x_axis,
+        uniqueness_var_ls=uniqueness_var_ls,
     )
 
     title = f"Score before/after {n}{suff} abx exposure: {tag}"
@@ -699,7 +747,7 @@ def plot_trajectory(
     plt.show()
 
 
-def get_age_at_1st_2nd_3rd_abx_exposure(abx_df):
+def _get_age_at_1st_2nd_3rd_abx_exposure(abx_df):
     """
     Retrieve age at 1st, 2nd and 3rd abx exposure for each host in abx_df
     """
@@ -723,6 +771,76 @@ def get_age_at_1st_2nd_3rd_abx_exposure(abx_df):
     return abx_age_at_all
 
 
+def _filter_hosts_w_microbiome_samples_prior_to_abx(abx_scores_flat, abx_age_at_all):
+    """
+    Filter abx_scores_flat by hosts that have at least 1 microbiome sample prior
+    to 1st abx exposure
+    """
+    first_sample = abx_scores_flat[["host_id", "month5_bin"]].groupby("host_id").min()
+    first_sample.rename(columns={"month5_bin": "first_microbiome_sample"}, inplace=True)
+
+    m_first_vs_abx = pd.merge(
+        first_sample, abx_age_at_all[["age_1st_abx"]], on="host_id", how="left"
+    )
+
+    # no microbiome sample prior to first abx exposure
+    hosts_to_exclude = m_first_vs_abx[
+        m_first_vs_abx["age_1st_abx"] < m_first_vs_abx["first_microbiome_sample"]
+    ].index
+    print(
+        f"Number of hosts with 1st abx exposure prior to 1st microbiome sample: {len(hosts_to_exclude)}"
+    )
+
+    abx_scores_flat = abx_scores_flat[
+        ~abx_scores_flat["host_id"].isin(hosts_to_exclude)
+    ].copy()
+
+    print(
+        f"Number of hosts w microbiome sample prior to 1st abx exposure: {abx_scores_flat.host_id.nunique()}"
+    )
+
+    return abx_scores_flat
+
+
+def get_scores_n_abx_info(scores_path, limit_months, ft_name, abx_ts_name):
+    """Processes scores and abx info for evaluation"""
+    # get train & val scores
+    scores_train = _get_all_scores(scores_path, "train", limit_months=limit_months)
+    scores_val = _get_all_scores(scores_path, "val", limit_months=limit_months)
+
+    # get noabx samples per split
+    noabx_train = scores_train[~scores_train["abx"]].copy()
+    noabx_val = scores_val[~scores_val["abx"]].copy()
+
+    # select correct noabx scores
+    noabx_train.drop(columns=["score_2", "score_3"], inplace=True)
+    noabx_val.drop(columns=["score_2", "score_3"], inplace=True)
+
+    # merge all abx scores into one group: train + val
+    # since none of the abx samples were used for training
+    abx_scores_flat = scores_train[scores_train["abx"]].copy()
+    abx_scores_flat_val = scores_val[scores_val["abx"]].copy()
+    abx_scores_flat = pd.concat([abx_scores_flat, abx_scores_flat_val])
+
+    # add more metadata from ft
+    abx_scores_flat = _add_md_from_ft(abx_scores_flat, ft_name)
+
+    # get start of each abx course per host
+    abx_df = _get_abx_info(
+        f"../data/original_data/{abx_ts_name}.tsv", limit_months=limit_months
+    )
+
+    # get age at n-th abx exposures
+    abx_age_at_all = _get_age_at_1st_2nd_3rd_abx_exposure(abx_df)
+
+    # filter hosts by at least 1 microbiome sample prior to 1st abx exposure
+    abx_scores_flat = _filter_hosts_w_microbiome_samples_prior_to_abx(
+        abx_scores_flat, abx_age_at_all
+    )
+
+    return noabx_train, noabx_val, abx_scores_flat, abx_df, abx_age_at_all
+
+
 def plot_time_between_abx_exposures(
     abx_age_at_all, n0_label="1st", n1_label="2nd", path_to_save=None
 ):
@@ -744,3 +862,29 @@ def plot_time_between_abx_exposures(
             os.makedirs(path_to_save)
         path_to_plot = f"{path_to_save}time_between_{n0_label}_{n1_label}.pdf"
         plt.savefig(path_to_plot)
+
+
+def get_cutoff_value_sample_sizes(
+    abx_scores_flat, abx_df, n, min_samples, max_samples, group_samples
+):
+    """
+    Get abx score cutoff values and sizes for n-th abx exposure
+    """
+    score_col = f"score_{n}"
+    scores_abx_nth_samples = _select_samples_around_nth_abx_exposure(
+        abx_scores_flat,
+        abx_df,
+        n=n,
+        min_samples=min_samples,
+        max_samples=max_samples,
+        group_samples=group_samples,
+        score_var=score_col,
+    )
+    cutoff_values = scores_abx_nth_samples.loc[
+        scores_abx_nth_samples["diff_age_nth_abx"] == 0.0, "month_bin"
+    ].values
+
+    # dictionary mapping each cutoff_month to its required sample size
+    value_counts = pd.Series(cutoff_values).value_counts()
+    sample_sizes = value_counts.to_dict()
+    return cutoff_values, sample_sizes

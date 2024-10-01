@@ -63,7 +63,8 @@ def _create_subplot(
     x_axis, y_axis, data, title, ylabel, xlabel, n=None, result_df=None, nb_subplots=2
 ):
     """Creates boxplot and barplot"""
-
+    # don't change original data
+    data_c = data.copy()
     height_ratios = [1] + (nb_subplots - 1) * [0.5]
     fig, axs = plt.subplots(
         nb_subplots,
@@ -76,16 +77,16 @@ def _create_subplot(
 
     # axs[0] is the boxplot
     # category used to have consistent x-axis
-    min_x = data[x_axis].min()
+    min_x = data_c[x_axis].min()
     if min_x > 0:
         min_x = 0  # start at zero for consistency
-    max_x = data[x_axis].max()
+    max_x = data_c[x_axis].max()
     range_x = np.arange(min_x, max_x + 1)
-    data[f"{x_axis}_cat"] = pd.Categorical(data[x_axis], categories=range_x)
-    sns.boxplot(x=f"{x_axis}_cat", y=y_axis, data=data, ax=axs[0], color="skyblue")
+    data_c[f"{x_axis}_cat"] = pd.Categorical(data_c[x_axis], categories=range_x)
+    sns.boxplot(x=f"{x_axis}_cat", y=y_axis, data=data_c, ax=axs[0], color="skyblue")
 
     axs[0].set_title(title)
-    y_max = data[y_axis].max()
+    y_max = data_c[y_axis].max()
     if result_df is not None:
         axs[0].set_ylim(-1, 1.7 * y_max)
     else:
@@ -95,10 +96,12 @@ def _create_subplot(
         axs[0].axvline(zero_index, color="darkred")
 
     # axs[1] is the barplot
-    grouped_counts = data.groupby(x_axis)[y_axis].count().reset_index(name="counts")
+    grouped_counts = data_c.groupby(x_axis)[y_axis].count().reset_index(name="counts")
     sns.barplot(x=x_axis, y="counts", data=grouped_counts, color="peachpuff", ax=axs[1])
 
     if result_df is not None:
+        # select only x-axis values that are in range_x
+        result_df = result_df[result_df.index.isin(range_x)].copy()
         # Add a star above the boxplots if the p-value < 0.10
         unpaired_color = "sandybrown"
         paired_color = "darkgreen"
@@ -112,7 +115,7 @@ def _create_subplot(
                     sign = "*"
 
                 if p_val < 0.1:
-                    max_y = data[y_axis].max()
+                    max_y = data_c[y_axis].max()
                     axs[0].text(
                         t1 + zero_index,
                         y_shift * max_y,
@@ -333,8 +336,8 @@ def _select_samples_around_nth_abx_exposure(
         :,
     ]
 
-    # only select samples that are up to 3 months prior to n-th abx exposure and
-    # 12 months after
+    # only select samples that are up to min_samples months prior to n-th abx
+    # exposure and max_samples after
     abx_nth_samples = abx_nth_samples.loc[
         np.logical_and(
             abx_nth_samples["diff_age_nth_abx"] >= min_samples,
@@ -349,6 +352,14 @@ def _select_samples_around_nth_abx_exposure(
     # remove samples with no observed features
     abx_nth_samples = abx_nth_samples.dropna(subset=[score_var])
 
+    # if there are multiple scores per diff_age_nth_abx bin per host - take last
+    # avoids having multiple scores per host per bin
+    abx_nth_samples = (
+        abx_nth_samples.groupby(["host_id", "diff_age_nth_abx"])
+        .last()
+        .reset_index()
+        .copy()
+    )
     # select last sample prior to abx exposure in range_to_group
     if group_samples:
         range_to_group = [float(x) for x in range(int(min_samples), 0, 1)]
@@ -393,17 +404,19 @@ def _get_ordinal_suffix(n):
     )
 
 
-def perform_significance_tests(df, t0, t1_values, metric_to_evaluate="diff_metric"):
+def perform_significance_tests(
+    df, t0, t1_values, metric_to_evaluate="diff_metric", x_axis="diff_age_nth_abx"
+):
     results = []
 
     # Filter the DataFrame for t0
-    df_t0 = df.loc[(df["diff_age_nth_abx"] == t0), ["host_id", metric_to_evaluate]]
+    df_t0 = df.loc[(df[x_axis] == t0), ["host_id", metric_to_evaluate]]
     df_t0.rename(columns={metric_to_evaluate: "t0"}, inplace=True)
 
     t1_values.remove(t0)  # no comparison to itself
     for t1 in t1_values:
         # Filter the DataFrame for each t1
-        df_t1 = df.loc[(df["diff_age_nth_abx"] == t1), ["host_id", metric_to_evaluate]]
+        df_t1 = df.loc[(df[x_axis] == t1), ["host_id", metric_to_evaluate]]
         df_t1.rename(columns={metric_to_evaluate: "t1"}, inplace=True)
 
         # perform the mann-whitney u-test (unpaired/independent)
@@ -479,7 +492,9 @@ def _plot_score_after_nth_abx_exposure(
         t1_values = [x for x in range(int(-1.0), int(max_samples + 1))]
     else:
         t1_values = [x for x in range(int(min_samples), int(max_samples + 1))]
-    significance_df = perform_significance_tests(data, -1.0, t1_values, y_axis)
+    significance_df = perform_significance_tests(
+        data, -1.0, t1_values, y_axis, x_axis=x_axis
+    )
 
     title = f"Score before/after {n}{suff} abx exposure: {tag}"
     ylabel = f"# samples w {y_axis}"

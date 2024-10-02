@@ -57,10 +57,14 @@ def enrich_scores(c_scores_t):
     c_scores_t_m["days_since_cutoff"] = (
         c_scores_t_m["day"] - c_scores_t_m["use_obs_until_day"]
     ).astype(float)
-    # add days since cutoff
+
+    # add months since cutoff
     c_scores_t_m["months_since_cutoff"] = (
         c_scores_t_m["month5_bin"] - c_scores_t_m["cutoff_month"]
     ).astype(float)
+    # round to full months for simplicity. note: added 0.01 since lots of 0.5
+    # would otw be rounded down leading to uneven sample distribution
+    c_scores_t_m["months_since_cutoff"] = c_scores_t_m["months_since_cutoff"] + 0.01
     c_scores_t_m["months_since_cutoff"] = np.round(
         c_scores_t_m["months_since_cutoff"], 0
     )

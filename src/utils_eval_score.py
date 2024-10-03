@@ -1,4 +1,5 @@
 import os
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -802,7 +803,9 @@ def _filter_hosts_w_microbiome_samples_prior_to_abx(abx_scores_flat, abx_age_at_
     return abx_scores_flat
 
 
-def get_scores_n_abx_info(scores_path, limit_months, ft_name, abx_ts_name):
+def get_scores_n_abx_info(
+    scores_path, limit_months, ft_name, abx_ts_name, no_filter=True
+):
     """Processes scores and abx info for evaluation"""
     # get train & val scores
     scores_train = _get_all_scores(scores_path, "train", limit_months=limit_months)
@@ -834,9 +837,10 @@ def get_scores_n_abx_info(scores_path, limit_months, ft_name, abx_ts_name):
     abx_age_at_all = _get_age_at_1st_2nd_3rd_abx_exposure(abx_df)
 
     # filter hosts by at least 1 microbiome sample prior to 1st abx exposure
-    abx_scores_flat = _filter_hosts_w_microbiome_samples_prior_to_abx(
-        abx_scores_flat, abx_age_at_all
-    )
+    if not no_filter:
+        abx_scores_flat = _filter_hosts_w_microbiome_samples_prior_to_abx(
+            abx_scores_flat, abx_age_at_all
+        )
 
     return noabx_train, noabx_val, abx_scores_flat, abx_df, abx_age_at_all
 

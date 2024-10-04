@@ -10,12 +10,11 @@ from src.utils_eval_score import (
 )
 
 
-def transform_cutoff_scores(c_scores):
+def transform_cutoff_scores(c_scores, days_per_month):
     # transform scores from wide to long format
     c_scores_t = _transform_scores(c_scores, add_col_not_melt=["use_obs_until_day"])
     c_scores_t = _add_month_bins(c_scores_t)
 
-    days_per_month = 30.437
     c_scores_t["cutoff_month"] = (
         (c_scores_t["use_obs_until_day"] / days_per_month).round().astype(int)
     )

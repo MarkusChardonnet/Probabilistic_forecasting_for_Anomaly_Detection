@@ -217,6 +217,7 @@ conda create --name score_eval numpy pandas matplotlib seaborn scipy ipython ipy
 conda activate score_eval
 pip install -e .
 ````
+With the same conda environment, a score time horizon reliability analysis can be performed that evaluates for how long the predicted scores remain constant on the no antibiotics scores.
 
 # TODOs and Possible Improvements
 - [x] different AD scoring method: using coordinate wise p-values based on beta distribution 

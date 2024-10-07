@@ -90,6 +90,122 @@ def _add_md_from_ft(abx_scores_flat, ft_name):
     return abx_scores_flat
 
 
+def _create_subplot_legacy(
+    x_axis, y_axis, data, title, ylabel, xlabel, n=None, result_df=None
+):
+    """Creates boxplot and barplot"""
+    try:
+        fig, axs = plt.subplots(
+            2, 1, figsize=(10, 6), height_ratios=[1, 0.5], sharex=True, dpi=400
+        )
+    except:
+        fig, axs = plt.subplots(2, 1, figsize=(10, 6), sharex=True, dpi=400)
+
+    # axs[0] is the boxplot
+    # category used to have consistent x-axis
+    min_x = data[x_axis].min()
+    max_x = data[x_axis].max()
+    range_x = np.arange(min_x, max_x + 1)
+    data[f"{x_axis}_cat"] = pd.Categorical(
+        data[x_axis], categories=range_x
+    )
+    sns.boxplot(x=f"{x_axis}_cat", y=y_axis, data=data, ax=axs[0], color="skyblue")
+
+    axs[0].set_title(title)
+    y_max = data[y_axis].max()
+    if result_df is not None:
+        axs[0].set_ylim(-1, 1.7 * y_max)
+    else:
+        axs[0].set_ylim(-1, 1.1 * y_max)
+    if n is not None:
+        zero_index = np.where(range_x == 0)[0][0]
+        axs[0].axvline(zero_index, color="darkred")
+
+    # axs[1] is the barplot
+    grouped_counts = data.groupby(x_axis)[y_axis].count().reset_index(name="counts")
+    sns.barplot(x=x_axis, y="counts", data=grouped_counts, color="peachpuff", ax=axs[1])
+
+    if result_df is not None:
+        # Add a star above the boxplots if the p-value < 0.10
+        unpaired_color = "sandybrown"
+        paired_color = "darkgreen"
+        dic_tests = {"unpaired": [1.2, unpaired_color], "paired": [1.1, paired_color]}
+
+        for test, (y_shift, color) in dic_tests.items():
+            for t1, p_val in zip(result_df.index, result_df[f"P-value {test}"]):
+                if p_val < 0.05:
+                    sign = "**"
+                elif p_val < 0.1:
+                    sign = "*"
+
+                if p_val < 0.1:
+                    max_y = data["score"].max()
+                    axs[0].text(
+                        t1 + zero_index,
+                        y_shift * max_y,
+                        sign,
+                        color=color,
+                        ha="center",
+                        fontsize=25,
+                    )
+
+        # add a count barplot in ax[1] for paired and unpaired
+        result_df.reset_index(inplace=True)
+        # add a count barplot for paired and unpaired
+        for k, v in {
+            "unpaired": ["none", unpaired_color],
+            "paired": ["none", paired_color],
+        }.items():
+            df_p = result_df[["t1", f"# samples {k}"]].copy()
+            sns.barplot(
+                x=df_p["t1"].astype(float),
+                y=df_p[f"# samples {k}"],
+                ax=axs[1],
+                facecolor=v[0],
+                edgecolor=v[1],
+            )
+        axs[1].axvline(zero_index, color="darkred")
+        axs[1].set_ylabel("Number of samples")
+        axs[1].set_xlabel(f"Months since {n}. abx exposure")
+
+        # Create a custom legend
+        custom_lines = [
+            Line2D([0], [0], color=unpaired_color, lw=3),
+            Line2D([0], [0], color=paired_color, lw=3),
+        ]
+        custom_cross = [
+            Line2D(
+                [0],
+                [0],
+                color=unpaired_color,
+                marker="*",
+                markersize=12,
+                linestyle="None",
+            ),
+            Line2D(
+                [0],
+                [0],
+                color=paired_color,
+                marker="*",
+                markersize=12,
+                linestyle="None",
+            ),
+        ]
+        legend_txt = ["unpaired to -1.0", "paired to -1.0"]
+
+        axs[0].legend(custom_cross, legend_txt, loc="upper right")
+        axs[1].legend(custom_lines, legend_txt)
+
+    if n is not None:
+        axs[1].axvline(zero_index, color="darkred")
+
+    axs[1].set_ylabel(ylabel)
+    axs[1].set_xlabel(xlabel)
+
+    plt.tight_layout()
+    return fig, axs
+
+
 def _create_subplot(
     x_axis, y_axis, data, title, ylabel, xlabel, n=None, result_df=None, nb_subplots=2
 ):
@@ -224,6 +340,22 @@ def _filter_samples_by_max_abx_w_microbiome(df, score_col):
     df_f = df[df["max_abx_w_microbiome"] >= nth_exposure_nb].copy()
 
     return df_f
+
+
+def _plot_score_over_age_legacy(df: pd.DataFrame, flag: str, path_to_save: str) -> str:
+    x_axis = "month_bin"
+    y_axis = "score"
+
+    title = flag
+    ylabel = f"# samples w {y_axis}"
+    xlabel = f"age in {x_axis}"
+
+    fig, _ = _create_subplot_legacy(x_axis, y_axis, df, title, ylabel, xlabel)
+
+    path_to_plot = f"{path_to_save}score_over_age_{flag}.pdf"
+    plt.savefig(path_to_plot)
+    plt.close()
+    return path_to_plot
 
 
 def _plot_score_over_age(

@@ -410,7 +410,7 @@ def compute_scores(
         forecast_model_path)
     ad_path = '{}anomaly_detection/'.format(forecast_model_path)
     which = 'best' if load_best else 'last'
-    scores_path = '{}scores_{}/'.format(ad_path, which)
+    scores_path = '{}scores_{}_{}/'.format(ad_path, which, scoring_distribution)
     makedirs(scores_path)
 
     # get params_dict
@@ -565,7 +565,7 @@ def compute_scores(
                 which_set='val', which_coord=which_coord, eps=epsilon)
 
     if reliability_eval_start_times is not None:
-        reli_eval_path = f'{ad_path}reliability_eval-val-noabx/'
+        reli_eval_path = f'{ad_path}reliability_eval-val-noabx_{scoring_distribution}/'
         makedirs(reli_eval_path)
         data_collect = []
         for start_time in reliability_eval_start_times:
@@ -639,6 +639,7 @@ def evaluate_scores(
     dataset=None,
     only_jump_before_abx_exposure=False,
     aggregation_method="coord-0",
+    scoring_distribution="normal",
     **options,
 ):
     """
@@ -657,7 +658,7 @@ def evaluate_scores(
     )
     ad_path = "{}anomaly_detection/".format(forecast_model_path)
     which = "best" if load_best else "last"
-    scores_path = "{}scores_{}/".format(ad_path, which)
+    scores_path = "{}scores_{}_{}/".format(ad_path, which, scoring_distribution)
     evaluation_path = "{}evaluation_{}_{}_{}/".format(
         ad_path, which, only_jump_before_abx_exposure, aggregation_method)
     makedirs(evaluation_path)

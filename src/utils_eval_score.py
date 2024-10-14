@@ -60,11 +60,11 @@ def _get_all_scores(path_to_scores, split="train", limit_months=None):
     return scores_all
 
 
-def _add_md_from_ft(abx_scores_flat, ft_name):
+def _add_md_from_ft(abx_scores_flat, ft_name, path_to_data = "../data/original_data/"):
     """
     Add metadata matching samples over time from ft to abx_scores_flat
     """
-    ft_df = pd.read_csv(f"../data/original_data/{ft_name}.tsv", sep="\t", index_col=0)
+    ft_df = pd.read_csv(f"{path_to_data}{ft_name}.tsv", sep="\t", index_col=0)
     ft_df["age_days"] = ft_df["age_days"].astype(int)
     ft_df.rename(columns={"age_days": "day"}, inplace=True)
 
@@ -98,15 +98,21 @@ def _create_subplot(
     """Creates boxplot and barplot"""
     # don't change original data
     data_c = data.copy()
-    height_ratios = [1] + (nb_subplots - 1) * [0.5]
-    fig, axs = plt.subplots(
-        nb_subplots,
-        1,
-        figsize=(10, 6),
-        height_ratios=height_ratios,
-        sharex=True,
-        dpi=400,
-    )
+
+    # below try needed since different versions of python are used for modelling vs. eval
+    try:
+        height_ratios = [1] + (nb_subplots - 1) * [0.5]
+        fig, axs = plt.subplots(
+            nb_subplots,
+            1,
+            figsize=(10, 6),
+            height_ratios=height_ratios,
+            sharex=True,
+            dpi=400,
+        )
+    except:
+        fig, axs = plt.subplots(
+            nb_subplots, 1, figsize=(10, 6), sharex=True, dpi=400)
 
     # axs[0] is the boxplot
     # category used to have consistent x-axis
@@ -129,8 +135,8 @@ def _create_subplot(
         axs[0].axvline(zero_index, color="darkred")
 
     # axs[1] is the barplot
-    grouped_counts = data_c.groupby(x_axis)[y_axis].count().reset_index(name="counts")
-    sns.barplot(x=x_axis, y="counts", data=grouped_counts, color="peachpuff", ax=axs[1])
+    grouped_counts = data_c.groupby(f"{x_axis}_cat")[y_axis].count().reset_index(name="counts")
+    sns.barplot(x=f"{x_axis}_cat", y="counts", data=grouped_counts, color="peachpuff", ax=axs[1])
 
     if result_df is not None:
         # select only x-axis values that are in range_x
@@ -252,6 +258,8 @@ def _plot_score_over_age(
                 abx_age_values.index.isin(hosts_relevant)
             ].copy()
             nb_subplots = 3
+        else:
+            nb_subplots = 2
     else:
         nb_subplots = 2
 
@@ -761,6 +769,9 @@ def _get_age_at_1st_2nd_3rd_abx_exposure(abx_df):
         # indexing starts at zero
         i -= 1
         abx_age_at_i = abx_df.groupby("host_id").nth(i)
+        # FIX: needed for different py version between modelling and eval
+        if "host_id" not in abx_age_at_i.columns:
+            abx_age_at_i = abx_age_at_i.reset_index()
         new_col_i = f"age_{i_label}_abx"
         abx_age_at_i = abx_age_at_i.rename(columns={"abx_start_age_months": new_col_i})
         abx_age_at_all = pd.merge(
@@ -806,7 +817,8 @@ def _filter_hosts_w_microbiome_samples_prior_to_abx(abx_scores_flat, abx_age_at_
 
 
 def get_scores_n_abx_info(
-    scores_path, limit_months, ft_name, abx_ts_name, no_filter=True
+    scores_path, ft_name, limit_months=None, abx_ts_name=None, no_filter=True,
+    path_to_data="../data/original_data/"
 ):
     """Processes scores and abx info for evaluation"""
     # get train & val scores
@@ -828,21 +840,25 @@ def get_scores_n_abx_info(
     abx_scores_flat = pd.concat([abx_scores_flat, abx_scores_flat_val])
 
     # add more metadata from ft
-    abx_scores_flat = _add_md_from_ft(abx_scores_flat, ft_name)
+    abx_scores_flat = _add_md_from_ft(abx_scores_flat, ft_name, path_to_data=path_to_data)
 
-    # get start of each abx course per host
-    abx_df = _get_abx_info(
-        f"../data/original_data/{abx_ts_name}.tsv", limit_months=limit_months
-    )
-
-    # get age at n-th abx exposures
-    abx_age_at_all = _get_age_at_1st_2nd_3rd_abx_exposure(abx_df)
-
-    # filter hosts by at least 1 microbiome sample prior to 1st abx exposure
-    if not no_filter:
-        abx_scores_flat = _filter_hosts_w_microbiome_samples_prior_to_abx(
-            abx_scores_flat, abx_age_at_all
+    if abx_ts_name is not None:
+        # get start of each abx course per host
+        abx_df = _get_abx_info(
+            f"{path_to_data}{abx_ts_name}.tsv", limit_months=limit_months
         )
+
+        # get age at n-th abx exposures
+        abx_age_at_all = _get_age_at_1st_2nd_3rd_abx_exposure(abx_df)
+
+        # filter hosts by at least 1 microbiome sample prior to 1st abx exposure
+        if not no_filter:
+            abx_scores_flat = _filter_hosts_w_microbiome_samples_prior_to_abx(
+                abx_scores_flat, abx_age_at_all
+            )
+    else:
+        abx_df = None
+        abx_age_at_all = None
 
     return noabx_train, noabx_val, abx_scores_flat, abx_df, abx_age_at_all
 

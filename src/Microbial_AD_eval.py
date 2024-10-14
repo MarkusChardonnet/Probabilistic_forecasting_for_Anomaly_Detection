@@ -27,7 +27,11 @@ from torch.utils.data import DataLoader
 # since this is not a package - add src to path
 src_dir = os.path.abspath("src")
 sys.path.append(src_dir)
-from utils_eval_score import _transform_scores
+from utils_eval_score import (
+    get_scores_n_abx_info, 
+    _plot_score_over_age, 
+    _transform_scores
+)
 
 try:
     from telegram_notifications import send_bot_message as SBM
@@ -694,6 +698,40 @@ def evaluate_scores(
             files=[impath_hist],
             text_for_files=caption
         )
+
+    dataset_name = dataset.replace(".tsv", "")
+    abx_ts_name = "ts_vat19_abx_v20240806"  # TODO: once available in config - add from there
+    noabx_train, noabx_val, abx_scores, _, abx_age_at_all = get_scores_n_abx_info(
+        scores_path, dataset_name, limit_months=24, 
+        abx_ts_name=abx_ts_name, path_to_data="data/original_data/")
+
+    dic_splits_n_scores = {
+        "train_noabx": ["score_1", noabx_train, None],
+        "val_noabx": ["score_1", noabx_val, None],
+        "abx_1st": ["score_1", abx_scores, abx_age_at_all["age_1st_abx"]],
+        "abx_2nd": ["score_2", abx_scores,  abx_age_at_all["age_2nd_abx"]],
+        "abx_3rd": ["score_3", abx_scores,  abx_age_at_all["age_3rd_abx"]],
+    }
+
+    dic_img_age = {}
+    for name, v in dic_splits_n_scores.items():
+        score_col = v[0]
+        scores = v[1]
+        abx_age_values = v[2]
+        dic_img_age[name] = _plot_score_over_age(scores, score_col, name, evaluation_path, abx_age_values)
+
+    # send to telegram
+    if send:
+        # scores over age
+        for k, v in dic_img_age.items():
+            caption = "scores-over-age {} - {} - id={}".format(
+                k, which, forecast_model_id)
+            SBM.send_notification(
+                text=None, chat_id=config.CHAT_ID, files=[v], text_for_files=caption
+            )
+
+        # print(np.all(np.isnan(abx_samples), axis=1).sum())
+        # print(np.all(np.isnan(non_abx_samples), axis=1).sum())
 
     # train_score = metrics.roc_auc_score(train_abx_labels, train_ad_scores)
     # val_score = metrics.roc_auc_score(val_abx_labels, val_ad_scores)

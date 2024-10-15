@@ -359,6 +359,7 @@ def _select_samples_around_nth_abx_exposure(
     all_samples = all_samples.assign(
         diff_age_nth_abx=all_samples["month5_bin"] - all_samples["age_nth_abx"]
     )
+    # monthly rounding
     # round to full months for simplicity. note: added 0.01 since lots of 0.5
     # would otw be rounded down leading to uneven sample distribution
     all_samples["diff_age_nth_abx"] = all_samples["diff_age_nth_abx"] + 0.01
@@ -386,10 +387,15 @@ def _select_samples_around_nth_abx_exposure(
         ),
         :,
     ]
-    # fix -0.0 artifact
-    abx_nth_samples["diff_age_nth_abx"] = abx_nth_samples["diff_age_nth_abx"].replace(
-        {-0.0: 0.0}
+
+    # fix -0.0: these are samples that were obtained prior to abx exposure!
+    # TODO: can be ignored if we go with 0.5 months resolution
+    bool_sample_prior = np.logical_and(
+        abx_nth_samples["month5_bin"] < abx_nth_samples["age_nth_abx"],
+        abx_nth_samples["diff_age_nth_abx"] == -0.0,
     )
+    abx_nth_samples.loc[bool_sample_prior, "diff_age_nth_abx"] = -1.0
+
     # remove samples with no observed features
     abx_nth_samples = abx_nth_samples.dropna(subset=[score_var])
 

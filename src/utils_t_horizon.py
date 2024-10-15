@@ -61,16 +61,22 @@ def enrich_scores(c_scores_t):
     c_scores_t_m["months_since_cutoff"] = (
         c_scores_t_m["month5_bin"] - c_scores_t_m["cutoff_month"]
     ).astype(float)
+
+    # monthly rounding
     # round to full months for simplicity. note: added 0.01 since lots of 0.5
     # would otw be rounded down leading to uneven sample distribution
     c_scores_t_m["months_since_cutoff"] = c_scores_t_m["months_since_cutoff"] + 0.01
     c_scores_t_m["months_since_cutoff"] = np.round(
         c_scores_t_m["months_since_cutoff"], 0
     )
-    # fix -0.0 artifact
-    c_scores_t_m["months_since_cutoff"] = c_scores_t_m["months_since_cutoff"].replace(
-        {-0.0: 0.0}
+    # fix -0.0: these are samples that were obtained prior to abx exposure!
+    # TODO: can be ignored if we go with 0.5 months resolution
+    bool_sample_prior = np.logical_and(
+        c_scores_t_m["month5_bin"] < c_scores_t_m["cutoff_month"],
+        c_scores_t_m["months_since_cutoff"] == -0.0,
     )
+    c_scores_t_m.loc[bool_sample_prior, "months_since_cutoff"] = -1.0
+
     return c_scores_t_m
 
 

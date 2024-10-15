@@ -60,7 +60,7 @@ def _get_all_scores(path_to_scores, split="train", limit_months=None):
     return scores_all
 
 
-def _add_md_from_ft(abx_scores_flat, ft_name, path_to_data = "../data/original_data/"):
+def _add_md_from_ft(abx_scores_flat, ft_name, path_to_data="../data/original_data/"):
     """
     Add metadata matching samples over time from ft to abx_scores_flat
     """
@@ -75,7 +75,7 @@ def _add_md_from_ft(abx_scores_flat, ft_name, path_to_data = "../data/original_d
         "abx_any_last_dur_days",
         "geo_location_name",
         "diet_milk",
-        "diet_weaning"
+        "diet_weaning",
     ]
     ft_df = ft_df[["day", "host_id"] + cols_to_evaluate].copy()
     ft_df = ft_df.assign(
@@ -111,8 +111,7 @@ def _create_subplot(
             dpi=400,
         )
     except:
-        fig, axs = plt.subplots(
-            nb_subplots, 1, figsize=(10, 6), sharex=True, dpi=400)
+        fig, axs = plt.subplots(nb_subplots, 1, figsize=(10, 6), sharex=True, dpi=400)
 
     # axs[0] is the boxplot
     # category used to have consistent x-axis
@@ -135,8 +134,12 @@ def _create_subplot(
         axs[0].axvline(zero_index, color="darkred")
 
     # axs[1] is the barplot
-    grouped_counts = data_c.groupby(f"{x_axis}_cat")[y_axis].count().reset_index(name="counts")
-    sns.barplot(x=f"{x_axis}_cat", y="counts", data=grouped_counts, color="peachpuff", ax=axs[1])
+    grouped_counts = (
+        data_c.groupby(f"{x_axis}_cat")[y_axis].count().reset_index(name="counts")
+    )
+    sns.barplot(
+        x=f"{x_axis}_cat", y="counts", data=grouped_counts, color="peachpuff", ax=axs[1]
+    )
 
     if result_df is not None:
         # select only x-axis values that are in range_x
@@ -823,8 +826,12 @@ def _filter_hosts_w_microbiome_samples_prior_to_abx(abx_scores_flat, abx_age_at_
 
 
 def get_scores_n_abx_info(
-    scores_path, ft_name, limit_months=None, abx_ts_name=None, no_filter=True,
-    path_to_data="../data/original_data/"
+    scores_path,
+    ft_name,
+    limit_months=None,
+    abx_ts_name=None,
+    no_filter=True,
+    path_to_data="../data/original_data/",
 ):
     """Processes scores and abx info for evaluation"""
     # get train & val scores
@@ -846,7 +853,9 @@ def get_scores_n_abx_info(
     abx_scores_flat = pd.concat([abx_scores_flat, abx_scores_flat_val])
 
     # add more metadata from ft
-    abx_scores_flat = _add_md_from_ft(abx_scores_flat, ft_name, path_to_data=path_to_data)
+    abx_scores_flat = _add_md_from_ft(
+        abx_scores_flat, ft_name, path_to_data=path_to_data
+    )
 
     if abx_ts_name is not None:
         # get start of each abx course per host

@@ -87,6 +87,25 @@ def plot_cutoff_date_distribution(c_scores_all, flag=""):
     plt.ylabel("Count")
     plt.show()
 
+def plot_cutoff_host_id_distribution(c_scores_all, flag=""):
+    # Count unique host_ids per use_obs_until_day
+    unique_cutoffs = c_scores_all.groupby("use_obs_until_day")["host_id"].nunique().reset_index()
+    unique_cutoffs.columns = ["use_obs_until_day", "unique_host_count"]
+    
+    # Convert use_obs_until_day to integer
+    unique_cutoffs["use_obs_until_day"] = unique_cutoffs["use_obs_until_day"].astype(int)
+    
+    # Sort by use_obs_until_day
+    unique_cutoffs = unique_cutoffs.sort_values("use_obs_until_day")
+    
+    # Create the plot
+    plt.figure(figsize=(20, 5))
+    sns.barplot(x="use_obs_until_day", y="unique_host_count", data=unique_cutoffs)
+    plt.title(f"Distribution of unique host_ids per cutoff value {flag}")
+    plt.xlabel("Cutoff (days)")
+    plt.ylabel("Count of unique host_ids")
+    plt.show()
+
 
 def sample_from_each_group(group, sample_sizes, seed):
     """Sample sample_sizes.values rows from each group based on the column."""
@@ -98,7 +117,43 @@ def sample_from_each_group(group, sample_sizes, seed):
             f"Not enough rows to sample for cutoff_month {group.name}. Needed {n}, but only {len(group)} available."
         )
     # Sample n rows from the group
-    return group.sample(n=n, random_state=seed)
+    sampled = group.sample(n=n, random_state=seed)
+    while sampled.host_id.nunique() != n:
+        print(
+            "Resampling since multiple host_ids were selected for cutoff value {group.name}"
+        )
+        sampled = group.sample(n=n, random_state=seed)
+    return sampled
+
+
+def sample_unique_host_ids(cutoff_host_mapping, sample_sizes, seed=42):
+    selected_host_ids = set()
+    sampled_frames = []
+
+    # Optionally, you can sort the groups to maximize the chance of successful sampling
+    # For example, process groups with the smallest sample_sizes first
+    groups = cutoff_host_mapping.groupby('cutoff_month')
+    # sorted_groups = sorted(groups, key=lambda x: sample_sizes.get(x[0], 0))
+
+    for group_name, group in groups:
+        n = sample_sizes.get(group_name, 0)
+
+        # Remove rows with host_ids already selected
+        available_group = group[~group['host_id'].isin(selected_host_ids)]
+
+        if len(available_group) < n:
+            raise ValueError(
+                f"Not enough unique host_ids to sample for cutoff_month {group_name}. "
+                f"Needed {n}, but only {len(available_group)} unique host_ids available."
+            )
+
+        sampled_group = available_group.sample(n=n, random_state=seed)
+        sampled_frames.append(sampled_group)
+        selected_host_ids.update(sampled_group['host_id'])
+
+    # Concatenate the sampled groups
+    cutoff_host_mapping_subset = pd.concat(sampled_frames).reset_index(drop=True)
+    return cutoff_host_mapping_subset
 
 
 def display_two_distributions(orig_values, sampled_values):

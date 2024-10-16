@@ -25,7 +25,7 @@ def transform_cutoff_scores(c_scores, days_per_month):
     return c_scores_t
 
 
-def enrich_scores(c_scores_t):
+def enrich_scores(c_scores_t, max_resolution=False):
     """Retrieve information about previous observations before the cutoff date"""
     # get last observation and number of observations before cutoff per host
     c_scores_t["days_since_last_obs_before_cutoff"] = (
@@ -61,21 +61,25 @@ def enrich_scores(c_scores_t):
     c_scores_t_m["months_since_cutoff"] = (
         c_scores_t_m["month5_bin"] - c_scores_t_m["cutoff_month"]
     ).astype(float)
-
-    # monthly rounding
-    # round to full months for simplicity. note: added 0.01 since lots of 0.5
-    # would otw be rounded down leading to uneven sample distribution
-    c_scores_t_m["months_since_cutoff"] = c_scores_t_m["months_since_cutoff"] + 0.01
+    # avoid python precision problems
     c_scores_t_m["months_since_cutoff"] = np.round(
-        c_scores_t_m["months_since_cutoff"], 0
+        c_scores_t_m["months_since_cutoff"], 2
     )
-    # fix -0.0: these are samples that were obtained prior to abx exposure!
-    # TODO: can be ignored if we go with 0.5 months resolution
-    bool_sample_prior = np.logical_and(
-        c_scores_t_m["month5_bin"] < c_scores_t_m["cutoff_month"],
-        c_scores_t_m["months_since_cutoff"] == -0.0,
-    )
-    c_scores_t_m.loc[bool_sample_prior, "months_since_cutoff"] = -1.0
+
+    if not max_resolution:
+        # monthly rounding
+        # round to full months for simplicity. note: added 0.01 since lots of 0.5
+        # would otw be rounded down leading to uneven sample distribution
+        c_scores_t_m["months_since_cutoff"] = c_scores_t_m["months_since_cutoff"] + 0.01
+        c_scores_t_m["months_since_cutoff"] = np.round(
+            c_scores_t_m["months_since_cutoff"], 0
+        )
+        # fix -0.0: these are samples that were obtained prior to abx exposure!
+        bool_sample_prior = np.logical_and(
+            c_scores_t_m["month5_bin"] < c_scores_t_m["cutoff_month"],
+            c_scores_t_m["months_since_cutoff"] == -0.0,
+        )
+        c_scores_t_m.loc[bool_sample_prior, "months_since_cutoff"] = -1.0
 
     return c_scores_t_m
 
@@ -122,3 +126,22 @@ def display_two_distributions(orig_values, sampled_values):
 
     plt.tight_layout()
     plt.show()
+
+
+def select_last_score_per_host_per_bin(scores):
+    """
+    if there are multiple scores per months_since_cutoff bin per host - take
+    last avoids having multiple scores per host per bin
+    """
+    print(f"Before uniqueness: {scores.shape}")
+    scores = (
+        scores.groupby(["host_id", "cutoff_month", "months_since_cutoff"])
+        .last()
+        .reset_index()
+        .copy()
+    )
+    print(f"After uniqueness: {scores.shape}")
+    print(
+        f"Number of unique cutoffs in subsample: {scores[["host_id", "cutoff_month"]].drop_duplicates().shape[0]}"
+    )
+    return scores

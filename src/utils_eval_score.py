@@ -197,6 +197,7 @@ def _create_subplot(
         axs[1].axvline(zero_index, color="darkred")
         axs[1].set_ylabel("Number of samples")
         axs[1].set_xlabel(f"Months since {n}. abx exposure")
+        axs[1].tick_params(axis="x", labelsize=min(10 * 22 / len(range_x), 10))
 
         # Create a custom legend
         custom_lines = [

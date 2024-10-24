@@ -1784,7 +1784,7 @@ for add_pred, which_loss in [
             'zero_weight_init': [False],
             'use_only_dyn_ft_as_input': [
                 False, 0.25, 0.5,
-                "lambda t,x: (torch.rand(x) < 1-t/6000)*1."]
+                "lambda t,x: (torch.rand(x) < t/6000)*1."]
             }
         param_list_microbial_novel_alpha_div_dyn_ft += get_parameter_array(
                 param_dict=param_dict_microbial_sig_rnn_novel_alpha_div)
@@ -1838,7 +1838,7 @@ for add_pred, which_loss in [
             'zero_weight_init': [False],
             'use_only_dyn_ft_as_input': [
                 False, 0.25, 0.5,
-                "lambda t,x: (torch.rand(x) < 1-t/6000)*1."]
+                "lambda t,x: (torch.rand(x) < t/6000)*1."]
             }
         param_list_microbial_novel_alpha_div_dyn_ft += get_parameter_array(
                 param_dict=param_dict_microbial_sig_rnn_novel_alpha_div)

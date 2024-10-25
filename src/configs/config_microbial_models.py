@@ -1930,7 +1930,7 @@ param_dict_microbial_sig_rnn_novel_alpha_div2 = {
         'dataset_split': ["no_abx",],
         'epochs': [6000],
         'batch_size': [batch_size],
-        'save_every': [save_every],
+        'save_every': [1],
         'learning_rate': [learning_rate],
         'seed': [seed],
         'hidden_size': [hidden_size],
@@ -1973,7 +1973,7 @@ param_dict_microbial_sig_rnn_novel_alpha_div2 = {
         'val_predict_for_t': [None, 183, 366],
         'use_only_dyn_ft_as_input': [
             None, False, 0.25, 0.5,
-            "lambda t,x: (torch.rand(x) < (min(t,5000)-2000)/6000)*1."
+            "lambda t,x: (torch.rand(x) < (min(t,5000)-2000)/6000)*1"
         ],
         'which_best_loss': ['val_loss_until_t_av'],
     }

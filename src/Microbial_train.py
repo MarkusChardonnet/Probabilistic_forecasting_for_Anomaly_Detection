@@ -678,6 +678,8 @@ def train(
                     M_S = ~use_only_dyn_ft_as_input_func(
                         model.epoch, M_X.shape[0]).reshape(-1, 1).repeat(
                         1, M_S.shape[1])
+                    M_X = M_X*1.
+                    M_S = M_S*1.
                 M_X = M_X.to(device)
                 M_Z = M_Z.to(device)
                 M_S = M_S.to(device)
@@ -735,7 +737,7 @@ def train(
             eval_loss = compute_validation_loss(
                 model=model, device=device, dl_val=dl_val, options=options,
                 use_until_t=None, masked=masked, loss_length=1,
-                T=T, which_eval_loss=None)
+                T=T, which_eval_loss=None)[0]
 
             if val_use_input_until_t is not None:
                 losses_until_t = []

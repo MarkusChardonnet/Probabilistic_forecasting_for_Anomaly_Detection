@@ -164,6 +164,8 @@ python run.py --params=param_list_microbial_alpha_div --NB_JOBS=64 --NB_CPUS=1 -
 novel alpha diversity metric datasets:
 ```shell
 python run.py --params=param_list_microbial_novel_alpha_div --NB_JOBS=24 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_novel_alpha_div
+
+python run.py --params=param_list_microbial_novel_alpha_div2 --NB_JOBS=24 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_novel_alpha_div2
 ```
 
 

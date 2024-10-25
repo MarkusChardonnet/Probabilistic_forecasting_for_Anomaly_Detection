@@ -1391,7 +1391,7 @@ class NJODE(torch.nn.Module):
                 predict_labels=None, return_classifier_out=False,
                 return_at_last_obs=False,
                 only_jump_before_abx_exposure=False,
-                ABX_EXPOSURE=None, use_obs_until_t=None):
+                ABX_EXPOSURE=None, use_obs_until_t=None, predict_for_t=None):
         """
         the forward run of this module class, used when calling the module
         instance without a method
@@ -1447,6 +1447,10 @@ class NJODE(torch.nn.Module):
                 observations until this time as inputs to the model.
                 automatic distinction between masked (-> covariates are further
                 used) and non-masked (-> covariates are not used) data/model.
+        :param predict_for_t: None or float, if not None, predict the output
+                for this amount of time after the cutoff time defined by
+                use_obs_until_t. in particular, don't compute the loss
+                afterwards.
 
         :return: torch.tensor (hidden state at final time), torch.tensor (loss),
                     if wanted the paths of t (np.array) and h, y (torch.tensors)
@@ -1635,13 +1639,15 @@ class NJODE(torch.nn.Module):
                 #   the model with the use_only_dyn_ft_as_input option. in this
                 #   case it makes still sense to compute the loss as if there
                 #   was no masking, since this forces the model to learn the
-                #   correct behaviour whenonly observing dynamic features more
+                #   correct behaviour when only observing dynamic features more
                 #   directly, similarly as the use_as_input option
-                loss = loss + LOSS_FUN_DICT[which_loss](
-                    X_obs=X_obs[:, :dim_to], Y_obs=Y[i_obs.long(), :dim_to],
-                    Y_obs_bj=Y_bj[i_obs.long(), :dim_to],
-                    n_obs_ot=n_obs_ot[i_obs.long()], batch_size=batch_size,
-                    weight=self.weight, M_obs=None, output_vars=self.output_vars)
+                if (predict_for_t is None or use_obs_until_t is None or
+                        current_time < use_obs_until_t + predict_for_t*delta_t):
+                    loss = loss + LOSS_FUN_DICT[which_loss](
+                        X_obs=X_obs[:, :dim_to], Y_obs=Y[i_obs.long(), :dim_to],
+                        Y_obs_bj=Y_bj[i_obs.long(), :dim_to],
+                        n_obs_ot=n_obs_ot[i_obs.long()], batch_size=batch_size,
+                        weight=self.weight, M_obs=None, output_vars=self.output_vars)
 
             # make update of last_X and tau, that is not inplace 
             #    (otherwise problems in autograd)

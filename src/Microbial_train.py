@@ -215,8 +215,13 @@ def train(
             'use_only_dyn_ft_as_input'  bool, float, whether to use only the
                             dynamic features as input to the model. If float,
                             then this happens with this probability.
-            'val_use_input_until_t'    None or tuple, with the times until which
-                            to use input in the second validation loss
+            'val_use_input_until_t'     None or tuple, with the times until which
+                            to use input in the val_loss_until_t
+            'val_predict_for_t'         None or float/int, the time for which to
+                            predict in the val_loss_until_t after the cutoff
+                            time defined in val_use_input_until_t. given in days
+                            (i.e., will be multiplied with delta_t to bring t to
+                            model time scale)
             'which_best_loss'   str, one of {'eval_loss', 'val_loss',
                             'val_loss_until_t_av'}, which loss to use for
                             deciding the best model & early stopping
@@ -335,6 +340,9 @@ def train(
     val_use_input_until_t = None
     if 'val_use_input_until_t' in options:
         val_use_input_until_t = options['val_use_input_until_t']
+    val_predict_for_t = None
+    if 'val_predict_for_t' in options:
+        val_predict_for_t = options['val_predict_for_t']
 
     # specify the input and output variables of the model, as function of X
     input_vars = ['id']
@@ -737,7 +745,8 @@ def train(
                         options=options,
                         use_until_t=ttt, masked=masked,
                         loss_length=len(val_loss_names),
-                        T=T, which_eval_loss=which_eval_loss)
+                        T=T, which_eval_loss=which_eval_loss,
+                        predict_for_t=val_predict_for_t)
                     losses_until_t.append(
                         np.sum(loss_until_t * val_loss_weights))
                 loss_until_t_av = np.mean(losses_until_t)
@@ -874,7 +883,7 @@ def train(
 
 
 def compute_validation_loss(
-        model, device, dl_val, options, use_until_t=None,
+        model, device, dl_val, options, use_until_t=None, predict_for_t=None,
         masked=False, loss_length=1, T=1., which_eval_loss=None):
 
     with torch.no_grad():  # no gradient needed for evaluation
@@ -927,7 +936,7 @@ def compute_validation_loss(
                 n_obs_ot=n_obs_ot, return_path=False, get_loss=True,
                 S=S, start_S=start_S, which_loss=which_eval_loss,
                 M=M, start_M=start_M, M_S=M_S, start_M_S=start_M_S,
-                use_obs_until_t=use_until_t)
+                use_obs_until_t=use_until_t, predict_for_t=predict_for_t)
             loss_vals += c_loss.detach().cpu().numpy()
             num_obs += 1  # count number of observations
 

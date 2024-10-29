@@ -82,11 +82,6 @@ USE_GPU = False
 # Functions
 makedirs = config.makedirs
 
-# TODO:
-#  [x] change which best loss is used
-#  [x] outsource val loss computation to separate function
-#  [x] add val loss use until t computation
-#  - adapt configs to new options and rerun
 
 
 def train(

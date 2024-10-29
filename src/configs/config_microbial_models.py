@@ -1970,7 +1970,7 @@ param_dict_microbial_sig_rnn_novel_alpha_div2 = {
         'pre-train': [10000],
         'zero_weight_init': [False],
         'val_use_input_until_t': [[0.2, 0.4, 0.6, 0.8]],
-        'val_predict_for_t': [None, 183, 366],
+        'val_predict_for_t': [None, 183./1162, 366./1162],
         'use_only_dyn_ft_as_input': [
             None, False, 0.25, 0.5,
             "lambda t,x: (torch.rand(x) < (min(t,5000)-2000)/6000)*1"

@@ -1642,7 +1642,7 @@ class NJODE(torch.nn.Module):
                 #   correct behaviour when only observing dynamic features more
                 #   directly, similarly as the use_as_input option
                 if (predict_for_t is None or use_obs_until_t is None or
-                        current_time < use_obs_until_t + predict_for_t*delta_t):
+                        current_time < use_obs_until_t + predict_for_t):
                     loss = loss + LOSS_FUN_DICT[which_loss](
                         X_obs=X_obs[:, :dim_to], Y_obs=Y[i_obs.long(), :dim_to],
                         Y_obs_bj=Y_bj[i_obs.long(), :dim_to],

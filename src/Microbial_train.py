@@ -219,9 +219,7 @@ def train(
                             to use input in the val_loss_until_t
             'val_predict_for_t'         None or float/int, the time for which to
                             predict in the val_loss_until_t after the cutoff
-                            time defined in val_use_input_until_t. given in days
-                            (i.e., will be multiplied with delta_t to bring t to
-                            model time scale)
+                            time defined in val_use_input_until_t.
             'which_best_loss'   str, one of {'eval_loss', 'val_loss',
                             'val_loss_until_t_av'}, which loss to use for
                             deciding the best model & early stopping

@@ -1581,8 +1581,8 @@ class NJODE(torch.nn.Module):
                 if self.masked:
                     M_obs[:, :self.size_X] = 0
                     M_S_obs[:, :] = 0
-            if not self.masked:
-                use_as_input = False
+                if not self.masked:
+                    use_as_input = False
 
             # update signature
             if self.input_sig:

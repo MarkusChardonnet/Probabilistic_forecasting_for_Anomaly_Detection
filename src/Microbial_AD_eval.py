@@ -27,7 +27,13 @@ from torch.utils.data import DataLoader
 # since this is not a package - add src to path
 src_dir = os.path.abspath("src")
 sys.path.append(src_dir)
-from utils_eval_score import _plot_score_over_age_legacy, _transform_scores
+
+from utils_eval_score import (
+    get_scores_n_abx_info, 
+    _plot_score_over_age, 
+    _transform_scores
+)
+
 
 try:
     from telegram_notifications import send_bot_message as SBM
@@ -828,24 +834,26 @@ def evaluate_scores(
             text_for_files=caption
         )
 
-    noabx_train = all_scores["train"][~all_scores["train"]["abx"]].copy()
-    noabx_val = all_scores["val"][~all_scores["val"]["abx"]].copy()
+    dataset_name = dataset.replace(".tsv", "")
+    abx_ts_name = "ts_vat19_abx_v20240806"  # TODO: once available in config - add from there
+    noabx_train, noabx_val, abx_scores, _, abx_age_at_all = get_scores_n_abx_info(
+        scores_path, dataset_name, limit_months=24, 
+        abx_ts_name=abx_ts_name, path_to_data="data/original_data/")
 
-    abx_scores_train = all_scores["train"][all_scores["train"]["abx"]].copy()
-    abx_scores_val = all_scores["val"][all_scores["val"]["abx"]].copy()
-    abx_scores = pd.concat([abx_scores_train, abx_scores_val])
-    abx_scores = abx_scores[abx_scores.score.notnull()].copy()
-
-    all_scores_split = {
-        "train_noabx_t": noabx_train,
-        "val_noabx_t": noabx_val,
-        "abx_t": abx_scores,
+    dic_splits_n_scores = {
+        "train_noabx": ["score_1", noabx_train, None],
+        "val_noabx": ["score_1", noabx_val, None],
+        "abx_1st": ["score_1", abx_scores, abx_age_at_all["age_1st_abx"]],
+        "abx_2nd": ["score_2", abx_scores,  abx_age_at_all["age_2nd_abx"]],
+        "abx_3rd": ["score_3", abx_scores,  abx_age_at_all["age_3rd_abx"]],
     }
 
     dic_img_age = {}
-    for flag, scores in all_scores_split.items():
-        # plot scores over age
-        dic_img_age[flag] = _plot_score_over_age_legacy(scores, flag, evaluation_path)
+    for name, v in dic_splits_n_scores.items():
+        score_col = v[0]
+        scores = v[1]
+        abx_age_values = v[2]
+        dic_img_age[name] = _plot_score_over_age(scores, score_col, name, evaluation_path, abx_age_values)
 
     # send to telegram
     if send:

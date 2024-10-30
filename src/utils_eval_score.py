@@ -60,11 +60,11 @@ def _get_all_scores(path_to_scores, split="train", limit_months=None):
     return scores_all
 
 
-def _add_md_from_ft(abx_scores_flat, ft_name):
+def _add_md_from_ft(abx_scores_flat, ft_name, path_to_data="../data/original_data/"):
     """
     Add metadata matching samples over time from ft to abx_scores_flat
     """
-    ft_df = pd.read_csv(f"../data/original_data/{ft_name}.tsv", sep="\t", index_col=0)
+    ft_df = pd.read_csv(f"{path_to_data}{ft_name}.tsv", sep="\t", index_col=0)
     ft_df["age_days"] = ft_df["age_days"].astype(int)
     ft_df.rename(columns={"age_days": "day"}, inplace=True)
 
@@ -74,6 +74,8 @@ def _add_md_from_ft(abx_scores_flat, ft_name):
         "abx_any_last_t_dmonths",
         "abx_any_last_dur_days",
         "geo_location_name",
+        "diet_milk",
+        "diet_weaning",
     ]
     ft_df = ft_df[["day", "host_id"] + cols_to_evaluate].copy()
     ft_df = ft_df.assign(
@@ -90,137 +92,35 @@ def _add_md_from_ft(abx_scores_flat, ft_name):
     return abx_scores_flat
 
 
-def _create_subplot_legacy(
-    x_axis, y_axis, data, title, ylabel, xlabel, n=None, result_df=None
-):
-    """Creates boxplot and barplot"""
-    try:
-        fig, axs = plt.subplots(
-            2, 1, figsize=(10, 6), height_ratios=[1, 0.5], sharex=True, dpi=400
-        )
-    except:
-        fig, axs = plt.subplots(2, 1, figsize=(10, 6), sharex=True, dpi=400)
-
-    # axs[0] is the boxplot
-    # category used to have consistent x-axis
-    min_x = data[x_axis].min()
-    max_x = data[x_axis].max()
-    range_x = np.arange(min_x, max_x + 1)
-    data[f"{x_axis}_cat"] = pd.Categorical(
-        data[x_axis], categories=range_x
-    )
-    sns.boxplot(x=f"{x_axis}_cat", y=y_axis, data=data, ax=axs[0], color="skyblue")
-
-    axs[0].set_title(title)
-    y_max = data[y_axis].max()
-    if result_df is not None:
-        axs[0].set_ylim(-1, 1.7 * y_max)
-    else:
-        axs[0].set_ylim(-1, 1.1 * y_max)
-    if n is not None:
-        zero_index = np.where(range_x == 0)[0][0]
-        axs[0].axvline(zero_index, color="darkred")
-
-    # axs[1] is the barplot
-    grouped_counts = data.groupby(x_axis)[y_axis].count().reset_index(name="counts")
-    sns.barplot(x=x_axis, y="counts", data=grouped_counts, color="peachpuff", ax=axs[1])
-
-    if result_df is not None:
-        # Add a star above the boxplots if the p-value < 0.10
-        unpaired_color = "sandybrown"
-        paired_color = "darkgreen"
-        dic_tests = {"unpaired": [1.2, unpaired_color], "paired": [1.1, paired_color]}
-
-        for test, (y_shift, color) in dic_tests.items():
-            for t1, p_val in zip(result_df.index, result_df[f"P-value {test}"]):
-                if p_val < 0.05:
-                    sign = "**"
-                elif p_val < 0.1:
-                    sign = "*"
-
-                if p_val < 0.1:
-                    max_y = data["score"].max()
-                    axs[0].text(
-                        t1 + zero_index,
-                        y_shift * max_y,
-                        sign,
-                        color=color,
-                        ha="center",
-                        fontsize=25,
-                    )
-
-        # add a count barplot in ax[1] for paired and unpaired
-        result_df.reset_index(inplace=True)
-        # add a count barplot for paired and unpaired
-        for k, v in {
-            "unpaired": ["none", unpaired_color],
-            "paired": ["none", paired_color],
-        }.items():
-            df_p = result_df[["t1", f"# samples {k}"]].copy()
-            sns.barplot(
-                x=df_p["t1"].astype(float),
-                y=df_p[f"# samples {k}"],
-                ax=axs[1],
-                facecolor=v[0],
-                edgecolor=v[1],
-            )
-        axs[1].axvline(zero_index, color="darkred")
-        axs[1].set_ylabel("Number of samples")
-        axs[1].set_xlabel(f"Months since {n}. abx exposure")
-
-        # Create a custom legend
-        custom_lines = [
-            Line2D([0], [0], color=unpaired_color, lw=3),
-            Line2D([0], [0], color=paired_color, lw=3),
-        ]
-        custom_cross = [
-            Line2D(
-                [0],
-                [0],
-                color=unpaired_color,
-                marker="*",
-                markersize=12,
-                linestyle="None",
-            ),
-            Line2D(
-                [0],
-                [0],
-                color=paired_color,
-                marker="*",
-                markersize=12,
-                linestyle="None",
-            ),
-        ]
-        legend_txt = ["unpaired to -1.0", "paired to -1.0"]
-
-        axs[0].legend(custom_cross, legend_txt, loc="upper right")
-        axs[1].legend(custom_lines, legend_txt)
-
-    if n is not None:
-        axs[1].axvline(zero_index, color="darkred")
-
-    axs[1].set_ylabel(ylabel)
-    axs[1].set_xlabel(xlabel)
-
-    plt.tight_layout()
-    return fig, axs
-
-
 def _create_subplot(
-    x_axis, y_axis, data, title, ylabel, xlabel, n=None, result_df=None, nb_subplots=2
+    x_axis,
+    y_axis,
+    data,
+    title,
+    ylabel,
+    xlabel,
+    step_size=1.0,
+    n=None,
+    result_df=None,
+    nb_subplots=2,
 ):
     """Creates boxplot and barplot"""
     # don't change original data
     data_c = data.copy()
-    height_ratios = [1] + (nb_subplots - 1) * [0.5]
-    fig, axs = plt.subplots(
-        nb_subplots,
-        1,
-        figsize=(10, 6),
-        height_ratios=height_ratios,
-        sharex=True,
-        dpi=400,
-    )
+
+    # below try needed since different versions of python are used for modelling vs. eval
+    try:
+        height_ratios = [1] + (nb_subplots - 1) * [0.5]
+        fig, axs = plt.subplots(
+            nb_subplots,
+            1,
+            figsize=(10, 6),
+            height_ratios=height_ratios,
+            sharex=True,
+            dpi=400,
+        )
+    except:
+        fig, axs = plt.subplots(nb_subplots, 1, figsize=(10, 6), sharex=True, dpi=400)
 
     # axs[0] is the boxplot
     # category used to have consistent x-axis
@@ -228,7 +128,7 @@ def _create_subplot(
     if min_x > 0:
         min_x = 0  # start at zero for consistency
     max_x = data_c[x_axis].max()
-    range_x = np.arange(min_x, max_x + 1)
+    range_x = list(np.arange(min_x, max_x + step_size, step_size))
     data_c[f"{x_axis}_cat"] = pd.Categorical(data_c[x_axis], categories=range_x)
     sns.boxplot(x=f"{x_axis}_cat", y=y_axis, data=data_c, ax=axs[0], color="skyblue")
 
@@ -239,12 +139,16 @@ def _create_subplot(
     else:
         axs[0].set_ylim(-1, 1.1 * y_max)
     if n is not None:
-        zero_index = np.where(range_x == 0)[0][0]
+        zero_index = np.where(np.array(range_x) == 0.0)[0][0]
         axs[0].axvline(zero_index, color="darkred")
 
     # axs[1] is the barplot
-    grouped_counts = data_c.groupby(x_axis)[y_axis].count().reset_index(name="counts")
-    sns.barplot(x=x_axis, y="counts", data=grouped_counts, color="peachpuff", ax=axs[1])
+    grouped_counts = (
+        data_c.groupby(f"{x_axis}_cat")[y_axis].count().reset_index(name="counts")
+    )
+    sns.barplot(
+        x=f"{x_axis}_cat", y="counts", data=grouped_counts, color="peachpuff", ax=axs[1]
+    )
 
     if result_df is not None:
         # select only x-axis values that are in range_x
@@ -263,13 +167,16 @@ def _create_subplot(
 
                 if p_val < 0.1:
                     max_y = data_c[y_axis].max()
+                    # correct scaling of x star location with regards to step
+                    # size
+                    x_star_loc = t1 * (1 / step_size) + zero_index
                     axs[0].text(
-                        t1 + zero_index,
+                        x_star_loc,
                         y_shift * max_y,
                         sign,
                         color=color,
                         ha="center",
-                        fontsize=25,
+                        fontsize=22 + step_size * 2,
                     )
 
         # add a count barplot in ax[1] for paired and unpaired
@@ -290,6 +197,7 @@ def _create_subplot(
         axs[1].axvline(zero_index, color="darkred")
         axs[1].set_ylabel("Number of samples")
         axs[1].set_xlabel(f"Months since {n}. abx exposure")
+        axs[1].tick_params(axis="x", labelsize=min(10 * 22 / len(range_x), 10))
 
         # Create a custom legend
         custom_lines = [
@@ -342,22 +250,6 @@ def _filter_samples_by_max_abx_w_microbiome(df, score_col):
     return df_f
 
 
-def _plot_score_over_age_legacy(df: pd.DataFrame, flag: str, path_to_save: str) -> str:
-    x_axis = "month_bin"
-    y_axis = "score"
-
-    title = flag
-    ylabel = f"# samples w {y_axis}"
-    xlabel = f"age in {x_axis}"
-
-    fig, _ = _create_subplot_legacy(x_axis, y_axis, df, title, ylabel, xlabel)
-
-    path_to_plot = f"{path_to_save}score_over_age_{flag}.pdf"
-    plt.savefig(path_to_plot)
-    plt.close()
-    return path_to_plot
-
-
 def _plot_score_over_age(
     df: pd.DataFrame,
     y_axis: str,
@@ -382,6 +274,8 @@ def _plot_score_over_age(
                 abx_age_values.index.isin(hosts_relevant)
             ].copy()
             nb_subplots = 3
+        else:
+            nb_subplots = 2
     else:
         nb_subplots = 2
 
@@ -436,6 +330,11 @@ def _get_abx_info(path_to_abx_ts: str, limit_months: float = None) -> pd.DataFra
     abx_df = abx_df[cols_to_keep].reset_index()
     abx_df.sort_values(["host_id", "abx_start_age_months"], inplace=True)
 
+    # HOTFIX: one host namely has abx_start_date given with 7.6 instead of 7.5,
+    # this was already wrongly written in the raw supp. data from original
+    # authors
+    abx_df.loc[abx_df["host_id"] == "E014403", "abx_start_age_months"] = 7.5
+
     if limit_months is not None:
         abx_df = abx_df[abx_df["abx_start_age_months"] <= limit_months].copy()
 
@@ -450,6 +349,7 @@ def _select_samples_around_nth_abx_exposure(
     max_samples=12.0,
     group_samples=False,
     score_var="score",
+    max_resolution=False,
 ):
     """
     Get observed samples around n-th abx exposure (n=1 is first abx exposure, n=2 is
@@ -464,6 +364,8 @@ def _select_samples_around_nth_abx_exposure(
         group_samples (bool, optional): If True, group samples from min_samples to
         -1 to one bucket.
         score_var (str, optional): Column name of score value to be used.
+        max_resolution (bool, optional): If True, use max. possible 0.5 months
+        resolution.
 
     Returns:
         pd.DataFrame: Dataframe with observed samples around n-th abx exposure.
@@ -481,10 +383,14 @@ def _select_samples_around_nth_abx_exposure(
     all_samples = all_samples.assign(
         diff_age_nth_abx=all_samples["month5_bin"] - all_samples["age_nth_abx"]
     )
-    # round to full months for simplicity. note: added 0.01 since lots of 0.5
-    # would otw be rounded down leading to uneven sample distribution
-    all_samples["diff_age_nth_abx"] = all_samples["diff_age_nth_abx"] + 0.01
-    all_samples["diff_age_nth_abx"] = all_samples["diff_age_nth_abx"].round(0)
+    # avoid python precision problems
+    all_samples["diff_age_nth_abx"] = np.round(all_samples["diff_age_nth_abx"], 2)
+    if not max_resolution:
+        # monthly rounding
+        # round to full months for simplicity. note: added 0.01 since lots of 0.5
+        # would otw be rounded down leading to uneven sample distribution
+        all_samples["diff_age_nth_abx"] = all_samples["diff_age_nth_abx"] + 0.01
+        all_samples["diff_age_nth_abx"] = all_samples["diff_age_nth_abx"].round(0)
 
     # select only samples before and after nth abx exposure
     abx_nth_samples = all_samples.loc[
@@ -508,10 +414,16 @@ def _select_samples_around_nth_abx_exposure(
         ),
         :,
     ]
-    # fix -0.0 artifact
-    abx_nth_samples["diff_age_nth_abx"] = abx_nth_samples["diff_age_nth_abx"].replace(
-        {-0.0: 0.0}
-    )
+
+    if not max_resolution:
+        # fix -0.0: these are samples that were obtained prior to abx exposure!
+        # can be ignored if we go with 0.5 months resolution
+        bool_sample_prior = np.logical_and(
+            abx_nth_samples["month5_bin"] < abx_nth_samples["age_nth_abx"],
+            abx_nth_samples["diff_age_nth_abx"] == -0.0,
+        )
+        abx_nth_samples.loc[bool_sample_prior, "diff_age_nth_abx"] = -1.0
+
     # remove samples with no observed features
     abx_nth_samples = abx_nth_samples.dropna(subset=[score_var])
 
@@ -524,8 +436,14 @@ def _select_samples_around_nth_abx_exposure(
         .copy()
     )
     # select last sample prior to abx exposure in range_to_group
+    if max_resolution:
+        group_step = 0.5
+        last_bin_indicator = -0.5
+    else:
+        group_step = 1
+        last_bin_indicator = -1.0
     if group_samples:
-        range_to_group = [float(x) for x in range(int(min_samples), 0, 1)]
+        range_to_group = list(np.arange(min_samples, 0.0, group_step))
         # select samples to group + to keep
         scores_to_keep = abx_nth_samples[
             ~abx_nth_samples["diff_age_nth_abx"].isin(range_to_group)
@@ -547,7 +465,7 @@ def _select_samples_around_nth_abx_exposure(
         for i in range_to_group:
             selected_samples["diff_age_nth_abx"] = selected_samples[
                 "diff_age_nth_abx"
-            ].replace(i, -1.0)
+            ].replace(i, last_bin_indicator)
 
         # append both groups and resort
         abx_nth_samples = pd.concat([scores_to_keep, selected_samples])
@@ -659,18 +577,27 @@ def _plot_score_after_nth_abx_exposure(
     min_samples: float = -3.0,
     max_samples: float = 12.0,
     grouped_samples: bool = False,
+    max_resolution: bool = False,
     uniqueness_var_ls: list = None,
 ) -> str:
     suff = _get_ordinal_suffix(n)
 
     # perform paired/unpaired significance tests
-    if grouped_samples:
-        t1_values = [x for x in range(int(-1.0), int(max_samples + 1))]
+    if max_resolution:
+        step_size = 0.5
+        t1_reference = -0.5
     else:
-        t1_values = [x for x in range(int(min_samples), int(max_samples + 1))]
+        step_size = 1
+        t1_reference = -1.0
+
+    if grouped_samples:
+        t1_values = list(np.arange(t1_reference, max_samples + step_size, step_size))
+    else:
+        t1_values = list(np.arange(min_samples, max_samples + step_size, step_size))
+
     significance_df = perform_significance_tests(
         data,
-        -1.0,
+        t1_reference,
         t1_values,
         y_axis,
         x_axis=x_axis,
@@ -681,9 +608,9 @@ def _plot_score_after_nth_abx_exposure(
     ylabel = f"# samples w {y_axis}"
     xlabel = f"Months since {n}{suff} abx exposure"
     if grouped_samples:
-        xlabel += f"\n\n(-1 is last sample prior to abx in {min_samples} to -1.0 range)"
+        xlabel += f"\n\n(Here {t1_reference} is last sample prior to abx since {min_samples} months)"
     fig, _ = _create_subplot(
-        x_axis, y_axis, data, title, ylabel, xlabel, n, significance_df
+        x_axis, y_axis, data, title, ylabel, xlabel, step_size, n, significance_df
     )
     if path_to_save is not None:
         # if path_to_save is not a path make it a directory
@@ -891,6 +818,9 @@ def _get_age_at_1st_2nd_3rd_abx_exposure(abx_df):
         # indexing starts at zero
         i -= 1
         abx_age_at_i = abx_df.groupby("host_id").nth(i)
+        # FIX: needed for different py version between modelling and eval
+        if "host_id" not in abx_age_at_i.columns:
+            abx_age_at_i = abx_age_at_i.reset_index()
         new_col_i = f"age_{i_label}_abx"
         abx_age_at_i = abx_age_at_i.rename(columns={"abx_start_age_months": new_col_i})
         abx_age_at_all = pd.merge(
@@ -936,7 +866,12 @@ def _filter_hosts_w_microbiome_samples_prior_to_abx(abx_scores_flat, abx_age_at_
 
 
 def get_scores_n_abx_info(
-    scores_path, limit_months, ft_name, abx_ts_name, no_filter=True
+    scores_path,
+    ft_name,
+    limit_months=None,
+    abx_ts_name=None,
+    no_filter=True,
+    path_to_data="../data/original_data/",
 ):
     """Processes scores and abx info for evaluation"""
     # get train & val scores
@@ -958,21 +893,27 @@ def get_scores_n_abx_info(
     abx_scores_flat = pd.concat([abx_scores_flat, abx_scores_flat_val])
 
     # add more metadata from ft
-    abx_scores_flat = _add_md_from_ft(abx_scores_flat, ft_name)
-
-    # get start of each abx course per host
-    abx_df = _get_abx_info(
-        f"../data/original_data/{abx_ts_name}.tsv", limit_months=limit_months
+    abx_scores_flat = _add_md_from_ft(
+        abx_scores_flat, ft_name, path_to_data=path_to_data
     )
 
-    # get age at n-th abx exposures
-    abx_age_at_all = _get_age_at_1st_2nd_3rd_abx_exposure(abx_df)
-
-    # filter hosts by at least 1 microbiome sample prior to 1st abx exposure
-    if not no_filter:
-        abx_scores_flat = _filter_hosts_w_microbiome_samples_prior_to_abx(
-            abx_scores_flat, abx_age_at_all
+    if abx_ts_name is not None:
+        # get start of each abx course per host
+        abx_df = _get_abx_info(
+            f"{path_to_data}{abx_ts_name}.tsv", limit_months=limit_months
         )
+
+        # get age at n-th abx exposures
+        abx_age_at_all = _get_age_at_1st_2nd_3rd_abx_exposure(abx_df)
+
+        # filter hosts by at least 1 microbiome sample prior to 1st abx exposure
+        if not no_filter:
+            abx_scores_flat = _filter_hosts_w_microbiome_samples_prior_to_abx(
+                abx_scores_flat, abx_age_at_all
+            )
+    else:
+        abx_df = None
+        abx_age_at_all = None
 
     return noabx_train, noabx_val, abx_scores_flat, abx_df, abx_age_at_all
 

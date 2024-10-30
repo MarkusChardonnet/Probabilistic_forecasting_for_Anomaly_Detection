@@ -211,6 +211,19 @@ python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_novel_alpha_div_id
 python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_novel_alpha_div_ids_reliability_eval_2 --ad_params=param_list_AD_microbial_novel_alpha_div_reliability_eval_2 --forecast_saved_models_path=AD_microbial_novel_alpha_div --compute_scores=True --evaluate_scores=True
 ```
 
+novel alpha diversity metric datasets with scaling factors:
+WARNING: the following things need to be run in the given order to work properly
+```shell
+# first compute the z-scores and the scaling factors
+python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_novel_alpha_div_ids2 --ad_params=param_list_AD_microbial_novel_alpha_div2_scaling_factors --forecast_saved_models_path=AD_microbial_novel_alpha_div2 --compute_scores=True --evaluate_scores=False --compute_zscore_scaling_factors=True
+
+# then compute the AD scores using the scaling factors
+python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_novel_alpha_div_ids2 --ad_params=param_list_AD_microbial_novel_alpha_div2 --forecast_saved_models_path=AD_microbial_novel_alpha_div2 --compute_scores=True --evaluate_scores=True --compute_zscore_scaling_factors=False
+
+# then compute scores for reliability evaluation using the scaling factors
+python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_novel_alpha_div_ids2 --ad_params=param_list_AD_microbial_novel_alpha_div2_reliability_eval --forecast_saved_models_path=AD_microbial_novel_alpha_div2 --compute_scores=True --evaluate_scores=False --compute_zscore_scaling_factors=False
+```
+
 
 ## Score evaluation
 Once you trained a microbiome-based model, you can evaluate the resulting scores in the notebook `results/evaluate_scores.ipynb`. To run the notebook, create and activate this conda environment:

@@ -18,12 +18,39 @@ def get_corrected_var(var, min_var_val=1e-4, replace_var=None):
             var = np.maximum(min_var_val, var)
     return var
 
+
+def z_scores(
+        obs, cond_exp, cond_var,
+        observed_dates=None,
+        min_var_val = 1e-4,
+        replace_var = None,
+        std_sf=None,
+        **kwargs):
+    # obs : [nb_steps, nb_samples, dimension]
+    # cond_exp : [nb_steps, nb_samples, dimension, steps_ahead]
+    # cond_var : [nb_steps, nb_samples, dimension, steps_ahead]
+    # std_sf : [nb_steps, nb_samples]
+
+    nb_steps_ahead = cond_exp.shape[3]
+    cond_var = get_corrected_var(cond_var, min_var_val, replace_var)
+    cond_std = np.sqrt(cond_var)
+    if std_sf is not None:
+        std_sf = np.expand_dims(std_sf, 2).repeat(cond_std.shape[2], axis=2)
+        std_sf = np.expand_dims(std_sf, 3).repeat(cond_std.shape[3], axis=3)
+        cond_std = cond_std * std_sf
+    z_scores = (np.tile(np.expand_dims(obs,axis=3),(1,1,1,nb_steps_ahead)) - cond_exp) / cond_std
+    if observed_dates is not None:
+        z_scores[~observed_dates] = np.nan
+    return z_scores
+
+
 def gaussian_scoring(
         obs, cond_exp, cond_var,
         observed_dates=None,
         scoring_metric = 'p-value', 
         min_var_val = 1e-4,
         replace_var = None,
+        std_sf=None,
         **kwargs):
     # obs : [nb_steps, nb_samples, dimension]
     # cond_exp : [nb_steps, nb_samples, dimension, steps_ahead]
@@ -32,6 +59,10 @@ def gaussian_scoring(
     nb_steps_ahead = cond_exp.shape[3]
     cond_var = get_corrected_var(cond_var, min_var_val, replace_var)
     cond_std = np.sqrt(cond_var)
+    if std_sf is not None:
+        std_sf = np.expand_dims(std_sf, 2).repeat(cond_std.shape[2], axis=2)
+        std_sf = np.expand_dims(std_sf, 3).repeat(cond_std.shape[3], axis=3)
+        cond_std = cond_std * std_sf
     z_scores = (np.tile(np.expand_dims(obs,axis=3),(1,1,1,nb_steps_ahead)) - cond_exp) / cond_std
     if scoring_metric in ['p-value', 'two-sided']:
         p_vals = 2*scipy.stats.norm.sf(np.abs(z_scores)) # computes survival function, 2 factor for two sided
@@ -56,6 +87,7 @@ def lognorm_scoring(
         scoring_metric = 'p-value',
         min_var_val = 1e-4,
         replace_var = None,
+        std_sf=None,
         **kwargs):
     # obs : [nb_steps, nb_samples, dimension]
     # cond_exp : [nb_steps, nb_samples, dimension, steps_ahead]
@@ -63,6 +95,10 @@ def lognorm_scoring(
 
     nb_steps_ahead = cond_exp.shape[3]
     cond_var = get_corrected_var(cond_var, min_var_val, replace_var)
+    if std_sf is not None:
+        std_sf = np.expand_dims(std_sf, 2).repeat(cond_var.shape[2], axis=2)
+        std_sf = np.expand_dims(std_sf, 3).repeat(cond_var.shape[3], axis=3)
+        cond_var = cond_var * std_sf**2
 
     # method of moments estimator
     mu = np.log(cond_exp) - 0.5 * np.log(1 + cond_var / cond_exp ** 2)
@@ -93,6 +129,7 @@ def t_scoring(
         scoring_metric = 'p-value',
         min_var_val = 1e-4,
         replace_var = None,
+        std_sf=None,
         nu=3,
         **kwargs):
     # obs : [nb_steps, nb_samples, dimension]
@@ -102,6 +139,10 @@ def t_scoring(
     nb_steps_ahead = cond_exp.shape[3]
     cond_var = get_corrected_var(cond_var, min_var_val, replace_var)
     cond_std = np.sqrt(cond_var/(nu/(nu-2)))
+    if std_sf is not None:
+        std_sf = np.expand_dims(std_sf, 2).repeat(cond_std.shape[2], axis=2)
+        std_sf = np.expand_dims(std_sf, 3).repeat(cond_std.shape[3], axis=3)
+        cond_std = cond_std * std_sf
     z_scores = (np.tile(np.expand_dims(obs,axis=3),(1,1,1,nb_steps_ahead)) - cond_exp) / cond_std
     if scoring_metric in ['p-value', 'two-sided']:
         p_vals = 2*scipy.stats.t.sf(np.abs(z_scores), df=nu) # computes survival function, 2 factor for two sided
@@ -126,6 +167,7 @@ def beta_scoring(
         scoring_metric = 'p-value', 
         min_var_val = 1e-4,
         epsilon = 1e-6,
+        std_sf=None,
         replace_var = None):
     # obs : [nb_steps, nb_samples, dimension]
     # cond_exp : [nb_steps, nb_samples, dimension, steps_ahead]
@@ -135,6 +177,10 @@ def beta_scoring(
     dimension = cond_exp.shape[2]
     nb_steps_ahead = cond_exp.shape[3]
     cond_var = get_corrected_var(cond_var, min_var_val, replace_var)
+    if std_sf is not None:
+        std_sf = np.expand_dims(std_sf, 2).repeat(cond_var.shape[2], axis=2)
+        std_sf = np.expand_dims(std_sf, 3).repeat(cond_var.shape[3], axis=3)
+        cond_var = cond_var * std_sf**2
 
     # clip expectation into admissible range [0,1]
     cond_exp = np.clip(cond_exp, epsilon, 1-epsilon)
@@ -168,7 +214,7 @@ def dirichlet_scoring(
         obs, cond_exp, cond_var, observed_dates,
         epsilon=1e-6, nb_samples=10**5,
         min_var_val=1e-5, replace_var=None, verbose=False,
-        seed=1, coord=None):
+        seed=1, coord=None, std_sf=None,):
     # obs : [nb_steps, nb_samples, dimension]
     # cond_exp : [nb_steps, nb_samples, dimension, 1]
     # cond_var : [nb_steps, nb_samples, dimension, 1]
@@ -179,6 +225,10 @@ def dirichlet_scoring(
     time_steps = cond_exp.shape[0]
     samples = cond_exp.shape[1]
     cond_var = get_corrected_var(cond_var, min_var_val, replace_var)
+    if std_sf is not None:
+        std_sf = np.expand_dims(std_sf, 2).repeat(cond_var.shape[2], axis=2)
+        std_sf = np.expand_dims(std_sf, 3).repeat(cond_var.shape[3], axis=3)
+        cond_var = cond_var * std_sf**2
 
     scores = np.zeros((time_steps, samples,))
     scores[~observed_dates] = np.nan
@@ -523,7 +573,7 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
             self.act = torch.nn.Identity()
 
     def get_individual_scores(
-            self, cond_moments, obs, observed_dates=None):
+            self, cond_moments, obs, observed_dates=None, cutoff_adj_sf=None):
 
         cond_exp, cond_var = get_cond_exp_var(cond_moments, self.output_vars)
 
@@ -535,14 +585,15 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
                 obs=obs, cond_exp=cond_exp, cond_var=cond_var,
                 observed_dates=observed_dates,
                 scoring_metric=self.scoring_metric, replace_var=None,
-                min_var_val=self.epsilon,)
+                min_var_val=self.epsilon, std_sf=cutoff_adj_sf)
             # scores : [nb_samples, nb_steps, dimension, steps_ahead=1]
             scores_valid = scores_valid.transpose(1,0,2,3)
-        elif (self.distribution_class in ['normal', 'lognormal'] or
+        elif (self.distribution_class in ['normal', 'lognormal', 'z_score'] or
               self.distribution_class.startswith("t-")):
             scoring_methods = {
                 'normal': gaussian_scoring,
                 'lognormal': lognorm_scoring,
+                'z_score': z_scores,
             }
             nu = None
             if self.distribution_class.startswith("t-"):
@@ -559,7 +610,7 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
                 observed_dates=observed_dates,
                 scoring_metric=self.scoring_metric,
                 replace_var=self.replace_values,
-                min_var_val=self.epsilon, nu=nu)
+                min_var_val=self.epsilon, nu=nu, std_sf=cutoff_adj_sf)
             if scores_valid.shape[2] > 1:
                 if self.aggregation_method.startswith("coord-"):
                     coord = int(self.aggregation_method.split('-')[1])
@@ -577,7 +628,7 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
                 observed_dates=observed_dates,
                 nb_samples=self.nb_samples, replace_var=self.replace_values,
                 min_var_val=self.epsilon, coord=self.dirichlet_use_coord,
-                verbose=self.verbose, seed=self.seed)
+                verbose=self.verbose, seed=self.seed, std_sf=cutoff_adj_sf)
             scores_valid = scores_valid.transpose(1,0)
         elif self.distribution_class == 'beta':
             cond_exp = np.expand_dims(cond_exp, 3)
@@ -587,18 +638,20 @@ class Simple_AD_module(torch.nn.Module):  # AD_module_1D, AD_module_ND
                 obs=obs, cond_exp=cond_exp, cond_var=cond_var,
                 observed_dates=observed_dates,
                 scoring_metric=self.scoring_metric,
-                min_var_val=self.epsilon, replace_var=None)
+                min_var_val=self.epsilon, replace_var=None,
+                std_sf=cutoff_adj_sf)
             # scores : [nb_samples, nb_steps, dimension, steps_ahead=1]
             scores_valid = scores_valid.transpose(1, 0, 2, 3)
         else:
             raise ValueError('distribution_class not supported')
         return scores_valid
 
-    def forward(self, obs, cond_moments, observed_dates=None):
+    def forward(self, obs, cond_moments, observed_dates=None, cutoff_adj_sf=None):
         # obs : [nb_steps, nb_samples, dimension]
         # cond_moments : [nb_steps, nb_samples, dimension, nb_moments]
 
-        scores = self.get_individual_scores(cond_moments, obs, observed_dates)
+        scores = self.get_individual_scores(
+            cond_moments, obs, observed_dates, cutoff_adj_sf)
 
         # scores : [nb_steps, nb_samples, dimension] or [nb_samples, nb_steps]
         return scores

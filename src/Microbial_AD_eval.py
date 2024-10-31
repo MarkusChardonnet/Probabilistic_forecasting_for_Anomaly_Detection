@@ -738,7 +738,8 @@ def compute_zscore_scaling_factors(
         reli_eval_path, aggregation_method)
     outpath = f'{ad_path}zscore_scaling_factors_{which}/'
     makedirs(outpath)
-    filename = (f'{outpath}zscore_scaling_factors_{aggregation_method}.csv')
+    filename = f'{outpath}zscore_scaling_factors_{aggregation_method}.csv'
+    filename_plot = f'{outpath}zscore_scaling_factors_{aggregation_method}.pdf'
 
     df = pd.read_csv(csvpath_val_releval)
     max_dsc = df["days_since_cutoff"].max()
@@ -756,13 +757,22 @@ def compute_zscore_scaling_factors(
     df_out = pd.DataFrame(data, cols)
     df_out.to_csv(filename, index=False)
 
+    # plot the scaling factors
+    f = plt.figure()
+    plt.plot(df_out["days_since_cutoff"], df_out["std_z_scores"])
+    plt.title("scaling factors")
+    plt.xlabel("days since cutoff")
+    plt.ylabel("std_z_scores")
+    plt.savefig(filename_plot)
+
+
     if send:
         caption = "z-scores scaling factors - {} - id={}".format(
             which, forecast_model_id)
         SBM.send_notification(
             text=None,
             chat_id=config.CHAT_ID,
-            files=[filename],
+            files=[filename, filename_plot],
             text_for_files=caption
         )
 

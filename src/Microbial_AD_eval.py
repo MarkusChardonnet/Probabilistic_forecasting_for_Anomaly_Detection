@@ -759,7 +759,10 @@ def compute_zscore_scaling_factors(
 
     # plot the scaling factors
     f = plt.figure()
-    plt.plot(df_out["days_since_cutoff"], df_out["std_z_scores"])
+    plt.plot(df_out["days_since_cutoff"], df_out["std_z_scores"],
+             label="std_z_scores")
+    plt.plot(df_out["days_since_cutoff"], df_out["std_z_scores"].cummax(),
+             label="cummax")
     plt.title("scaling factors")
     plt.xlabel("days since cutoff")
     plt.ylabel("std_z_scores")

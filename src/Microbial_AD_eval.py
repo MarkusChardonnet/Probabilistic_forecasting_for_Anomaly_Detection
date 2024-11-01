@@ -863,7 +863,7 @@ def evaluate_scores(
     abx_ts_name = config.abx_ts_filename
     noabx_train, noabx_val, abx_scores, _, abx_age_at_all = get_scores_n_abx_info(
         scores_path, dataset_name, limit_months=24, 
-        abx_ts_name=abx_ts_name, path_to_data="data/original_data/")
+        abx_ts_name=abx_ts_name, path_to_data="../data/original_data/")
 
     dic_splits_n_scores = {
         "train_noabx": ["score_1", noabx_train, None],

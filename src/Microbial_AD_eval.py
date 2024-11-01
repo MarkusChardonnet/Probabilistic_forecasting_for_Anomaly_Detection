@@ -723,6 +723,7 @@ def compute_zscore_scaling_factors(
         interval_length=30,
         shift_by=1,
         send=False,
+        moving_average=30,
         **kwargs):
 
     assert scoring_distribution == "z_score", \
@@ -760,18 +761,18 @@ def compute_zscore_scaling_factors(
     # plot the scaling factors
     f = plt.figure()
     df_out["std_z_scores_cummax"] = df_out["std_z_scores"].cummax()
-    df_out["std_z_scores_moving10_avg"] = df_out["std_z_scores"].rolling(
-        10, min_periods=1).mean()
-    df_out["std_z_scores_moving10_avg_cummax"] = (
-        df_out["std_z_scores_moving10_avg"].cummax())
+    df_out["std_z_scores_moving_avg"] = df_out["std_z_scores"].rolling(
+        moving_average, min_periods=1).mean()
+    df_out["std_z_scores_moving_avg_cummax"] = (
+        df_out["std_z_scores_moving_avg"].cummax())
     plt.plot(df_out["days_since_cutoff"], df_out["std_z_scores"],
              label="std_z_scores")
     plt.plot(df_out["days_since_cutoff"], df_out["std_z_scores_cummax"],
              label="cummax")
-    plt.plot(df_out["days_since_cutoff"], df_out["std_z_scores_moving10_avg"],
+    plt.plot(df_out["days_since_cutoff"], df_out["std_z_scores_moving_avg"],
              label="moving average")
     plt.plot(df_out["days_since_cutoff"],
-             df_out["std_z_scores_moving10_avg_cummax"],
+             df_out["std_z_scores_moving_avg_cummax"],
              label="moving average cummax")
     plt.title("scaling factors")
     plt.xlabel("days since cutoff")

@@ -653,7 +653,7 @@ def compute_scores(
                         "use_obs_until_day": use_obs_until_day.flatten(),
                         "score_date": np.ones(ad_scores.shape[0]) *
                                       (d + starting_date),
-                        "z_score": ad_scores[:, d:d+1]
+                        "z_score": ad_scores[:, d]
                     }
                     df_ = pd.DataFrame(data)
                     df_ = df_.dropna(axis=0, how='any', inplace=False)

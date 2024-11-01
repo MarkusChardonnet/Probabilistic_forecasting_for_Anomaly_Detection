@@ -295,7 +295,7 @@ param_dict_AD_microbial_novel_alpha_div2sf = {
         'interval_length': [30],
         'shift_by': [1],
         'aggregation_method': ['coord-0'],
-        'moving_average': [30],
+        'moving_average': [10],
 }
 param_list_AD_microbial_novel_alpha_div2_scaling_factors += get_parameter_array(
         param_dict=param_dict_AD_microbial_novel_alpha_div2sf)

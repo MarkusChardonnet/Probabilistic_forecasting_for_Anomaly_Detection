@@ -859,7 +859,7 @@ def evaluate_scores(
             text_for_files=caption
         )
 
-    dataset_name = dataset.replace(".tsv", "")
+    dataset_name = config.microbial_ft_filename.replace(".tsv", "")
     abx_ts_name = config.abx_ts_filename
     noabx_train, noabx_val, abx_scores, _, abx_age_at_all = get_scores_n_abx_info(
         scores_path, dataset_name, limit_months=24, 

@@ -279,7 +279,7 @@ param_list_AD_microbial_novel_alpha_div_reliability_eval_2 += get_parameter_arra
 # ------------------------------------------------------------------------------
 # AD for novel alpha diversity metric models -- new validation loss
 AD_microbial_novel_alpha_div2 = "{}saved_models_microbial_novel_alpha_div2/".format(data_path)
-AD_microbial_novel_alpha_div_ids2 = []
+AD_microbial_novel_alpha_div_ids2 = [8, 57, 55]
 param_list_AD_microbial_novel_alpha_div2_scaling_factors = []
 
 # params for getting the scaling factors

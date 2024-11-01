@@ -300,6 +300,7 @@ param_list_AD_microbial_novel_alpha_div2_scaling_factors += get_parameter_array(
         param_dict=param_dict_AD_microbial_novel_alpha_div2sf)
 
 # params for the actual AD score computation using the scaling factors
+AD_microbial_novel_alpha_div_ids2_1 = [57, 55]
 param_list_AD_microbial_novel_alpha_div2 = []
 param_dict_AD_microbial_novel_alpha_div2 = {
         'load_best': [True],

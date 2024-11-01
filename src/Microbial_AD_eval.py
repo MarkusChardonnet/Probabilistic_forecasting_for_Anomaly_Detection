@@ -433,7 +433,7 @@ def compute_scores(
                    f"{aggregation_method}.csv")
         sf = pd.read_csv(sf_file)
         if preprocess_scaling_factors:
-            sf["std_z_scores"] = np.maximum(sf["std_z_scores"], 1)
+            sf["std_z_scores"] = np.maximum(sf["std_z_scores"].values, 1)
             sf["std_z_scores"] = sf["std_z_scores"].cummax()
 
     # load dataset-metadata

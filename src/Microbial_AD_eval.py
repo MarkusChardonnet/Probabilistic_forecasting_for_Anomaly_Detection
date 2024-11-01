@@ -647,15 +647,15 @@ def compute_scores(
                                  np.ones((ad_scores.shape[0], 1)))
             if scoring_distribution == 'z_score':
                 for d in range(ad_scores.shape[1]):
-                    data = np.concatenate(
-                        [host_id.reshape(-1, 1), abx_labels.reshape(-1, 1),
-                         use_obs_until_day,
-                         np.ones((len(host_id),1))*(d + starting_date),
-                         ad_scores[:, d:d+1]],
-                        axis=1)
-                    cols = ['host_id', 'abx', 'use_obs_until_day', 'score_date',
-                            'z_score']
-                    df_ = pd.DataFrame(data, columns=cols)
+                    data = {
+                        "host_id": host_id,
+                        "abx": abx_labels,
+                        "use_obs_until_day": use_obs_until_day.flatten(),
+                        "score_date": np.ones(ad_scores.shape[0]) *
+                                      (d + starting_date),
+                        "z_score": ad_scores[:, d:d+1]
+                    }
+                    df_ = pd.DataFrame(data)
                     df_ = df_.dropna(axis=0, how='any', inplace=False)
                     df_["days_since_cutoff"] = (
                             df_["score_date"] - df_["use_obs_until_day"])

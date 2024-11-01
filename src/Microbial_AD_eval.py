@@ -770,10 +770,10 @@ def compute_zscore_scaling_factors(
     plt.plot(df_out["days_since_cutoff"], df_out["std_z_scores_cummax"],
              label="cummax")
     plt.plot(df_out["days_since_cutoff"], df_out["std_z_scores_moving_avg"],
-             label="moving average")
+             label=f"moving average ({moving_average})")
     plt.plot(df_out["days_since_cutoff"],
              df_out["std_z_scores_moving_avg_cummax"],
-             label="moving average cummax")
+             label=f"moving averag ({moving_average}) cummax")
     plt.title("scaling factors")
     plt.xlabel("days since cutoff")
     plt.ylabel("std_z_scores")

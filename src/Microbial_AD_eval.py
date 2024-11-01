@@ -428,9 +428,9 @@ def compute_scores(
     sf = None
     if use_scaling_factors:
         which = "best" if load_best else "last"
-        sf_file = (f"{forecast_saved_models_path}anomaly_detection/zscore_"
-                   f"scaling_factors_{which}/zscore_scaling_factors_"
-                   f"{aggregation_method}.csv")
+        sf_file = (f"{forecast_saved_models_path}id-{forecast_model_id}/"
+                   f"anomaly_detection/zscore_scaling_factors_{which}/"
+                   f"zscore_scaling_factors_{aggregation_method}.csv")
         sf = pd.read_csv(sf_file)
         if preprocess_scaling_factors:
             sf["std_z_scores"] = np.maximum(sf["std_z_scores"].values, 1)

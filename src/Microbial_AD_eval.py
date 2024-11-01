@@ -759,13 +759,24 @@ def compute_zscore_scaling_factors(
 
     # plot the scaling factors
     f = plt.figure()
+    df_out["std_z_scores_cummax"] = df_out["std_z_scores"].cummax()
+    df_out["std_z_scores_moving10_avg"] = df_out["std_z_scores"].rolling(
+        10, min_periods=1).mean()
+    df_out["std_z_scores_moving10_avg_cummax"] = (
+        df_out["std_z_scores_moving10_avg"].cummax())
     plt.plot(df_out["days_since_cutoff"], df_out["std_z_scores"],
              label="std_z_scores")
-    plt.plot(df_out["days_since_cutoff"], df_out["std_z_scores"].cummax(),
+    plt.plot(df_out["days_since_cutoff"], df_out["std_z_scores_cummax"],
              label="cummax")
+    plt.plot(df_out["days_since_cutoff"], df_out["std_z_scores_moving10_avg"],
+             label="moving average")
+    plt.plot(df_out["days_since_cutoff"],
+             df_out["std_z_scores_moving10_avg_cummax"],
+             label="moving average cummax")
     plt.title("scaling factors")
     plt.xlabel("days since cutoff")
     plt.ylabel("std_z_scores")
+    plt.legend()
     plt.savefig(filename_plot)
 
 
@@ -848,7 +859,7 @@ def evaluate_scores(
         )
 
     dataset_name = dataset.replace(".tsv", "")
-    abx_ts_name = "ts_vat19_abx_v20240806"  # TODO: once available in config - add from there
+    abx_ts_name = config.abx_ts_filename
     noabx_train, noabx_val, abx_scores, _, abx_age_at_all = get_scores_n_abx_info(
         scores_path, dataset_name, limit_months=24, 
         abx_ts_name=abx_ts_name, path_to_data="data/original_data/")

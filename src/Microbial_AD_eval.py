@@ -754,7 +754,7 @@ def compute_zscore_scaling_factors(
 
     cols = ["days_since_cutoff", "days_since_cutoff_std_int_left",
             "days_since_cutoff_std_int_right", "std_z_scores"]
-    df_out = pd.DataFrame(data, cols)
+    df_out = pd.DataFrame(data, columns=cols)
     df_out.to_csv(filename, index=False)
 
     # plot the scaling factors

@@ -742,7 +742,7 @@ def compute_zscore_scaling_factors(
     filename_plot = f'{outpath}zscore_scaling_factors_{aggregation_method}.pdf'
 
     df = pd.read_csv(csvpath_val_releval)
-    max_dsc = df["days_since_cutoff"].max()
+    max_dsc = int(np.round(df["days_since_cutoff"].max()))
     data = []
     for dsc in range(0, max_dsc, shift_by):
         left = dsc - interval_length/2

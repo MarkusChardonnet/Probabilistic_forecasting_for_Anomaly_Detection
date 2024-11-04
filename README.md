@@ -220,7 +220,7 @@ python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_novel_alpha_div_id
 # then compute the AD scores using the scaling factors
 python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_novel_alpha_div_ids2_1 --ad_params=param_list_AD_microbial_novel_alpha_div2 --forecast_saved_models_path=AD_microbial_novel_alpha_div2 --compute_scores=True --evaluate_scores=False --compute_zscore_scaling_factors=False
 
-# and do a preliminary evaluation of them 
+# and do a preliminary evaluation of them (only works if AD scores have been computed for only_jump_before_abx_exposure=1,2,3 before)
 python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_novel_alpha_div_ids2_1 --ad_params=param_list_AD_microbial_novel_alpha_div2_ev --forecast_saved_models_path=AD_microbial_novel_alpha_div2 --compute_scores=False --evaluate_scores=True --compute_zscore_scaling_factors=False
 
 # then compute scores for reliability evaluation using the scaling factors

@@ -843,10 +843,10 @@ def compute_zscore_scaling_factors(
                       linestyle="--")
         ax[1, 1].set_title(
             f"scaled: std MA({moving_average}) cummax")
-        plt.title(f"z-scores - days_since_cutoff range: {range[2]}")
+        plt.title(f"z-scores - days_since_cutoff range: {_range[2]}")
         plt.tight_layout()
-        plt.savefig(filename_hist_plot.format(range[2]))
-        hist_plots.append(filename_hist_plot.format(range[2]))
+        plt.savefig(filename_hist_plot.format(_range[2]))
+        hist_plots.append(filename_hist_plot.format(_range[2]))
         plt.close()
 
     if send:

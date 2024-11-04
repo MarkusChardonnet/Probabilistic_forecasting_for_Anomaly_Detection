@@ -164,6 +164,8 @@ python run.py --params=param_list_microbial_alpha_div --NB_JOBS=64 --NB_CPUS=1 -
 novel alpha diversity metric datasets:
 ```shell
 python run.py --params=param_list_microbial_novel_alpha_div --NB_JOBS=24 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_novel_alpha_div
+
+python run.py --params=param_list_microbial_novel_alpha_div2 --NB_JOBS=24 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_novel_alpha_div2
 ```
 
 
@@ -207,6 +209,22 @@ python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_joint_ids --ad_par
 # reliability evaluation
 python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_novel_alpha_div_ids_reliability_eval --ad_params=param_list_AD_microbial_novel_alpha_div_reliability_eval --forecast_saved_models_path=AD_microbial_novel_alpha_div --compute_scores=True --evaluate_scores=True
 python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_novel_alpha_div_ids_reliability_eval_2 --ad_params=param_list_AD_microbial_novel_alpha_div_reliability_eval_2 --forecast_saved_models_path=AD_microbial_novel_alpha_div --compute_scores=True --evaluate_scores=True
+```
+
+novel alpha diversity metric datasets with scaling factors:
+WARNING: the following things need to be run in the given order to work properly
+```shell
+# first compute the z-scores and the scaling factors
+python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_novel_alpha_div_ids2 --ad_params=param_list_AD_microbial_novel_alpha_div2_scaling_factors --forecast_saved_models_path=AD_microbial_novel_alpha_div2 --compute_scores=True --evaluate_scores=False --compute_zscore_scaling_factors=True
+
+# then compute the AD scores using the scaling factors
+python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_novel_alpha_div_ids2_1 --ad_params=param_list_AD_microbial_novel_alpha_div2 --forecast_saved_models_path=AD_microbial_novel_alpha_div2 --compute_scores=True --evaluate_scores=False --compute_zscore_scaling_factors=False
+
+# and do a preliminary evaluation of them (only works if AD scores have been computed for only_jump_before_abx_exposure=1,2,3 before)
+python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_novel_alpha_div_ids2_1 --ad_params=param_list_AD_microbial_novel_alpha_div2_ev --forecast_saved_models_path=AD_microbial_novel_alpha_div2 --compute_scores=False --evaluate_scores=True --compute_zscore_scaling_factors=False
+
+# then compute scores for reliability evaluation using the scaling factors
+python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_novel_alpha_div_ids2_1 --ad_params=param_list_AD_microbial_novel_alpha_div2_reliability_eval --forecast_saved_models_path=AD_microbial_novel_alpha_div2 --compute_scores=True --evaluate_scores=False --compute_zscore_scaling_factors=False
 ```
 
 

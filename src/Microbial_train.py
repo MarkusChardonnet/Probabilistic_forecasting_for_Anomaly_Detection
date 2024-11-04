@@ -65,6 +65,11 @@ flagfile = config.flagfile
 
 METR_COLUMNS: List[str] = [
     'epoch', 'train_time', 'eval_time', 'train_loss', 'eval_loss', 'val_loss']
+# eval_loss: loss computed on validation set with training loss function
+# val_loss: loss computed on validation set with validation loss function
+# val_loss_until_t: loss computed on validation set with validation loss
+#   function where inputs are only used until time t (for different t)
+
 default_ode_nn = ((50, 'tanh'), (50, 'tanh'))
 default_readout_nn = ((50, 'tanh'), (50, 'tanh'))
 default_enc_nn = ((50, 'tanh'), (50, 'tanh'))
@@ -76,6 +81,7 @@ USE_GPU = False
 # =====================================================================================================================
 # Functions
 makedirs = config.makedirs
+
 
 
 def train(
@@ -204,44 +210,21 @@ def train(
             'use_only_dyn_ft_as_input'  bool, float, whether to use only the
                             dynamic features as input to the model. If float,
                             then this happens with this probability.
-            -> 'GRU_ODE_Bayes' has the following extra options with the
-                names 'GRU_ODE_Bayes'+<option_name>, for the following list
-                of possible choices for <options_name>:
-                '-mixing'   float, default: 0.0001, weight of the 2nd loss
-                            term of GRU-ODE-Bayes
-                '-solver'   one of {"euler", "midpoint", "dopri5"}, default:
-                            "euler"
-                '-impute'   bool, default: False,
-                            whether to impute the last parameter
-                            estimation of the p_model for the next ode_step
-                            as input. the p_model maps (like the
-                            readout_map) the hidden state to the
-                            parameter estimation of the normal distribution.
-                '-logvar'   bool, default: True, wether to use logarithmic
-                            (co)variace -> hardcodinng positivity constraint
-                '-full_gru_ode'     bool, default: True,
-                                    whether to use the full GRU cell
-                                    or a smaller version, see GRU-ODE-Bayes
-                '-p_hidden'         int, default: hidden_size, size of the
-                                    inner hidden layer of the p_model
-                '-prep_hidden'      int, default: hidden_size, in the
-                                    observational cell (i.e. jumps) a prior
-                                    matrix multiplication transforms the
-                                    input to have the size
-                                    prep_hidden * input_size
-                '-cov_hidden'       int, default: hidden_size, size of the
-                                    inner hidden layer of the covariate_map.
-                                    the covariate_map is used as a mapping
-                                    to get the initial h (for controlled
-                                    ODE-RNN this is done by the encoder)
-            'add_pred'      
+            'val_use_input_until_t'     None or tuple, with the times until which
+                            to use input in the val_loss_until_t
+            'val_predict_for_t'         None or float/int, the time for which to
+                            predict in the val_loss_until_t after the cutoff
+                            time defined in val_use_input_until_t.
+            'which_best_loss'   str, one of {'eval_loss', 'val_loss',
+                            'val_loss_until_t_av'}, which loss to use for
+                            deciding the best model & early stopping
+            'add_pred'
             'train_data_perc'
             'fixed_data_perc'
             'scale_dt'
             'weight_evolve'
             'solver_delta_t_factor' inverse factor for the delta_t of the solver
                             use 1/a to scale by a
-            'articial_train_encdec
     """
 
     global ANOMALY_DETECTION, USE_GPU, SEND, N_CPUS, N_DATASET_WORKERS
@@ -337,6 +320,7 @@ def train(
     if 'zero_weight_init' in options:
         zero_weight_init = options['zero_weight_init']
     use_only_dyn_ft_as_input = None
+    val_use_only_dyn_ft_as_input = None
     if 'use_only_dyn_ft_as_input' in options:
         use_only_dyn_ft_as_input = options['use_only_dyn_ft_as_input']
     if use_only_dyn_ft_as_input is not None:
@@ -345,6 +329,13 @@ def train(
         use_only_dyn_ft_as_input_func = None
         if isinstance(use_only_dyn_ft_as_input, str):
             use_only_dyn_ft_as_input_func = eval(use_only_dyn_ft_as_input)
+        val_use_only_dyn_ft_as_input = False
+    val_use_input_until_t = None
+    if 'val_use_input_until_t' in options:
+        val_use_input_until_t = options['val_use_input_until_t']
+    val_predict_for_t = None
+    if 'val_predict_for_t' in options:
+        val_predict_for_t = options['val_predict_for_t']
 
     # specify the input and output variables of the model, as function of X
     input_vars = ['id']
@@ -354,7 +345,7 @@ def train(
         collate_fn, mult = data_utils.MicrobialCollateFnGen(
             functions, use_only_dyn_ft_as_input=use_only_dyn_ft_as_input) #, scaling_factor=data_scaling_factor)
         collate_fn_val, _ = data_utils.MicrobialCollateFnGen(
-            functions, use_only_dyn_ft_as_input=use_only_dyn_ft_as_input)
+            functions, use_only_dyn_ft_as_input=val_use_only_dyn_ft_as_input)
         input_size = input_size * mult
         output_size = output_size * mult
         output_vars += functions
@@ -364,7 +355,7 @@ def train(
         collate_fn, mult = data_utils.MicrobialCollateFnGen(
             None, use_only_dyn_ft_as_input=use_only_dyn_ft_as_input) #, scaling_factor=data_scaling_factor)
         collate_fn_val, _ = data_utils.MicrobialCollateFnGen(
-            None, use_only_dyn_ft_as_input=use_only_dyn_ft_as_input)
+            None, use_only_dyn_ft_as_input=val_use_only_dyn_ft_as_input)
         mult = 1
     # if we predict additional variables (the output size gets bigger than input size)
     if 'add_pred' in options:
@@ -396,7 +387,7 @@ def train(
         shuffle=True, batch_size=batch_size, num_workers=N_DATASET_WORKERS)
     dl_val = DataLoader(  # class to iterate over validation data
         dataset=data_val, collate_fn=collate_fn_val,
-        shuffle=False, batch_size=batch_size, num_workers=N_DATASET_WORKERS)
+        shuffle=False, batch_size=len(data_val), num_workers=N_DATASET_WORKERS)
 
     # get additional plotting information
     plot_variance = False
@@ -521,6 +512,9 @@ def train(
 
     # load saved model if wanted/possible
     best_val_loss = np.infty
+    which_best_loss = 'val_loss'
+    if 'which_best_loss' in options:
+        which_best_loss = options['which_best_loss']
     metr_columns = copy.deepcopy(METR_COLUMNS)
     val_loss_weights = 1.
     if which_eval_loss == 'val_variance':
@@ -532,6 +526,9 @@ def train(
             val_loss_weights = np.ones(len(val_loss_names))
     else:
         val_loss_names = ['val_loss']
+    if val_use_input_until_t is not None:
+        metr_columns += ['val_loss_until_t_av']
+        metr_columns += [f'val_loss_until_t={t}' for t in val_use_input_until_t]
     if 'evaluate' in options and options['evaluate']:
         eval_metric_names = []
         for v in eval_metrics:
@@ -547,7 +544,7 @@ def train(
                 models.get_ckpt_model(model_path_save_last, model, optimizer,
                                       device)
             df_metric = pd.read_csv(model_metric_file, index_col=0)
-            best_val_loss = np.min(df_metric['val_loss'].values)
+            best_val_loss = np.min(df_metric[which_best_loss].values)
             model.epoch += 1
             model.weight_step()
             initial_print += '\nepoch: {}, weight: {}'.format(
@@ -668,9 +665,14 @@ def train(
             start_M = None
             if masked:
                 if use_only_dyn_ft_as_input_func is not None:
-                    M_X = use_only_dyn_ft_as_input_func(
+                    M_X = ~use_only_dyn_ft_as_input_func(
                         model.epoch, M_X.shape[0]).reshape(-1, 1).repeat(
                         1, M_X.shape[1])
+                    M_S = ~use_only_dyn_ft_as_input_func(
+                        model.epoch, M_X.shape[0]).reshape(-1, 1).repeat(
+                        1, M_S.shape[1])
+                    M_X = M_X*1.
+                    M_S = M_S*1.
                 M_X = M_X.to(device)
                 M_Z = M_Z.to(device)
                 M_S = M_S.to(device)
@@ -719,119 +721,56 @@ def train(
         if model.epoch % save_every == 0:
             train_time = time.time() - t  # difference between current time and start time
             t = time.time()
-            batch = None
-            with torch.no_grad():  # no gradient needed for evaluation
-                loss_vals = np.zeros(len(val_loss_names))
-                eval_loss = 0
-                num_obs = 0
-                if 'evaluate' in options and options['evaluate']:
-                    eval_msd = np.zeros(len(eval_metric_names))
-                model.eval()  # set model in evaluation mode
-                for i, b in enumerate(dl_val):  # iterate over dataloader for validation set
-                    #if plot:
-                    #    batch = b
-                    times = b["times"]
-                    time_ptr = b["time_ptr"]
-                    X = b["X"].to(device)
-                    Z = b["Z"].to(device)
-                    S = b["S"].to(device)
-                    start_X = b["start_X"].to(device)
-                    start_Z = b["start_Z"].to(device)
-                    start_S = b["start_S"].to(device)
-                    M_X = b["M_X"]
-                    M_Z = b["M_Z"]
-                    M_S = b["M_S"]
-                    start_M_X = b["start_M_X"]
-                    start_M_Z = b["start_M_Z"]
-                    start_M_S = b["start_M_S"]
-                    M = None
-                    start_M = None
-                    if masked:
-                        M_X = M_X.to(device)
-                        M_Z = M_Z.to(device)
-                        M_S = M_S.to(device)
-                        start_M_X = start_M_X.to(device)
-                        start_M_Z = start_M_Z.to(device)
-                        start_M_S = start_M_S.to(device)
-                        if 'add_dynamic_cov' in options and options[
-                            'add_dynamic_cov']:
-                            M = torch.cat((M_X, M_Z), dim=1)
-                            start_M = torch.cat((start_M_X, start_M_Z), dim=1)
-                        else:
-                            M = M_X
-                            start_M = start_M_X
-                    obs_idx = b["obs_idx"]
-                    n_obs_ot = b["n_obs_ot"].to(device)
-                    true_paths = b["true_paths"]
-                    true_mask = b["true_mask"]
-                    if 'add_dynamic_cov' in options and options[
-                        'add_dynamic_cov']:
-                        X = torch.cat((X, Z), dim=1)
-                        start_X = torch.cat((start_X, start_Z), dim=1)
 
-                    if 'other_model' not in options:
-                        hT, c_loss = model(
-                            times=times, time_ptr=time_ptr,
-                            X=X, obs_idx=obs_idx, delta_t=None, T=T,
-                            start_X=start_X,
-                            n_obs_ot=n_obs_ot, return_path=False, get_loss=True,
-                            S=S, start_S=start_S, which_loss=which_eval_loss,
-                            M=M, start_M=start_M, M_S=M_S, start_M_S=start_M_S)
-                    else:
-                        raise ValueError
-                    loss_vals += c_loss.detach().cpu().numpy()
-                    num_obs += 1  # count number of observations
+            loss_vals = compute_validation_loss(
+                model=model, device=device, dl_val=dl_val, options=options,
+                use_until_t=None, masked=masked, loss_length=len(val_loss_names),
+                T=T, which_eval_loss=which_eval_loss)
 
-                    if 'other_model' not in options:
-                        hT, c2_loss = model(
-                            times=times, time_ptr=time_ptr, X=X,
-                            obs_idx=obs_idx, delta_t=None, T=T,
-                            S=S, start_S=start_S, start_X=start_X,
-                            n_obs_ot=n_obs_ot, return_path=False, get_loss=True,
-                            M=M, start_M=start_M, M_S=M_S, start_M_S=start_M_S)
-                    else:
-                        raise ValueError
-                    eval_loss += c2_loss.detach().cpu().numpy()
+            eval_loss = compute_validation_loss(
+                model=model, device=device, dl_val=dl_val, options=options,
+                use_until_t=None, masked=masked, loss_length=1,
+                T=T, which_eval_loss=None)[0]
 
-                    # mean squared difference evaluation
-                    if 'evaluate' in options and options['evaluate']:
-                        _eval_msd = model.evaluate(
-                            times=times, time_ptr=time_ptr, X=X,
-                            obs_idx=obs_idx, delta_t=delta_t, T=T,
-                            S=S, start_S=start_S,
-                            start_X=start_X, n_obs_ot=n_obs_ot,
-                            return_paths=False, true_paths=true_paths,
-                            true_mask=true_mask, eval_vars=eval_metrics,
-                            M=M, start_M=start_M, M_S=M_S, start_M_S=start_M_S) # mult=mult)
-                        eval_msd += _eval_msd
+            if val_use_input_until_t is not None:
+                losses_until_t = []
+                for ttt in val_use_input_until_t:
+                    loss_until_t = compute_validation_loss(
+                        model=model, device=device, dl_val=dl_val,
+                        options=options,
+                        use_until_t=ttt, masked=masked,
+                        loss_length=len(val_loss_names),
+                        T=T, which_eval_loss=which_eval_loss,
+                        predict_for_t=val_predict_for_t)
+                    losses_until_t.append(
+                        np.sum(loss_until_t * val_loss_weights))
+                loss_until_t_av = np.mean(losses_until_t)
 
-                eval_time = time.time() - t
-                loss_vals = loss_vals / num_obs
-                eval_loss = eval_loss / num_obs
-                if 'evaluate' in options and options['evaluate']:
-                    eval_msd = eval_msd / num_obs
-                train_loss = loss.detach().cpu().numpy()
-                print_str = "epoch {}, weight={:.5f}, train-loss={:.5f}, " \
-                            "".format(
-                    model.epoch, model.weight, train_loss)
-                print_str += "eval-loss={:.5f}, ".format(eval_loss)
-                if len(loss_vals) > 1:
-                    for v,value in enumerate(loss_vals):
-                        print_str += "val-loss-{}={:.5f}, ".format(v,value)
-                    loss_val = np.sum(loss_vals * val_loss_weights)
-                    loss_vals = np.concatenate([np.array([loss_val]), loss_vals],axis=0)
-                else:
-                    loss_val = loss_vals[0]
+            eval_time = time.time() - t
+            train_loss = loss.detach().cpu().numpy()
+            print_str = "epoch {}, weight={:.5f}, train-loss={:.5f}, " \
+                        "".format(
+                model.epoch, model.weight, train_loss)
+            print_str += "eval-loss={:.5f}, ".format(eval_loss)
+            if len(loss_vals) > 1:
+                for v,value in enumerate(loss_vals):
+                    print_str += "val-loss-{}={:.5f}, ".format(v,value)
+                loss_val = np.sum(loss_vals * val_loss_weights)
+                loss_vals = np.concatenate([np.array([loss_val]), loss_vals],axis=0)
+            else:
+                loss_val = loss_vals[0]
                 print_str += "val-loss={:.5f}, ".format(loss_val)
                 print(print_str)
-            if 'evaluate' in options and options['evaluate']:
-                metric_app.append([model.epoch, train_time, eval_time, train_loss, eval_loss] + list(loss_vals) + list(eval_msd))
-                string = "evaluation : \n"
-                for v,value in enumerate(eval_msd):
-                    string += eval_metric_names[v] + " : {:.5f}\n".format(value)
-                print(string)
-            else:
-                metric_app.append([model.epoch, train_time, eval_time, train_loss, eval_loss] + list(loss_vals))
+            current_losses = {'eval_loss': eval_loss, 'val_loss': loss_val}
+            curr_metric = [model.epoch, train_time, eval_time, train_loss,
+                           eval_loss] + list(loss_vals)
+            if val_use_input_until_t:
+                current_losses['val_loss_until_t_av'] = loss_until_t_av
+                for i, ttt in enumerate(val_use_input_until_t):
+                    current_losses[f'val_loss_until_t={ttt}'] = losses_until_t[i]
+                curr_metric.append(loss_until_t_av)
+                curr_metric += losses_until_t
+            metric_app.append(curr_metric)
 
             if use_wandb:
                 wandb.log({"epoch": model.epoch, "train_time": train_time, "eval_time": eval_time, "train_loss": train_loss, \
@@ -887,10 +826,11 @@ def train(
                                    model.epoch)
             metric_app = []
             print('saved!')
-            if loss_val < best_val_loss:
+            current_loss = current_losses[which_best_loss]
+            if current_loss < best_val_loss:
                 print('save new best model: last-best-loss: {:.5f}, '
                     'new-best-loss: {:.5f}, epoch: {}'.format(
-                    best_val_loss, loss_val, model.epoch))
+                    best_val_loss, current_loss, model.epoch))
                 df_m_app = pd.DataFrame(data=metric_app, columns=metr_columns)
                 df_metric = pd.concat([df_metric, df_m_app], ignore_index=True)
                 df_metric.to_csv(model_metric_file)
@@ -899,7 +839,7 @@ def train(
                 models.save_checkpoint(model, optimizer, model_path_save_best,
                                     model.epoch)
                 metric_app = []
-                best_val_loss = loss_val
+                best_val_loss = current_loss
                 print('saved!')
             print("-"*100)
             t = time.time()
@@ -935,6 +875,68 @@ def train(
     # gc.collect()
 
     return 0
+
+
+def compute_validation_loss(
+        model, device, dl_val, options, use_until_t=None, predict_for_t=None,
+        masked=False, loss_length=1, T=1., which_eval_loss=None):
+
+    with torch.no_grad():  # no gradient needed for evaluation
+        loss_vals = np.zeros(loss_length)
+        num_obs = 0
+        model.eval()  # set model in evaluation mode
+        for i, b in enumerate(
+                dl_val):  # iterate over dataloader for validation set
+            times = b["times"]
+            time_ptr = b["time_ptr"]
+            X = b["X"].to(device)
+            Z = b["Z"].to(device)
+            S = b["S"].to(device)
+            start_X = b["start_X"].to(device)
+            start_Z = b["start_Z"].to(device)
+            start_S = b["start_S"].to(device)
+            M_X = b["M_X"]
+            M_Z = b["M_Z"]
+            M_S = b["M_S"]
+            start_M_X = b["start_M_X"]
+            start_M_Z = b["start_M_Z"]
+            start_M_S = b["start_M_S"]
+            M = None
+            start_M = None
+            if masked:
+                M_X = M_X.to(device)
+                M_Z = M_Z.to(device)
+                M_S = M_S.to(device)
+                start_M_X = start_M_X.to(device)
+                start_M_Z = start_M_Z.to(device)
+                start_M_S = start_M_S.to(device)
+                if 'add_dynamic_cov' in options and options[
+                    'add_dynamic_cov']:
+                    M = torch.cat((M_X, M_Z), dim=1)
+                    start_M = torch.cat((start_M_X, start_M_Z), dim=1)
+                else:
+                    M = M_X
+                    start_M = start_M_X
+            obs_idx = b["obs_idx"]
+            n_obs_ot = b["n_obs_ot"].to(device)
+            if 'add_dynamic_cov' in options and options[
+                'add_dynamic_cov']:
+                X = torch.cat((X, Z), dim=1)
+                start_X = torch.cat((start_X, start_Z), dim=1)
+
+            hT, c_loss = model(
+                times=times, time_ptr=time_ptr,
+                X=X, obs_idx=obs_idx, delta_t=None, T=T,
+                start_X=start_X,
+                n_obs_ot=n_obs_ot, return_path=False, get_loss=True,
+                S=S, start_S=start_S, which_loss=which_eval_loss,
+                M=M, start_M=start_M, M_S=M_S, start_M_S=start_M_S,
+                use_obs_until_t=use_until_t, predict_for_t=predict_for_t)
+            loss_vals += c_loss.detach().cpu().numpy()
+            num_obs += 1  # count number of observations
+
+        loss_vals = loss_vals / num_obs
+        return loss_vals
 
 
 def plot_one_path_with_pred(

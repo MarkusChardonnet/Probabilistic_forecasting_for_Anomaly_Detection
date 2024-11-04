@@ -36,7 +36,8 @@ flagfile = "{}flagfile.tmp".format(data_path)
 
 saved_models_path = '{}saved_models/'.format(data_path)
 
-
+abx_ts_filename = "ts_vat19_abx_v20240806"
+microbial_ft_filename = "ft_vat19_anomaly_v20240806_entero_family.tsv"
 
 
 # ==============================================================================

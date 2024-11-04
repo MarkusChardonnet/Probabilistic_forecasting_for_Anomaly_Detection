@@ -1784,7 +1784,7 @@ for add_pred, which_loss in [
             'zero_weight_init': [False],
             'use_only_dyn_ft_as_input': [
                 False, 0.25, 0.5,
-                "lambda t,x: (torch.rand(x) < 1-t/6000)*1."]
+                "lambda t,x: (torch.rand(x) < t/6000)"]
             }
         param_list_microbial_novel_alpha_div_dyn_ft += get_parameter_array(
                 param_dict=param_dict_microbial_sig_rnn_novel_alpha_div)
@@ -1838,7 +1838,7 @@ for add_pred, which_loss in [
             'zero_weight_init': [False],
             'use_only_dyn_ft_as_input': [
                 False, 0.25, 0.5,
-                "lambda t,x: (torch.rand(x) < 1-t/6000)*1."]
+                "lambda t,x: (torch.rand(x) < t/6000)"]
             }
         param_list_microbial_novel_alpha_div_dyn_ft += get_parameter_array(
                 param_dict=param_dict_microbial_sig_rnn_novel_alpha_div)
@@ -1918,8 +1918,91 @@ overview_dict_microbial_novel_alpha_div = dict(
 )
 
 
+# ------------------------------------------------------------------------------
+# training on novel alpha diversity metric -- after update of validation loss
+
+microbial_models_path_novel_alpha_div2 = "{}saved_models_microbial_novel_alpha_div2/".format(data_path)
+param_list_microbial_novel_alpha_div2 = []
 
 
+param_dict_microbial_sig_rnn_novel_alpha_div2 = {
+        'dataset': ['microbial_novel_alpha_faith_pd',],
+        'dataset_split': ["no_abx",],
+        'epochs': [6000],
+        'batch_size': [batch_size],
+        'save_every': [1],
+        'learning_rate': [learning_rate],
+        'seed': [seed],
+        'hidden_size': [hidden_size],
+        'bias': [bias],
+        'dropout_rate': [dropout_rate],
+        'ode_nn': [ode_nn1],  # ode_nn, ode_nn1
+        'readout_nn': [readout_nn],
+        'enc_nn': [enc_nn],
+        'use_rnn': [True, False],
+        'input_sig': [True, False],
+        'level': [2],
+        'residual_enc_dec': [True,],
+        'func_appl_X': [["power-2"]],              # [["power-2", "power-3", "power-4"]]
+        'add_pred': [["var"]],
+        'test': [test],
+        'solver': [solver],
+        'solver_delta_t_factor': [solver_delta_t_factor],
+        'weight': [0.],
+        'weight_evolve': [{'type': 'linear', 'target': 1, 'reach': None}],
+        'plot': [True],
+        'which_loss': ["variance_bis2"],
+        'which_eval_loss': ['val_variance'],
+        'evaluate': [False],
+        'eval_metrics': [eval_metrics],
+        'paths_to_plot': [(0,)],
+        'plot_variance': [True],
+        'std_factor': [std_factor],
+        'plot_moments': [plot_moments],
+        'saved_models_path': [microbial_models_path_novel_alpha_div2],
+        'use_cond_exp': [True],
+        'input_current_t': [input_current_t],
+        'periodic_current_t': [True],
+        'scale_dt': [scale_dt],
+        'enc_input_t': [enc_input_t],
+        # 'add_readout_activation': [(None, [])], # add_readout_activation # ('softmax',['id']) ('sum2one',['id'])
+        'add_dynamic_cov': [True],
+        'pre-train': [10000],
+        'zero_weight_init': [False],
+        'val_use_input_until_t': [[0.2, 0.4, 0.6, 0.8]],
+        'val_predict_for_t': [None, 183./1162, 366./1162],
+        'use_only_dyn_ft_as_input': [
+            None, False, 0.25, 0.5,
+            "lambda t,x: (torch.rand(x) < (min(t,5000)-2000)/6000)"
+        ],
+        'which_best_loss': ['val_loss_until_t_av'],
+    }
+param_list_microbial_novel_alpha_div2 += get_parameter_array(
+        param_dict=param_dict_microbial_sig_rnn_novel_alpha_div2)
 
+
+overview_dict_microbial_novel_alpha_div2 = dict(
+    ids_from=1, ids_to=len(param_list_microbial_novel_alpha_div2),
+    path=microbial_models_path_novel_alpha_div2,
+    params_extract_desc=(
+        'dataset', 'dataset_split',
+        'ode_nn', 'enc_nn', 'readout_nn',
+        'dropout_rate', 'hidden_size', 'batch_size',
+        'pre-train',
+        'which_loss', 'which_eval_loss', 'add_pred',
+        'solver_delta_t_factor', 'add_readout_activation',
+        'residual_enc_dec', 'use_rnn',
+        'input_sig', 'level', 'use_observation_as_input',
+        'val_use_input_until_t', 'val_predict_for_t',
+        'use_only_dyn_ft_as_input'),
+    val_test_params_extract=(
+        ("max", "epoch", "epoch", "epochs_trained"),
+        ("min", "eval_loss", "eval_loss", "eval_loss_min"),
+        ("min", "val_loss", "val_loss", "val_loss_min"),
+        ("min", "val_loss_until_t_av", "val_loss_until_t_av",
+         "val_loss_until_t_av_min"),
+    ),
+    sortby=["dataset", 'val_predict_for_t', "val_loss_until_t_av_min"],
+)
 
 

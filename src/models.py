@@ -1391,7 +1391,7 @@ class NJODE(torch.nn.Module):
                 predict_labels=None, return_classifier_out=False,
                 return_at_last_obs=False,
                 only_jump_before_abx_exposure=False,
-                ABX_EXPOSURE=None, use_obs_until_t=None):
+                ABX_EXPOSURE=None, use_obs_until_t=None, predict_for_t=None):
         """
         the forward run of this module class, used when calling the module
         instance without a method
@@ -1445,6 +1445,12 @@ class NJODE(torch.nn.Module):
                 amount of exposures before an observation time.
         :param use_obs_until_t: None or float, if not None, only use
                 observations until this time as inputs to the model.
+                automatic distinction between masked (-> covariates are further
+                used) and non-masked (-> covariates are not used) data/model.
+        :param predict_for_t: None or float, if not None, predict the output
+                for this amount of time after the cutoff time defined by
+                use_obs_until_t. in particular, don't compute the loss
+                afterwards.
 
         :return: torch.tensor (hidden state at final time), torch.tensor (loss),
                     if wanted the paths of t (np.array) and h, y (torch.tensors)
@@ -1518,9 +1524,6 @@ class NJODE(torch.nn.Module):
         assert len(times) + 1 == len(time_ptr)
 
         for i, obs_time in enumerate(times):
-            if ((not self.masked) and use_obs_until_t is not None
-                    and obs_time > use_obs_until_t):
-                break
             # Propagation of the ODE until next observation
             while current_time < (obs_time - 1e-10 * delta_t):  # 0.0001 delta_t used for numerical consistency.
                 if current_time < obs_time - delta_t:
@@ -1567,17 +1570,19 @@ class NJODE(torch.nn.Module):
                 if self.masked:
                     M_obs = M_obs[which]
 
-            # only update the model before use_obs_until_t
-            if (self.masked and use_obs_until_t is not None
-                    and obs_time > use_obs_until_t):
-                M_obs[:, :self.size_X] = 0
-                M_S_obs[:, :] = 0
-
             # decide whether to use observation as input
             if self.training:  # check whether model is in training or eval mode
                 use_as_input = self.use_observation_as_input(self.epoch)
             else:
                 use_as_input = self.val_use_observation_as_input(self.epoch)
+
+            # only update the model before use_obs_until_t
+            if use_obs_until_t is not None and obs_time > use_obs_until_t:
+                if self.masked:
+                    M_obs[:, :self.size_X] = 0
+                    M_S_obs[:, :] = 0
+                if not self.masked:
+                    use_as_input = False
 
             # update signature
             if self.input_sig:
@@ -1629,16 +1634,20 @@ class NJODE(torch.nn.Module):
                 Y = Y_bj
 
             if get_loss:
-                loss = loss + LOSS_FUN_DICT[which_loss](
-                    X_obs=X_obs[:, :dim_to], Y_obs=Y[i_obs.long(), :dim_to],
-                    Y_obs_bj=Y_bj[i_obs.long(), :dim_to],
-                    n_obs_ot=n_obs_ot[i_obs.long()], batch_size=batch_size,
-                    weight=self.weight, M_obs=M_obs, output_vars=self.output_vars)
-                '''loss = loss + LOSS_FUN_DICT[which_loss](
-                    X_obs=X_obs[:, :], Y_obs=Y[i_obs.long(), :],
-                    Y_obs_bj=Y_bj[i_obs.long(), :],
-                    n_obs_ot=n_obs_ot[i_obs.long()], batch_size=batch_size,
-                    weight=self.weight, M_obs=M_obs, output_vars=self.output_vars)'''
+                # we always have complete observations in the microbial setting.
+                #   the only reason why M would not be None is if we train
+                #   the model with the use_only_dyn_ft_as_input option. in this
+                #   case it makes still sense to compute the loss as if there
+                #   was no masking, since this forces the model to learn the
+                #   correct behaviour when only observing dynamic features more
+                #   directly, similarly as the use_as_input option
+                if (predict_for_t is None or use_obs_until_t is None or
+                        current_time < use_obs_until_t + predict_for_t):
+                    loss = loss + LOSS_FUN_DICT[which_loss](
+                        X_obs=X_obs[:, :dim_to], Y_obs=Y[i_obs.long(), :dim_to],
+                        Y_obs_bj=Y_bj[i_obs.long(), :dim_to],
+                        n_obs_ot=n_obs_ot[i_obs.long()], batch_size=batch_size,
+                        weight=self.weight, M_obs=None, output_vars=self.output_vars)
 
             # make update of last_X and tau, that is not inplace 
             #    (otherwise problems in autograd)

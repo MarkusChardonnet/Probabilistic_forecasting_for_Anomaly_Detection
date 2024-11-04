@@ -280,7 +280,6 @@ param_list_AD_microbial_novel_alpha_div_reliability_eval_2 += get_parameter_arra
 # AD for novel alpha diversity metric models -- new validation loss
 AD_microbial_novel_alpha_div2 = "{}saved_models_microbial_novel_alpha_div2/".format(data_path)
 AD_microbial_novel_alpha_div_ids2 = [8, 57, 55]
-param_list_AD_microbial_novel_alpha_div2_scaling_factors = []
 
 # params for getting the scaling factors
 param_dict_AD_microbial_novel_alpha_div2sf = {
@@ -297,12 +296,11 @@ param_dict_AD_microbial_novel_alpha_div2sf = {
         'aggregation_method': ['coord-0'],
         'moving_average': [10],
 }
-param_list_AD_microbial_novel_alpha_div2_scaling_factors += get_parameter_array(
+param_list_AD_microbial_novel_alpha_div2_scaling_factors = get_parameter_array(
         param_dict=param_dict_AD_microbial_novel_alpha_div2sf)
 
 # params for the actual AD score computation using the scaling factors
 AD_microbial_novel_alpha_div_ids2_1 = [57, 55]
-param_list_AD_microbial_novel_alpha_div2 = []
 param_dict_AD_microbial_novel_alpha_div2 = {
         'load_best': [True],
         'verbose': [True],
@@ -314,14 +312,25 @@ param_dict_AD_microbial_novel_alpha_div2 = {
         'use_dyn_cov_after_abx': [True],
         'aggregation_method': ['coord-0'],
         'use_scaling_factors': [True],
-        'preprocess_scaling_factors': [True],
+        'preprocess_scaling_factors': ['moving_avg-10-cummax'],
 }
-param_list_AD_microbial_novel_alpha_div2 += get_parameter_array(
+param_list_AD_microbial_novel_alpha_div2 = get_parameter_array(
         param_dict=param_dict_AD_microbial_novel_alpha_div2)
 
+# params for AD scores quick evaluation
+param_dict_AD_microbial_novel_alpha_div2_ev = {
+        'load_best': [True],
+        'verbose': [True],
+        'seed': [seed],
+        'scoring_distribution': ['normal',],
+        'only_jump_before_abx_exposure': [1],
+        'aggregation_method': ['coord-0'],
+}
+param_list_AD_microbial_novel_alpha_div2_ev = get_parameter_array(
+        param_dict=param_dict_AD_microbial_novel_alpha_div2_ev)
+
 # params for the reliability evaluation using the scaling factors
-param_list_AD_microbial_novel_alpha_div2_reliability_eval = []
-param_dict_AD_microbial_novel_alpha_div2 = {
+param_dict_AD_microbial_novel_alpha_div2_re = {
         'load_best': [True],
         'verbose': [True],
         'seed': [seed],
@@ -332,7 +341,8 @@ param_dict_AD_microbial_novel_alpha_div2 = {
         'use_dyn_cov_after_abx': [True],
         'reliability_eval_start_times': [list(range(0, 1162, 30))],
         'use_scaling_factors': [True],
-        'preprocess_scaling_factors': [True],
+        'preprocess_scaling_factors': ['moving_avg-10-cummax'],
 }
-
+param_list_AD_microbial_novel_alpha_div2_reliability_eval = get_parameter_array(
+        param_dict=param_dict_AD_microbial_novel_alpha_div2_re)
 

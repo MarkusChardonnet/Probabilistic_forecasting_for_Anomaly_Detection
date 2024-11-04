@@ -331,7 +331,7 @@ def compute_scores(
         use_dyn_cov_after_abx=True,
         reliability_eval_start_times=None,
         use_scaling_factors=False,
-        preprocess_scaling_factors=True,
+        preprocess_scaling_factors=False,
         **options
 ):
     """
@@ -388,10 +388,13 @@ def compute_scores(
             computation of scores. the scaling factors have to be computed with
             this function and scoring_distribution=z_score and the function
             compute_zscore_scaling_factors first.
-        preprocess_scaling_factors: bool, whether to preprocess the scaling
-            factors before using them. This includes:
-            i) lower bounding them by 1
-            ii) constraining them to be increasing
+        preprocess_scaling_factors: False or str, whether to preprocess the
+            scaling factors before using them. Options are:
+            i) 'lower_bound-lb': set all values below lb to lb
+            ii) 'cummax': take the cumulative maximum
+            iii) 'moving_avg-window': take the moving average with window size
+            iv) 'moving_avg-window-cummax': take the moving average with window
+                size and then the cumulative maximum
 
     """
     global USE_GPU, N_CPUS, N_DATASET_WORKERS
@@ -433,8 +436,20 @@ def compute_scores(
                    f"zscore_scaling_factors_{aggregation_method}.csv")
         sf = pd.read_csv(sf_file)
         if preprocess_scaling_factors:
-            sf["std_z_scores"] = np.maximum(sf["std_z_scores"].values, 1)
-            sf["std_z_scores"] = sf["std_z_scores"].cummax()
+            prep_sf_parts = preprocess_scaling_factors.split("-")
+            if prep_sf_parts[0] == "lower_bound":
+                if len(prep_sf_parts) > 1:
+                    lb = float(prep_sf_parts[1])
+                sf["std_z_scores"] = np.maximum(sf["std_z_scores"].values, lb)
+            if prep_sf_parts[0] == "cummax":
+                sf["std_z_scores"] = sf["std_z_scores"].cummax()
+            if prep_sf_parts[0] == "moving_avg":
+                window = int(prep_sf_parts[1])
+                sf["std_z_scores"] = sf["std_z_scores"].rolling(
+                    window, min_periods=1).mean()
+                if len(prep_sf_parts) > 2 and prep_sf_parts[2] == "cummax":
+                    sf["std_z_scores"] = sf["std_z_scores"].cummax()
+
 
     # load dataset-metadata
     train_idx = np.load(os.path.join(
@@ -741,6 +756,7 @@ def compute_zscore_scaling_factors(
     makedirs(outpath)
     filename = f'{outpath}zscore_scaling_factors_{aggregation_method}.csv'
     filename_plot = f'{outpath}zscore_scaling_factors_{aggregation_method}.pdf'
+    filename_hist_plot = f'{outpath}histograms_scaled_dist_{aggregation_method}.pdf'
 
     df = pd.read_csv(csvpath_val_releval)
     max_dsc = int(np.round(df["days_since_cutoff"].max()))
@@ -748,10 +764,10 @@ def compute_zscore_scaling_factors(
     for dsc in range(0, max_dsc, shift_by):
         left = dsc - interval_length/2
         right = min(dsc + interval_length/2, max_dsc)
-        data.append([dsc, left, right,
-                     df.loc[(df["days_since_cutoff"] >= left) &
-                            (df["days_since_cutoff"] <= right),
-                     "z_score"].std()])
+        data.append(
+            [dsc, left, right, df.loc[
+                (df["days_since_cutoff"] >= left) &
+                (df["days_since_cutoff"] <= right), "z_score"].std()])
 
     cols = ["days_since_cutoff", "days_since_cutoff_std_int_left",
             "days_since_cutoff_std_int_right", "std_z_scores"]
@@ -778,8 +794,51 @@ def compute_zscore_scaling_factors(
     plt.xlabel("days since cutoff")
     plt.ylabel("std_z_scores")
     plt.legend()
+    plt.tight_layout()
     plt.savefig(filename_plot)
+    plt.close()
 
+    # plot histogram of the scaled scores
+    df["std_z_scores"] = 1.
+    df["std_z_scores_cummax"] = 1.
+    df["std_z_scores_moving_avg"] = 1.
+    df["std_z_scores_moving_avg_cummax"] = 1.
+    for dsc in range(0, max_dsc, shift_by):
+        df.loc[
+            df["days_since_cutoff"] == dsc,
+            ["std_z_scores", "std_z_scores_cummax", "std_z_scores_moving_avg",
+             "std_z_scores_moving_avg_cummax"]] = df_out.loc[
+            df_out["days_since_cutoff"] == dsc,
+            ["std_z_scores", "std_z_scores_cummax", "std_z_scores_moving_avg",
+             "std_z_scores_moving_avg_cummax"]].values[0]
+    df_ = df.loc[df["days_since_cutoff"] >= 0]
+    t = np.linspace(-5, 5, 1000)
+    fig, ax = plt.subplots(2, 2)
+    sns.histplot(x=df_["z_score"], bins=50, kde=True, ax=ax[0, 0],
+                 stat="density", color="skyblue",)
+    ax[0, 0].plot(t, stats.norm.pdf(t, loc=0, scale=1), color="darkred",
+                  linestyle="--")
+    ax[0, 0].set_title("z_score unscaled")
+    sns.histplot(x=df_["z_score"] / df_["std_z_scores"], bins=50, kde=True,
+                 ax=ax[0, 1], stat="density", color="skyblue")
+    ax[0, 1].plot(t, stats.norm.pdf(t, loc=0, scale=1), color="darkred",
+                  linestyle="--")
+    ax[0, 1].set_title("z_score scaled: std")
+    sns.histplot(x=df_["z_score"] / df_["std_z_scores_cummax"], bins=50,
+                 kde=True, ax=ax[1, 0], stat="density", color="skyblue")
+    ax[1, 0].plot(t, stats.norm.pdf(t, loc=0, scale=1), color="darkred",
+                  linestyle="--")
+    ax[1, 0].set_title("z_score scaled: std cummax")
+    sns.histplot(x=df_["z_score"] / df_["std_z_scores_moving_avg_cummax"],
+                 bins=50, kde=True, ax=ax[1, 1], stat="density",
+                 color="skyblue")
+    ax[1, 1].plot(t, stats.norm.pdf(t, loc=0, scale=1), color="darkred",
+                  linestyle="--")
+    ax[1, 1].set_title(
+        f"z_score scaled: std moving avg ({moving_average}) cummax")
+    plt.tight_layout()
+    plt.savefig(filename_hist_plot)
+    plt.close()
 
     if send:
         caption = "z-scores scaling factors - {} - id={}".format(
@@ -787,7 +846,7 @@ def compute_zscore_scaling_factors(
         SBM.send_notification(
             text=None,
             chat_id=config.CHAT_ID,
-            files=[filename, filename_plot],
+            files=[filename, filename_plot, filename_hist_plot],
             text_for_files=caption
         )
 

@@ -321,6 +321,7 @@ def _plot_score_over_age(
 
     path_to_plot = f"{path_to_save}score_over_age_{flag}_{y_axis}.pdf"
     plt.savefig(path_to_plot)
+    plt.close()
     return path_to_plot
 
 

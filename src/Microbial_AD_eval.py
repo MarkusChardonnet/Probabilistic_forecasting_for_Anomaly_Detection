@@ -756,7 +756,8 @@ def compute_zscore_scaling_factors(
     makedirs(outpath)
     filename = f'{outpath}zscore_scaling_factors_{aggregation_method}.csv'
     filename_plot = f'{outpath}zscore_scaling_factors_{aggregation_method}.pdf'
-    filename_hist_plot = f'{outpath}histograms_scaled_dist_{aggregation_method}.pdf'
+    filename_hist_plot = (f'{outpath}histograms_scaled_dist_'
+                          f'{aggregation_method}')+'_{}.pdf'
 
     df = pd.read_csv(csvpath_val_releval)
     max_dsc = int(np.round(df["days_since_cutoff"].max()))
@@ -811,34 +812,42 @@ def compute_zscore_scaling_factors(
             df_out["days_since_cutoff"] == dsc,
             ["std_z_scores", "std_z_scores_cummax", "std_z_scores_moving_avg",
              "std_z_scores_moving_avg_cummax"]].values[0]
-    df_ = df.loc[df["days_since_cutoff"] >= 0]
-    t = np.linspace(-5, 5, 1000)
-    fig, ax = plt.subplots(2, 2)
-    sns.histplot(x=df_["z_score"], bins=50, kde=True, ax=ax[0, 0],
-                 stat="density", color="skyblue",)
-    ax[0, 0].plot(t, stats.norm.pdf(t, loc=0, scale=1), color="darkred",
-                  linestyle="--")
-    ax[0, 0].set_title("z_score unscaled")
-    sns.histplot(x=df_["z_score"] / df_["std_z_scores"], bins=50, kde=True,
-                 ax=ax[0, 1], stat="density", color="skyblue")
-    ax[0, 1].plot(t, stats.norm.pdf(t, loc=0, scale=1), color="darkred",
-                  linestyle="--")
-    ax[0, 1].set_title("z_score scaled: std")
-    sns.histplot(x=df_["z_score"] / df_["std_z_scores_cummax"], bins=50,
-                 kde=True, ax=ax[1, 0], stat="density", color="skyblue")
-    ax[1, 0].plot(t, stats.norm.pdf(t, loc=0, scale=1), color="darkred",
-                  linestyle="--")
-    ax[1, 0].set_title("z_score scaled: std cummax")
-    sns.histplot(x=df_["z_score"] / df_["std_z_scores_moving_avg_cummax"],
-                 bins=50, kde=True, ax=ax[1, 1], stat="density",
-                 color="skyblue")
-    ax[1, 1].plot(t, stats.norm.pdf(t, loc=0, scale=1), color="darkred",
-                  linestyle="--")
-    ax[1, 1].set_title(
-        f"z_score scaled: std moving avg ({moving_average}) cummax")
-    plt.tight_layout()
-    plt.savefig(filename_hist_plot)
-    plt.close()
+    hist_plots = []
+    for _range in [
+        (0, np.infty, "all"), (0, 30, "0-30"), (0, 180, "0-180"),
+        (180, 360, "180-360"), (360, 540, "360-540"), (540, 720, "540-720")]:
+        df_ = df.loc[
+            (df["days_since_cutoff"] >= _range[0]) &
+            (df["days_since_cutoff"] <= _range[1])]
+        t = np.linspace(-5, 5, 1000)
+        fig, ax = plt.subplots(2, 2)
+        sns.histplot(x=df_["z_score"], bins=50, kde=True, ax=ax[0, 0],
+                     stat="density", color="skyblue",)
+        ax[0, 0].plot(t, stats.norm.pdf(t, loc=0, scale=1), color="darkred",
+                      linestyle="--")
+        ax[0, 0].set_title("unscaled")
+        sns.histplot(x=df_["z_score"] / df_["std_z_scores"], bins=50, kde=True,
+                     ax=ax[0, 1], stat="density", color="skyblue")
+        ax[0, 1].plot(t, stats.norm.pdf(t, loc=0, scale=1), color="darkred",
+                      linestyle="--")
+        ax[0, 1].set_title("scaled: std")
+        sns.histplot(x=df_["z_score"] / df_["std_z_scores_cummax"], bins=50,
+                     kde=True, ax=ax[1, 0], stat="density", color="skyblue")
+        ax[1, 0].plot(t, stats.norm.pdf(t, loc=0, scale=1), color="darkred",
+                      linestyle="--")
+        ax[1, 0].set_title("scaled: std cummax")
+        sns.histplot(x=df_["z_score"] / df_["std_z_scores_moving_avg_cummax"],
+                     bins=50, kde=True, ax=ax[1, 1], stat="density",
+                     color="skyblue")
+        ax[1, 1].plot(t, stats.norm.pdf(t, loc=0, scale=1), color="darkred",
+                      linestyle="--")
+        ax[1, 1].set_title(
+            f"scaled: std MA({moving_average}) cummax")
+        plt.title(f"z-scores - days_since_cutoff range: {range[2]}")
+        plt.tight_layout()
+        plt.savefig(filename_hist_plot.format(range[2]))
+        hist_plots.append(filename_hist_plot.format(range[2]))
+        plt.close()
 
     if send:
         caption = "z-scores scaling factors - {} - id={}".format(
@@ -846,7 +855,7 @@ def compute_zscore_scaling_factors(
         SBM.send_notification(
             text=None,
             chat_id=config.CHAT_ID,
-            files=[filename, filename_plot, filename_hist_plot],
+            files=[filename, filename_plot]+hist_plots,
             text_for_files=caption
         )
 

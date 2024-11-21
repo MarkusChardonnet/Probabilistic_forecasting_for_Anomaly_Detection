@@ -342,7 +342,7 @@ def _get_abx_info(path_to_abx_ts: str, limit_months: float = None) -> pd.DataFra
     return abx_df
 
 
-def _get_step_n_indicator(max_resolution:bool):
+def _get_step_n_indicator(max_resolution: bool):
     """
     Given which resolution is used, determine step size and last bin indicator.
 
@@ -351,7 +351,7 @@ def _get_step_n_indicator(max_resolution:bool):
         used as step_size or 1.0.
 
     Returns:
-        (float, float): Group step size and indicator for smallest bin. 
+        (float, float): Group step size and indicator for smallest bin.
     """
     if max_resolution:
         group_step = 0.5

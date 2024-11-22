@@ -76,6 +76,7 @@ def _add_md_from_ft(abx_scores_flat, ft_name, path_to_data="../data/original_dat
         "geo_location_name",
         "diet_milk",
         "diet_weaning",
+        "delivery_mode",
     ]
     ft_df = ft_df[["day", "host_id"] + cols_to_evaluate].copy()
     ft_df = ft_df.assign(

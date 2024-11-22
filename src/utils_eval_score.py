@@ -76,6 +76,7 @@ def _add_md_from_ft(abx_scores_flat, ft_name, path_to_data="../data/original_dat
         "geo_location_name",
         "diet_milk",
         "diet_weaning",
+        "delivery_mode",
     ]
     ft_df = ft_df[["day", "host_id"] + cols_to_evaluate].copy()
     ft_df = ft_df.assign(
@@ -342,6 +343,78 @@ def _get_abx_info(path_to_abx_ts: str, limit_months: float = None) -> pd.DataFra
     return abx_df
 
 
+def _get_step_n_indicator(max_resolution: bool):
+    """
+    Given which resolution is used, determine step size and last bin indicator.
+
+    Args:
+        max_resolution (bool): Whether maximally possible resolution of 0.5 is
+        used as step_size or 1.0.
+
+    Returns:
+        (float, float): Group step size and indicator for smallest bin.
+    """
+    if max_resolution:
+        group_step = 0.5
+        last_bin_indicator = -0.5
+    else:
+        group_step = 1
+        last_bin_indicator = -1.0
+    return group_step, last_bin_indicator
+
+
+def _group_samples_prior_to_cutoff(
+    abx_nth_samples: pd.DataFrame,
+    col_w_time_since_cutoff: str,
+    cutoff_uniqueness: list,
+    min_samples: float,
+    group_step: float,
+    last_bin_indicator: float,
+):
+    """
+    Groups samples in the abx_nth_samples DataFrame prior to a specified cutoff.
+
+    Args:
+        abx_nth_samples (pd.DataFrame): DataFrame containing sample data.
+        col_w_time_since_cutoff (str): Column name representing time since cutoff.
+        cutoff_uniqueness (list): List of columns defining cutoff uniqueness.
+        min_samples (float): Minimum bin to include in grouping.
+        group_step (float): Step size for grouping samples.
+        last_bin_indicator (float): Value to indicate the last bin after
+        grouping is performed.
+
+    Returns:
+        pd.DataFrame: DataFrame with samples grouped prior to the cutoff.
+    """
+    # col_w_time_since_cutoff = "diff_age_nth_abx"
+    range_to_group = list(np.arange(min_samples, 0.0, group_step))
+    # select samples to group + to keep
+    scores_to_keep = abx_nth_samples[
+        ~abx_nth_samples[col_w_time_since_cutoff].isin(range_to_group)
+    ].copy()
+    scores_to_group = abx_nth_samples[
+        abx_nth_samples[col_w_time_since_cutoff].isin(range_to_group)
+    ].copy()
+    assert (
+        scores_to_keep.shape[0] + scores_to_group.shape[0] == abx_nth_samples.shape[0]
+    )
+    # in scores_to_group select last sample prior to abx exposure per cutoff_uniqueness
+    sort_by = cutoff_uniqueness + [col_w_time_since_cutoff]
+    scores_to_group.sort_values(by=sort_by, inplace=True)
+    selected_samples = scores_to_group.loc[
+        scores_to_group.groupby(cutoff_uniqueness)[col_w_time_since_cutoff].idxmax()
+    ]
+    # replace all values from range_to_group with last_bin_indicator
+    for i in range_to_group:
+        selected_samples[col_w_time_since_cutoff] = selected_samples[
+            col_w_time_since_cutoff
+        ].replace(i, last_bin_indicator)
+
+    # append both groups and resort
+    abx_nth_samples = pd.concat([scores_to_keep, selected_samples])
+    return abx_nth_samples
+
+
 def _select_samples_around_nth_abx_exposure(
     md_df,
     abx_df,
@@ -437,39 +510,16 @@ def _select_samples_around_nth_abx_exposure(
         .copy()
     )
     # select last sample prior to abx exposure in range_to_group
-    if max_resolution:
-        group_step = 0.5
-        last_bin_indicator = -0.5
-    else:
-        group_step = 1
-        last_bin_indicator = -1.0
+    group_step, last_bin_indicator = _get_step_n_indicator(max_resolution)
     if group_samples:
-        range_to_group = list(np.arange(min_samples, 0.0, group_step))
-        # select samples to group + to keep
-        scores_to_keep = abx_nth_samples[
-            ~abx_nth_samples["diff_age_nth_abx"].isin(range_to_group)
-        ].copy()
-        scores_to_group = abx_nth_samples[
-            abx_nth_samples["diff_age_nth_abx"].isin(range_to_group)
-        ].copy()
-        assert (
-            scores_to_keep.shape[0] + scores_to_group.shape[0]
-            == abx_nth_samples.shape[0]
+        abx_nth_samples = _group_samples_prior_to_cutoff(
+            abx_nth_samples,
+            "diff_age_nth_abx",
+            ["host_id"],
+            min_samples,
+            group_step,
+            last_bin_indicator,
         )
-
-        # in scores_to_group select last sample prior to abx expsosure per host_id
-        scores_to_group.sort_values(by=["host_id", "diff_age_nth_abx"], inplace=True)
-        selected_samples = scores_to_group.loc[
-            scores_to_group.groupby("host_id")["diff_age_nth_abx"].idxmax()
-        ]
-        # replace all values from range_to_group with -1
-        for i in range_to_group:
-            selected_samples["diff_age_nth_abx"] = selected_samples[
-                "diff_age_nth_abx"
-            ].replace(i, last_bin_indicator)
-
-        # append both groups and resort
-        abx_nth_samples = pd.concat([scores_to_keep, selected_samples])
         abx_nth_samples.sort_values(["abx", "host_id", "day"], inplace=True)
     return abx_nth_samples
 

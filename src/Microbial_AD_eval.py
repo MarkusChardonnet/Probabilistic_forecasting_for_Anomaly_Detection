@@ -221,7 +221,7 @@ def get_model_predictions(
     if sf is not None:
         for i in range(len(sf)):
             cutoff_adj_sf[
-                days_after_last_obs == sf["days_since_last_obs"].iloc[i]] = \
+                days_after_last_obs == sf["days_since_last_obs_ac"].iloc[i]] = \
                 sf["sf"].iloc[i]
     cutoff_adj_sf = np.transpose(cutoff_adj_sf, (1, 0))
 
@@ -850,7 +850,7 @@ def compute_zscore_scaling_factors(
     df["std_z_scores_moving_avg_cummax"] = 1.
     for dsc in range(0, max_dsc, shift_by):
         df.loc[
-            df["days_since_last_obs"] == dsc,
+            df["days_after_last_obs"] == dsc,
             ["std_z_scores", "std_z_scores_cummax", "std_z_scores_moving_avg",
              "std_z_scores_moving_avg_cummax"]] = df_out.loc[
             df_out["days_since_last_obs_ac"] == dsc,

@@ -824,18 +824,18 @@ def compute_zscore_scaling_factors(
         moving_average, min_periods=1).mean()
     df_out[scaling_factor_which+"_moving_avg_cummax"] = (
         df_out[scaling_factor_which+"_moving_avg"].cummax())
-    plt.plot(df_out["days_since_cutoff"], df_out[scaling_factor_which],
+    plt.plot(df_out["days_since_last_obs_ac"], df_out[scaling_factor_which],
              label="std_z_scores")
-    plt.plot(df_out["days_since_cutoff"],
+    plt.plot(df_out["days_since_last_obs_ac"],
              df_out[scaling_factor_which+"_cummax"], label="cummax")
-    plt.plot(df_out["days_since_cutoff"],
+    plt.plot(df_out["days_since_last_obs_ac"],
              df_out[scaling_factor_which+"_moving_avg"],
              label=f"moving average ({moving_average})")
-    plt.plot(df_out["days_since_cutoff"],
+    plt.plot(df_out["days_since_last_obs_ac"],
              df_out[scaling_factor_which+"_moving_avg_cummax"],
              label=f"moving averag ({moving_average}) cummax")
     plt.title("scaling factors")
-    plt.xlabel("days since cutoff")
+    plt.xlabel("days since last observation (after cutoff)")
     plt.ylabel("std_z_scores")
     plt.legend()
     plt.tight_layout()
@@ -852,7 +852,7 @@ def compute_zscore_scaling_factors(
             df["days_since_last_obs_ac"] == dsc,
             ["std_z_scores", "std_z_scores_cummax", "std_z_scores_moving_avg",
              "std_z_scores_moving_avg_cummax"]] = df_out.loc[
-            df_out["days_since_cutoff"] == dsc,
+            df_out["days_since_last_obs_ac"] == dsc,
             [scaling_factor_which, scaling_factor_which+"_cummax",
              scaling_factor_which+"_moving_avg",
              scaling_factor_which+"_moving_avg_cummax"]].values[0]
@@ -861,8 +861,8 @@ def compute_zscore_scaling_factors(
         (0, np.infty, "all"), (0, 30, "0-30"), (0, 180, "0-180"),
         (180, 360, "180-360"), (360, 540, "360-540"), (540, 720, "540-720")]:
         df_ = df.loc[
-            (df["days_since_cutoff"] >= _range[0]) &
-            (df["days_since_cutoff"] <= _range[1])]
+            (df["days_since_last_obs_ac"] >= _range[0]) &
+            (df["days_since_last_obs_ac"] <= _range[1])]
         t = np.linspace(-5, 5, 1000)
         fig, ax = plt.subplots(2, 2)
         sns.histplot(x=df_["z_score"], bins=50, kde=True, ax=ax[0, 0],

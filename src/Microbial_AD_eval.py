@@ -806,7 +806,7 @@ def compute_zscore_scaling_factors(
         left = dsc - interval_length/2
         right = min(dsc + interval_length/2, max_dsc)
         vals = df.loc[
-            (df["days_since_cutoff"] >= min(0, dsc-interval_length)) &
+            (df["days_since_cutoff"] >= min(0, left)) &
             (df["days_after_last_obs"] >= left) &
             (df["days_after_last_obs"] <= right), "z_score"]
         data.append(
@@ -824,7 +824,7 @@ def compute_zscore_scaling_factors(
     df_out[scaling_factor_which+"_cummax"] = df_out[scaling_factor_which].cummax()
     df_out[scaling_factor_which+"_moving_avg"] = df_out[scaling_factor_which].rolling(
         moving_average, min_periods=1).mean()
-    df_out[scaling_factor_which+"_moving_avg_cummax"] = (
+    df_out[scaling_factor_which+"_moving_avg_cummax"] = np.maximum(1,
         df_out[scaling_factor_which+"_moving_avg"].cummax())
     plt.plot(df_out["days_since_last_obs_ac"], df_out[scaling_factor_which],
              label="std_z_scores")
@@ -835,7 +835,7 @@ def compute_zscore_scaling_factors(
              label=f"moving average ({moving_average})")
     plt.plot(df_out["days_since_last_obs_ac"],
              df_out[scaling_factor_which+"_moving_avg_cummax"],
-             label=f"moving averag ({moving_average}) cummax")
+             label=f"moving averag ({moving_average}) cummax LB (1)")
     plt.title("scaling factors")
     plt.xlabel("days since last observation (after cutoff)")
     plt.ylabel("std_z_scores")
@@ -888,7 +888,7 @@ def compute_zscore_scaling_factors(
         ax[1, 1].plot(t, stats.norm.pdf(t, loc=0, scale=1), color="darkred",
                       linestyle="--")
         ax[1, 1].set_title(
-            f"scaled: std MA({moving_average}) cummax")
+            f"scaled: std MA({moving_average}) cummax LB(1)")
         fig.suptitle(f"z-scores - days_since_cutoff range: {_range[2]}, "
                      f"sf: {scaling_factor_which}")
         plt.tight_layout(rect=[0, 0.03, 1, 0.95])

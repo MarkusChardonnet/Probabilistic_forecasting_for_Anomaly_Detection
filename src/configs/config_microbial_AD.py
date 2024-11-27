@@ -327,6 +327,9 @@ param_dict_AD_microbial_novel_alpha_div2_ev = {
         'scoring_distribution': ['normal',],
         'only_jump_before_abx_exposure': [1],
         'aggregation_method': ['coord-0'],
+        'use_scaling_factors': [True],
+        'scaling_factor_which': ['std_z_scores'],  # 'nc_std_z_scores'
+        'preprocess_scaling_factors': ['lower_bound-1-moving_avg-10-cummax'],
 }
 param_list_AD_microbial_novel_alpha_div2_ev = get_parameter_array(
         param_dict=param_dict_AD_microbial_novel_alpha_div2_ev)

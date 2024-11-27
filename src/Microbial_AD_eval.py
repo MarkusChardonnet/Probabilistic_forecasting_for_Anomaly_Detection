@@ -500,6 +500,8 @@ def compute_scores(
     ad_path = '{}anomaly_detection/'.format(forecast_model_path)
     which = 'best' if load_best else 'last'
     scores_path = '{}scores_{}_{}/'.format(ad_path, which, scoring_distribution)
+    if use_scaling_factors:
+        scores_path += f"using-SF_{scaling_factor_which}--{preprocess_scaling_factors}/"
     makedirs(scores_path)
 
     # get params_dict
@@ -912,6 +914,9 @@ def evaluate_scores(
     only_jump_before_abx_exposure=False,
     aggregation_method="coord-0",
     scoring_distribution="normal",
+    use_scaling_factors=False,
+    scaling_factor_which="std_z_scores",
+    preprocess_scaling_factors=False,
     **options,
 ):
     """
@@ -931,6 +936,8 @@ def evaluate_scores(
     ad_path = "{}anomaly_detection/".format(forecast_model_path)
     which = "best" if load_best else "last"
     scores_path = "{}scores_{}_{}/".format(ad_path, which, scoring_distribution)
+    if use_scaling_factors:
+        scores_path += f"using-SF_{scaling_factor_which}--{preprocess_scaling_factors}/"
     evaluation_path = "{}evaluation_{}_{}_{}/".format(
         ad_path, which, only_jump_before_abx_exposure, aggregation_method)
     makedirs(evaluation_path)

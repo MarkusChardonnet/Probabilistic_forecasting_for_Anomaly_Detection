@@ -438,6 +438,7 @@ def compute_scores(
         "reliability_eval_start_times": reliability_eval_start_times,
         "use_scaling_factors": use_scaling_factors,
         "preprocess_scaling_factors": preprocess_scaling_factors,
+        "scaling_factor_which": scaling_factor_which,
     }
 
     sf = None
@@ -666,9 +667,9 @@ def compute_scores(
     cols2 = ['host_id', 'abx'] + ['SF_day-{}'.format(i + starting_date)
                                   for i in range(ad_scores.shape[1])]
     df2 = pd.DataFrame(data2, columns=cols2)
-    csvpath2 = '{}val_ad_scores_{}_{}_SF.csv'.format(
+    csvpath_val2 = '{}val_ad_scores_{}_{}_SF.csv'.format(
         scores_path, only_jump_before_abx_exposure, aggregation_method)
-    df2.to_csv(csvpath2, index=False)
+    df2.to_csv(csvpath_val2, index=False)
     
     if plot_cond_standardized_dist is not None:
         dist_path = f'{ad_path}dist/val-noabx/'
@@ -737,7 +738,8 @@ def compute_scores(
             filepaths.append(csvpath_val_releval)
 
     if send:
-        files_to_send = [csvpath, csvpath_val] + filepaths
+        files_to_send = (
+                [csvpath, csvpath2, csvpath_val, csvpath_val2] + filepaths)
         caption = "scores - {} - id={}".format(which, forecast_model_id)
         SBM.send_notification(
             text="description: {}".format(scores_dict),

@@ -217,12 +217,15 @@ def get_model_predictions(
     observed_dates[0] = False
 
     # get the scaling factors for the predicted stds based on the cut-off days
-    cutoff_adj_sf = np.ones_like(days_after_last_obs)
+    cutoff_adj_sf = np.ones_like(days_after_last_obs, dtype=float)
     if sf is not None:
         for i in range(len(sf)):
             cutoff_adj_sf[
                 days_after_last_obs == sf["days_since_last_obs_ac"].iloc[i]] = \
                 sf["sf"].iloc[i]
+        max_dslo = sf["days_since_last_obs_ac"].max()
+        cutoff_adj_sf[days_after_last_obs > max_dslo] = sf.loc[
+            sf["days_since_last_obs_ac"] == max_dslo, "sf"].iloc[0]
     cutoff_adj_sf = np.transpose(cutoff_adj_sf, (1, 0))
 
     # shape of cond_moments: [nb_steps, nb_samples, dimension, nb_moments]
@@ -469,6 +472,9 @@ def compute_scores(
                     raise ValueError("preprocess_scaling_factors not "
                                      f"implemented: {prep_sf_parts[0]}")
         sf["sf"] = sf[scaling_factor_which].values
+        sf["days_since_last_obs_ac"] = sf["days_since_last_obs_ac"].astype(int)
+        print("using scaling factors:")
+        print(sf)
 
     # load dataset-metadata
     train_idx = np.load(os.path.join(

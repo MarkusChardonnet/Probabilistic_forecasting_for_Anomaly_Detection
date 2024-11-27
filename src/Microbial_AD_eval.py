@@ -3,6 +3,7 @@ import json
 import os
 import sys
 import socket
+import tqdm
 
 import data_utils
 import matplotlib  # plots
@@ -118,19 +119,25 @@ def get_model_predictions(
     """
     b = next(iter(dl))
     true_abx_exposure = b["true_abx_exposure"]
+    observed_dates = b["observed_dates"]
 
-    # compute days after cutoff (before only_jump_before_abx_exposure is
-    #   changed)
+    # compute days after last observation (before only_jump_before_abx_exposure
+    #   is changed)
     if only_jump_before_abx_exposure in [None, False, 0]:
-        days_after_cutoff = np.zeros_like(true_abx_exposure) - 1
+        odbc = observed_dates
     else:
-        days_after_cutoff = np.cumsum(
-            true_abx_exposure >= only_jump_before_abx_exposure, axis=1) - 1
+        odbc = observed_dates * (true_abx_exposure < only_jump_before_abx_exposure)
     if use_obs_until_t is not None:
-        days_after_cutoff = np.arange(true_abx_exposure.shape[1]) - np.round(
-            use_obs_until_t/delta_t) - 1
-        days_after_cutoff = days_after_cutoff.reshape(1, -1).repeat(
+        odbc = observed_dates * np.reshape(
+            np.arange(true_abx_exposure.shape[1]) <
+            np.round(use_obs_until_t/delta_t), (1, -1)).repeat(
             len(true_abx_exposure), axis=0)
+
+    neg_odbc = np.ones_like(odbc) - odbc  # 0 if observed before cutoff, else 1
+    days_after_last_obs = np.zeros_like(true_abx_exposure)
+    for i in range(1, neg_odbc.shape[1]):
+        days_after_last_obs[:, i] = (days_after_last_obs[:, i-1] + neg_odbc[:, i-1]) * neg_odbc[:, i-1]
+    days_after_last_obs += 1
 
     masked = False
     if use_only_dyn_ft_as_input == "after_nth_abx_exposure":
@@ -173,6 +180,8 @@ def get_model_predictions(
     n_obs_ot = b["n_obs_ot"].to(device)
     observed_dates = np.transpose(b['observed_dates'], (1, 0)).astype(np.bool)
     path_t_true_X = np.linspace(0., T, int(np.round(T / delta_t)) + 1)
+    assert path_t_true_X.shape[0] == true_abx_exposure.shape[1], \
+        "path_t_true_X and true_abx_exposure have different number of steps"
     true_X = b["true_paths"]
     abx_labels = b["abx_observed"]
     host_id = b["host_id"]
@@ -208,11 +217,15 @@ def get_model_predictions(
     observed_dates[0] = False
 
     # get the scaling factors for the predicted stds based on the cut-off days
-    cutoff_adj_sf = np.ones_like(days_after_cutoff)
+    cutoff_adj_sf = np.ones_like(days_after_last_obs, dtype=float)
     if sf is not None:
         for i in range(len(sf)):
-            cutoff_adj_sf[days_after_cutoff==sf["days_since_cutoff"].iloc[i]]= \
-                sf["std_z_scores"].iloc[i]
+            cutoff_adj_sf[
+                days_after_last_obs == sf["days_since_last_obs_ac"].iloc[i]] = \
+                sf["sf"].iloc[i]
+        max_dslo = sf["days_since_last_obs_ac"].max()
+        cutoff_adj_sf[days_after_last_obs > max_dslo] = sf.loc[
+            sf["days_since_last_obs_ac"] == max_dslo, "sf"].iloc[0]
     cutoff_adj_sf = np.transpose(cutoff_adj_sf, (1, 0))
 
     # shape of cond_moments: [nb_steps, nb_samples, dimension, nb_moments]
@@ -221,8 +234,9 @@ def get_model_predictions(
     # shape of abx_labels: [nb_samples, nb_steps]
     # shape of host_id: [nb_samples]
     # shape of cutoff_adj_sf: [nb_steps, nb_samples]
+    # shape of days_after_last_obs: [nb_samples, nb_steps]
     return (cond_moments, observed_dates, true_X, abx_labels, host_id,
-            cutoff_adj_sf)
+            cutoff_adj_sf, days_after_last_obs)
 
 
 def _plot_conditionally_standardized_distribution(
@@ -331,6 +345,7 @@ def compute_scores(
         use_dyn_cov_after_abx=True,
         reliability_eval_start_times=None,
         use_scaling_factors=False,
+        scaling_factor_which="std_z_scores",
         preprocess_scaling_factors=False,
         **options
 ):
@@ -388,15 +403,15 @@ def compute_scores(
             computation of scores. the scaling factors have to be computed with
             this function and scoring_distribution=z_score and the function
             compute_zscore_scaling_factors first.
+        scaling_factor_which: str, which scaling factors to use. one of:
+            'std_z_scores', 'nc_std_z_scores' (non-centered std z-scores)
         preprocess_scaling_factors: False or str, whether to preprocess the
-            scaling factors before using them. Options are:
+            scaling factors before using them. Options are any combination of:
             i) 'lower_bound-lb': set all values below lb to lb
             ii) 'cummax': take the cumulative maximum
             iii) 'moving_avg-window': take the moving average with window size
-            iv) 'moving_avg-window-cummax': take the moving average with window
-                size and then the cumulative maximum
-
     """
+
     global USE_GPU, N_CPUS, N_DATASET_WORKERS
     if use_gpu is not None:
         USE_GPU = use_gpu
@@ -426,6 +441,7 @@ def compute_scores(
         "reliability_eval_start_times": reliability_eval_start_times,
         "use_scaling_factors": use_scaling_factors,
         "preprocess_scaling_factors": preprocess_scaling_factors,
+        "scaling_factor_which": scaling_factor_which,
     }
 
     sf = None
@@ -437,19 +453,27 @@ def compute_scores(
         sf = pd.read_csv(sf_file)
         if preprocess_scaling_factors:
             prep_sf_parts = preprocess_scaling_factors.split("-")
-            if prep_sf_parts[0] == "lower_bound":
-                if len(prep_sf_parts) > 1:
+            while len(prep_sf_parts) > 0:
+                if prep_sf_parts[0] == "lower_bound":
                     lb = float(prep_sf_parts[1])
-                sf["std_z_scores"] = np.maximum(sf["std_z_scores"].values, lb)
-            if prep_sf_parts[0] == "cummax":
-                sf["std_z_scores"] = sf["std_z_scores"].cummax()
-            if prep_sf_parts[0] == "moving_avg":
-                window = int(prep_sf_parts[1])
-                sf["std_z_scores"] = sf["std_z_scores"].rolling(
-                    window, min_periods=1).mean()
-                if len(prep_sf_parts) > 2 and prep_sf_parts[2] == "cummax":
-                    sf["std_z_scores"] = sf["std_z_scores"].cummax()
-
+                    sf[scaling_factor_which] = np.maximum(
+                        sf[scaling_factor_which].values, lb)
+                    prep_sf_parts = prep_sf_parts[2:]
+                elif prep_sf_parts[0] == "cummax":
+                    sf[scaling_factor_which] = sf[scaling_factor_which].cummax()
+                    prep_sf_parts = prep_sf_parts[1:]
+                elif prep_sf_parts[0] == "moving_avg":
+                    window = int(prep_sf_parts[1])
+                    sf[scaling_factor_which] = sf[scaling_factor_which].rolling(
+                        window, min_periods=1).mean()
+                    prep_sf_parts = prep_sf_parts[2:]
+                else:
+                    raise ValueError("preprocess_scaling_factors not "
+                                     f"implemented: {prep_sf_parts[0]}")
+        sf["sf"] = sf[scaling_factor_which].values
+        sf["days_since_last_obs_ac"] = sf["days_since_last_obs_ac"].astype(int)
+        print("using scaling factors:")
+        print(sf)
 
     # load dataset-metadata
     train_idx = np.load(os.path.join(
@@ -486,6 +510,8 @@ def compute_scores(
     ad_path = '{}anomaly_detection/'.format(forecast_model_path)
     which = 'best' if load_best else 'last'
     scores_path = '{}scores_{}_{}/'.format(ad_path, which, scoring_distribution)
+    if use_scaling_factors:
+        scores_path += f"using-SF_{scaling_factor_which}--{preprocess_scaling_factors}/"
     makedirs(scores_path)
 
     # get params_dict
@@ -518,14 +544,14 @@ def compute_scores(
         dataset=data_val_noabx, collate_fn=collate_fn, shuffle=False,
         batch_size=len(val_idx_noabx))
 
-    cond_moments, observed_dates, true_X, abx_labels, host_id, cutoff_adj_sf = \
-        get_model_predictions(
-            dl_train, device, forecast_model, output_vars, T, delta_t,
-            dimension,
-            only_jump_before_abx_exposure=only_jump_before_abx_exposure,
-            use_only_dyn_ft_as_input=use_only_dyn_ft_as_input,
-            add_dynamic_cov=add_dynamic_cov,
-            use_dyn_cov_after_abx=use_dyn_cov_after_abx, sf=sf)
+    (cond_moments, observed_dates, true_X, abx_labels, host_id, cutoff_adj_sf,
+     days_after_last_obs) = get_model_predictions(
+        dl_train, device, forecast_model, output_vars, T, delta_t,
+        dimension,
+        only_jump_before_abx_exposure=only_jump_before_abx_exposure,
+        use_only_dyn_ft_as_input=use_only_dyn_ft_as_input,
+        add_dynamic_cov=add_dynamic_cov,
+        use_dyn_cov_after_abx=use_dyn_cov_after_abx, sf=sf)
     if use_replace_values:
         replace_values = get_replace_forecast_values(
             cond_moments=cond_moments[abx_labels == 0],
@@ -574,7 +600,7 @@ def compute_scores(
     obs = true_X.transpose(2, 0, 1)
     ad_scores = ad_module(obs, cond_moments, observed_dates, cutoff_adj_sf)
     with open('{}train_ad_scores_{}_{}.npy'.format(
-            scores_path, int(only_jump_before_abx_exposure),
+            scores_path, only_jump_before_abx_exposure,
             aggregation_method), 'wb') as f:
         np.save(f, ad_scores)
         np.save(f, abx_labels)
@@ -587,6 +613,16 @@ def compute_scores(
     csvpath = '{}train_ad_scores_{}_{}.csv'.format(
         scores_path, only_jump_before_abx_exposure, aggregation_method)
     df.to_csv(csvpath, index=False)
+    # also store the computed scaling factors for verification
+    data2 = np.concatenate(
+        [host_id.reshape(-1, 1), abx_labels.reshape(-1, 1),
+         cutoff_adj_sf.transpose((1,0))], axis=1)
+    cols2 = ['host_id', 'abx'] + ['SF_day-{}'.format(i + starting_date)
+                                 for i in range(ad_scores.shape[1])]
+    df2 = pd.DataFrame(data2, columns=cols2)
+    csvpath2 = '{}train_ad_scores_{}_{}_SF.csv'.format(
+        scores_path, only_jump_before_abx_exposure, aggregation_method)
+    df2.to_csv(csvpath2, index=False)
 
     filepaths = []
     if aggregation_method is not None and aggregation_method.startswith("coord-"):
@@ -605,13 +641,13 @@ def compute_scores(
                 which_set='train', which_coord=which_coord, eps=epsilon)
 
     # test data
-    cond_moments, observed_dates, true_X, abx_labels, host_id, cutoff_adj_sf = \
-        get_model_predictions(
-            dl_val, device, forecast_model, output_vars, T, delta_t, dimension,
-            only_jump_before_abx_exposure=only_jump_before_abx_exposure,
-            use_only_dyn_ft_as_input=use_only_dyn_ft_as_input,
-            add_dynamic_cov=add_dynamic_cov,
-            use_dyn_cov_after_abx=use_dyn_cov_after_abx, sf=sf)
+    (cond_moments, observed_dates, true_X, abx_labels, host_id, cutoff_adj_sf,
+     days_after_last_obs) = get_model_predictions(
+        dl_val, device, forecast_model, output_vars, T, delta_t, dimension,
+        only_jump_before_abx_exposure=only_jump_before_abx_exposure,
+        use_only_dyn_ft_as_input=use_only_dyn_ft_as_input,
+        add_dynamic_cov=add_dynamic_cov,
+        use_dyn_cov_after_abx=use_dyn_cov_after_abx, sf=sf)
     obs = true_X.transpose(2, 0, 1)
     ad_scores = ad_module(obs, cond_moments, observed_dates, cutoff_adj_sf)
     with open('{}val_ad_scores_{}_{}.npy'.format(
@@ -628,6 +664,17 @@ def compute_scores(
     csvpath_val = '{}val_ad_scores_{}_{}.csv'.format(
         scores_path, only_jump_before_abx_exposure, aggregation_method)
     df.to_csv(csvpath_val, index=False)
+    # also store the computed scaling factors for verification
+    data2 = np.concatenate(
+        [host_id.reshape(-1, 1), abx_labels.reshape(-1, 1),
+         cutoff_adj_sf.transpose((1,0))],
+        axis=1)
+    cols2 = ['host_id', 'abx'] + ['SF_day-{}'.format(i + starting_date)
+                                  for i in range(ad_scores.shape[1])]
+    df2 = pd.DataFrame(data2, columns=cols2)
+    csvpath_val2 = '{}val_ad_scores_{}_{}_SF.csv'.format(
+        scores_path, only_jump_before_abx_exposure, aggregation_method)
+    df2.to_csv(csvpath_val2, index=False)
     
     if plot_cond_standardized_dist is not None:
         dist_path = f'{ad_path}dist/val-noabx/'
@@ -644,10 +691,10 @@ def compute_scores(
         makedirs(reli_eval_path)
         data_collect = []
         df = pd.DataFrame()
-        for start_time in reliability_eval_start_times:
-            print(f"compute reliability eval scores for start_time={start_time}")
+        print(f"compute reliability eval scores:")
+        for start_time in tqdm.tqdm(reliability_eval_start_times):
             (cond_moments, observed_dates, true_X, abx_labels, host_id,
-             cutoff_adj_sf) = get_model_predictions(
+             cutoff_adj_sf, days_after_last_obs) = get_model_predictions(
                 dl_val_noabx, device, forecast_model, output_vars,
                 T, delta_t, dimension,
                 only_jump_before_abx_exposure=False,
@@ -666,6 +713,7 @@ def compute_scores(
                         "host_id": host_id,
                         "abx": abx_labels,
                         "use_obs_until_day": use_obs_until_day.flatten(),
+                        "days_after_last_obs": days_after_last_obs[:, d],
                         "score_date": np.ones(ad_scores.shape[0]) *
                                       (d + starting_date),
                         "z_score": ad_scores[:, d]
@@ -695,7 +743,8 @@ def compute_scores(
             filepaths.append(csvpath_val_releval)
 
     if send:
-        files_to_send = [csvpath, csvpath_val] + filepaths
+        files_to_send = (
+                [csvpath, csvpath2, csvpath_val, csvpath_val2] + filepaths)
         caption = "scores - {} - id={}".format(which, forecast_model_id)
         SBM.send_notification(
             text="description: {}".format(scores_dict),
@@ -739,6 +788,7 @@ def compute_zscore_scaling_factors(
         shift_by=1,
         send=False,
         moving_average=30,
+        scaling_factor_which='std_z_scores',
         **kwargs):
 
     assert scoring_distribution == "z_score", \
@@ -755,44 +805,49 @@ def compute_zscore_scaling_factors(
     outpath = f'{ad_path}zscore_scaling_factors_{which}/'
     makedirs(outpath)
     filename = f'{outpath}zscore_scaling_factors_{aggregation_method}.csv'
-    filename_plot = f'{outpath}zscore_scaling_factors_{aggregation_method}.pdf'
+    filename_plot = f'{outpath}zscore_scaling_factors_{aggregation_method}_{scaling_factor_which}.pdf'
     filename_hist_plot = (f'{outpath}histograms_scaled_dist_'
-                          f'{aggregation_method}')+'_{}.pdf'
+                          f'{aggregation_method}_{scaling_factor_which}')+'_{}.pdf'
 
     df = pd.read_csv(csvpath_val_releval)
-    max_dsc = int(np.round(df["days_since_cutoff"].max()))
+    max_dsc = int(np.round(df["days_after_last_obs"].max()))
     data = []
     for dsc in range(0, max_dsc, shift_by):
         left = dsc - interval_length/2
         right = min(dsc + interval_length/2, max_dsc)
+        vals = df.loc[
+            (df["days_since_cutoff"] >= min(0, left)) &
+            (df["days_after_last_obs"] >= left) &
+            (df["days_after_last_obs"] <= right), "z_score"]
         data.append(
-            [dsc, left, right, df.loc[
-                (df["days_since_cutoff"] >= left) &
-                (df["days_since_cutoff"] <= right), "z_score"].std()])
+            [dsc, left, right, vals.std(), vals.mean(),
+             np.sqrt(vals.std()**2 + vals.mean()**2)])
 
-    cols = ["days_since_cutoff", "days_since_cutoff_std_int_left",
-            "days_since_cutoff_std_int_right", "std_z_scores"]
+    cols = ["days_since_last_obs_ac", "days_since_last_obs_ac_std_int_left",
+            "days_since_last_obs_ac_std_int_right",
+            "std_z_scores", "mean_z_scores", "nc_std_z_scores"]
     df_out = pd.DataFrame(data, columns=cols)
     df_out.to_csv(filename, index=False)
 
     # plot the scaling factors
     f = plt.figure()
-    df_out["std_z_scores_cummax"] = df_out["std_z_scores"].cummax()
-    df_out["std_z_scores_moving_avg"] = df_out["std_z_scores"].rolling(
+    df_out[scaling_factor_which+"_cummax"] = df_out[scaling_factor_which].cummax()
+    df_out[scaling_factor_which+"_moving_avg"] = df_out[scaling_factor_which].rolling(
         moving_average, min_periods=1).mean()
-    df_out["std_z_scores_moving_avg_cummax"] = (
-        df_out["std_z_scores_moving_avg"].cummax())
-    plt.plot(df_out["days_since_cutoff"], df_out["std_z_scores"],
+    df_out[scaling_factor_which+"_moving_avg_cummax"] = np.maximum(1,
+        df_out[scaling_factor_which+"_moving_avg"].cummax())
+    plt.plot(df_out["days_since_last_obs_ac"], df_out[scaling_factor_which],
              label="std_z_scores")
-    plt.plot(df_out["days_since_cutoff"], df_out["std_z_scores_cummax"],
-             label="cummax")
-    plt.plot(df_out["days_since_cutoff"], df_out["std_z_scores_moving_avg"],
+    plt.plot(df_out["days_since_last_obs_ac"],
+             df_out[scaling_factor_which+"_cummax"], label="cummax")
+    plt.plot(df_out["days_since_last_obs_ac"],
+             df_out[scaling_factor_which+"_moving_avg"],
              label=f"moving average ({moving_average})")
-    plt.plot(df_out["days_since_cutoff"],
-             df_out["std_z_scores_moving_avg_cummax"],
-             label=f"moving averag ({moving_average}) cummax")
+    plt.plot(df_out["days_since_last_obs_ac"],
+             df_out[scaling_factor_which+"_moving_avg_cummax"],
+             label=f"moving averag ({moving_average}) cummax LB (1)")
     plt.title("scaling factors")
-    plt.xlabel("days since cutoff")
+    plt.xlabel("days since last observation (after cutoff)")
     plt.ylabel("std_z_scores")
     plt.legend()
     plt.tight_layout()
@@ -806,19 +861,20 @@ def compute_zscore_scaling_factors(
     df["std_z_scores_moving_avg_cummax"] = 1.
     for dsc in range(0, max_dsc, shift_by):
         df.loc[
-            df["days_since_cutoff"] == dsc,
+            df["days_after_last_obs"] == dsc,
             ["std_z_scores", "std_z_scores_cummax", "std_z_scores_moving_avg",
              "std_z_scores_moving_avg_cummax"]] = df_out.loc[
-            df_out["days_since_cutoff"] == dsc,
-            ["std_z_scores", "std_z_scores_cummax", "std_z_scores_moving_avg",
-             "std_z_scores_moving_avg_cummax"]].values[0]
+            df_out["days_since_last_obs_ac"] == dsc,
+            [scaling_factor_which, scaling_factor_which+"_cummax",
+             scaling_factor_which+"_moving_avg",
+             scaling_factor_which+"_moving_avg_cummax"]].values[0]
     hist_plots = []
     for _range in [
         (0, np.infty, "all"), (0, 30, "0-30"), (0, 180, "0-180"),
         (180, 360, "180-360"), (360, 540, "360-540"), (540, 720, "540-720")]:
         df_ = df.loc[
-            (df["days_since_cutoff"] >= _range[0]) &
-            (df["days_since_cutoff"] <= _range[1])]
+            (df["days_after_last_obs"] >= _range[0]) &
+            (df["days_after_last_obs"] <= _range[1])]
         t = np.linspace(-5, 5, 1000)
         fig, ax = plt.subplots(2, 2)
         sns.histplot(x=df_["z_score"], bins=50, kde=True, ax=ax[0, 0],
@@ -842,8 +898,9 @@ def compute_zscore_scaling_factors(
         ax[1, 1].plot(t, stats.norm.pdf(t, loc=0, scale=1), color="darkred",
                       linestyle="--")
         ax[1, 1].set_title(
-            f"scaled: std MA({moving_average}) cummax")
-        fig.suptitle(f"z-scores - days_since_cutoff range: {_range[2]}")
+            f"scaled: std MA({moving_average}) cummax LB(1)")
+        fig.suptitle(f"z-scores - days_after_last_obs range: {_range[2]}, "
+                     f"sf: {scaling_factor_which}")
         plt.tight_layout(rect=[0, 0.03, 1, 0.95])
         plt.savefig(filename_hist_plot.format(_range[2]))
         hist_plots.append(filename_hist_plot.format(_range[2]))
@@ -871,6 +928,9 @@ def evaluate_scores(
     only_jump_before_abx_exposure=False,
     aggregation_method="coord-0",
     scoring_distribution="normal",
+    use_scaling_factors=False,
+    scaling_factor_which="std_z_scores",
+    preprocess_scaling_factors=False,
     **options,
 ):
     """
@@ -890,6 +950,8 @@ def evaluate_scores(
     ad_path = "{}anomaly_detection/".format(forecast_model_path)
     which = "best" if load_best else "last"
     scores_path = "{}scores_{}_{}/".format(ad_path, which, scoring_distribution)
+    if use_scaling_factors:
+        scores_path += f"using-SF_{scaling_factor_which}--{preprocess_scaling_factors}/"
     evaluation_path = "{}evaluation_{}_{}_{}/".format(
         ad_path, which, only_jump_before_abx_exposure, aggregation_method)
     makedirs(evaluation_path)

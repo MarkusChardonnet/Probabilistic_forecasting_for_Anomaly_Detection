@@ -300,6 +300,23 @@ param_dict_AD_microbial_novel_alpha_div2sf = {
 param_list_AD_microbial_novel_alpha_div2_scaling_factors = get_parameter_array(
         param_dict=param_dict_AD_microbial_novel_alpha_div2sf)
 
+param_dict_AD_microbial_novel_alpha_div2sf2 = {
+        'load_best': [True],
+        'verbose': [True],
+        'seed': [seed],
+        'scoring_distribution': ['z_score'],
+        'plot_cond_standardized_dist': [None],
+        'only_jump_before_abx_exposure': [False],
+        'use_dyn_cov_after_abx': [True],
+        'interval_length': [30],
+        'shift_by': [1],
+        'aggregation_method': ['coord-0'],
+        'moving_average': [10],
+        'scaling_factor_which': ['nc_std_z_scores'],  # 'nc_std_z_scores'
+}
+param_list_AD_microbial_novel_alpha_div2_scaling_factors2 = get_parameter_array(
+        param_dict=param_dict_AD_microbial_novel_alpha_div2sf2)
+
 # params for the actual AD score computation using the scaling factors
 AD_microbial_novel_alpha_div_ids2_1 = [57, 55]
 param_dict_AD_microbial_novel_alpha_div2 = {
@@ -313,7 +330,7 @@ param_dict_AD_microbial_novel_alpha_div2 = {
         'use_dyn_cov_after_abx': [True],
         'aggregation_method': ['coord-0'],
         'use_scaling_factors': [True],
-        'scaling_factor_which': ['std_z_scores'],  # 'nc_std_z_scores'
+        'scaling_factor_which': ['std_z_scores', 'nc_std_z_scores'],  # 'nc_std_z_scores'
         'preprocess_scaling_factors': ['lower_bound-1-moving_avg-10-cummax'],
 }
 param_list_AD_microbial_novel_alpha_div2 = get_parameter_array(
@@ -346,7 +363,7 @@ param_dict_AD_microbial_novel_alpha_div2_re = {
         'use_dyn_cov_after_abx': [True],
         'reliability_eval_start_times': [list(range(0, 1162, 30))],
         'use_scaling_factors': [True],
-        'scaling_factor_which': ['std_z_scores'],  # 'nc_std_z_scores'
+        'scaling_factor_which': ['std_z_scores', 'nc_std_z_scores'],  # 'nc_std_z_scores'
         'preprocess_scaling_factors': ['lower_bound-1-moving_avg-10-cummax'],
 }
 param_list_AD_microbial_novel_alpha_div2_reliability_eval = get_parameter_array(

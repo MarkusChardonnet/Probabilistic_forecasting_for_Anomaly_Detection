@@ -605,7 +605,8 @@ def compute_scores(
     df.to_csv(csvpath, index=False)
     # also store the computed scaling factors for verification
     data2 = np.concatenate(
-        [host_id.reshape(-1, 1), abx_labels.reshape(-1, 1), cutoff_adj_sf], axis=1)
+        [host_id.reshape(-1, 1), abx_labels.reshape(-1, 1),
+         cutoff_adj_sf.transpose((1,0))], axis=1)
     cols2 = ['host_id', 'abx'] + ['SF_day-{}'.format(i + starting_date)
                                  for i in range(ad_scores.shape[1])]
     df2 = pd.DataFrame(data2, columns=cols2)
@@ -655,7 +656,8 @@ def compute_scores(
     df.to_csv(csvpath_val, index=False)
     # also store the computed scaling factors for verification
     data2 = np.concatenate(
-        [host_id.reshape(-1, 1), abx_labels.reshape(-1, 1), cutoff_adj_sf],
+        [host_id.reshape(-1, 1), abx_labels.reshape(-1, 1),
+         cutoff_adj_sf.transpose((1,0))],
         axis=1)
     cols2 = ['host_id', 'abx'] + ['SF_day-{}'.format(i + starting_date)
                                   for i in range(ad_scores.shape[1])]

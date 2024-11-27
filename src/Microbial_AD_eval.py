@@ -456,14 +456,17 @@ def compute_scores(
                     sf[scaling_factor_which] = np.maximum(
                         sf[scaling_factor_which].values, lb)
                     prep_sf_parts = prep_sf_parts[2:]
-                if prep_sf_parts[0] == "cummax":
+                elif prep_sf_parts[0] == "cummax":
                     sf[scaling_factor_which] = sf[scaling_factor_which].cummax()
                     prep_sf_parts = prep_sf_parts[1:]
-                if prep_sf_parts[0] == "moving_avg":
+                elif prep_sf_parts[0] == "moving_avg":
                     window = int(prep_sf_parts[1])
                     sf[scaling_factor_which] = sf[scaling_factor_which].rolling(
                         window, min_periods=1).mean()
                     prep_sf_parts = prep_sf_parts[2:]
+                else:
+                    raise ValueError("preprocess_scaling_factors not "
+                                     f"implemented: {prep_sf_parts[0]}")
         sf["sf"] = sf[scaling_factor_which].values
 
     # load dataset-metadata

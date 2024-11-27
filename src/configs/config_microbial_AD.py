@@ -294,7 +294,7 @@ param_dict_AD_microbial_novel_alpha_div2sf = {
         'interval_length': [30],
         'shift_by': [1],
         'aggregation_method': ['coord-0'],
-        'moving_average': [20],
+        'moving_average': [30],
         'scaling_factor_which': ['std_z_scores'],  # 'nc_std_z_scores'
 }
 param_list_AD_microbial_novel_alpha_div2_scaling_factors = get_parameter_array(
@@ -311,7 +311,7 @@ param_dict_AD_microbial_novel_alpha_div2sf2 = {
         'interval_length': [30],
         'shift_by': [1],
         'aggregation_method': ['coord-0'],
-        'moving_average': [20],
+        'moving_average': [30],
         'scaling_factor_which': ['nc_std_z_scores'],  # 'nc_std_z_scores'
 }
 param_list_AD_microbial_novel_alpha_div2_scaling_factors2 = get_parameter_array(

@@ -3,6 +3,7 @@ import json
 import os
 import sys
 import socket
+import tqdm
 
 import data_utils
 import matplotlib  # plots
@@ -681,8 +682,8 @@ def compute_scores(
         makedirs(reli_eval_path)
         data_collect = []
         df = pd.DataFrame()
-        for start_time in reliability_eval_start_times:
-            print(f"compute reliability eval scores for start_time={start_time}")
+        print(f"compute reliability eval scores:")
+        for start_time in tqdm.tqdm(reliability_eval_start_times):
             (cond_moments, observed_dates, true_X, abx_labels, host_id,
              cutoff_adj_sf, days_after_last_obs) = get_model_predictions(
                 dl_val_noabx, device, forecast_model, output_vars,

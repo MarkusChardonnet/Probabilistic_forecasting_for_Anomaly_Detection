@@ -805,9 +805,10 @@ def compute_zscore_scaling_factors(
     for dsc in range(0, max_dsc, shift_by):
         left = dsc - interval_length/2
         right = min(dsc + interval_length/2, max_dsc)
-        vals = df.loc[(df["days_after_last_obs"] >= left) &
-                      (df["days_after_last_obs"] <= right) &
-                      (df["days_since_cutoff"] >= 0), "z_score"]
+        vals = df.loc[
+            (df["days_since_cutoff"] >= min(0, dsc-interval_length)) &
+            (df["days_after_last_obs"] >= left) &
+            (df["days_after_last_obs"] <= right), "z_score"]
         data.append(
             [dsc, left, right, vals.std(), vals.mean(),
              np.sqrt(vals.std()**2 + vals.mean()**2)])

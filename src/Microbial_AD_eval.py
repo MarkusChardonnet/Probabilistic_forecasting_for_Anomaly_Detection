@@ -853,7 +853,7 @@ def compute_zscore_scaling_factors(
             df["days_since_last_obs_ac"] == dsc,
             ["std_z_scores", "std_z_scores_cummax", "std_z_scores_moving_avg",
              "std_z_scores_moving_avg_cummax"]] = df_out.loc[
-            df_out["days_since_last_obs_ac"] == dsc,
+            df_out["days_since_last_obs"] == dsc,
             [scaling_factor_which, scaling_factor_which+"_cummax",
              scaling_factor_which+"_moving_avg",
              scaling_factor_which+"_moving_avg_cummax"]].values[0]

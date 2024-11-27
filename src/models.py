@@ -1577,7 +1577,7 @@ class NJODE(torch.nn.Module):
                 use_as_input = self.val_use_observation_as_input(self.epoch)
 
             # only update the model before use_obs_until_t
-            if use_obs_until_t is not None and obs_time > use_obs_until_t:
+            if use_obs_until_t is not None and obs_time >= use_obs_until_t:
                 if self.masked:
                     M_obs[:, :self.size_X] = 0
                     M_S_obs[:, :] = 0

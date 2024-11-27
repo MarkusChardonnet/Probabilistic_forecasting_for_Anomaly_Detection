@@ -862,8 +862,8 @@ def compute_zscore_scaling_factors(
         (0, np.infty, "all"), (0, 30, "0-30"), (0, 180, "0-180"),
         (180, 360, "180-360"), (360, 540, "360-540"), (540, 720, "540-720")]:
         df_ = df.loc[
-            (df["days_since_last_obs_ac"] >= _range[0]) &
-            (df["days_since_last_obs_ac"] <= _range[1])]
+            (df["days_after_last_obs"] >= _range[0]) &
+            (df["days_after_last_obs"] <= _range[1])]
         t = np.linspace(-5, 5, 1000)
         fig, ax = plt.subplots(2, 2)
         sns.histplot(x=df_["z_score"], bins=50, kde=True, ax=ax[0, 0],

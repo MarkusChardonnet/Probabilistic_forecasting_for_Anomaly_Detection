@@ -294,12 +294,13 @@ param_dict_AD_microbial_novel_alpha_div2sf = {
         'interval_length': [30],
         'shift_by': [1],
         'aggregation_method': ['coord-0'],
-        'moving_average': [30],
-        'scaling_factor_which': ['std_z_scores'],  # 'nc_std_z_scores'
+        'use_scaling_factors': [False],
+        'scaling_factor_which': [None],
 }
 param_list_AD_microbial_novel_alpha_div2_scaling_factors = get_parameter_array(
         param_dict=param_dict_AD_microbial_novel_alpha_div2sf)
 
+# params for scaling factor plots
 param_dict_AD_microbial_novel_alpha_div2sf2 = {
         'load_best': [True],
         'verbose': [True],
@@ -311,8 +312,8 @@ param_dict_AD_microbial_novel_alpha_div2sf2 = {
         'interval_length': [30],
         'shift_by': [1],
         'aggregation_method': ['coord-0'],
-        'moving_average': [30],
-        'scaling_factor_which': ['nc_std_z_scores'],  # 'nc_std_z_scores'
+        'moving_average': [10, 30],
+        'scaling_factor_which': ['std_z_scores', 'nc_std_z_scores'],  # 'nc_std_z_scores'
 }
 param_list_AD_microbial_novel_alpha_div2_scaling_factors2 = get_parameter_array(
         param_dict=param_dict_AD_microbial_novel_alpha_div2sf2)

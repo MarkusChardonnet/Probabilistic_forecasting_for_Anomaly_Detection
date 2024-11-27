@@ -449,8 +449,7 @@ def compute_scores(
         which = "best" if load_best else "last"
         sf_file = (f"{forecast_saved_models_path}id-{forecast_model_id}/"
                    f"anomaly_detection/zscore_scaling_factors_{which}/"
-                   f"zscore_scaling_factors_{aggregation_method}_"
-                   f"{scaling_factor_which}.csv")
+                   f"zscore_scaling_factors_{aggregation_method}.csv")
         sf = pd.read_csv(sf_file)
         if preprocess_scaling_factors:
             prep_sf_parts = preprocess_scaling_factors.split("-")
@@ -805,7 +804,7 @@ def compute_zscore_scaling_factors(
         reli_eval_path, aggregation_method)
     outpath = f'{ad_path}zscore_scaling_factors_{which}/'
     makedirs(outpath)
-    filename = f'{outpath}zscore_scaling_factors_{aggregation_method}_{scaling_factor_which}.csv'
+    filename = f'{outpath}zscore_scaling_factors_{aggregation_method}.csv'
     filename_plot = f'{outpath}zscore_scaling_factors_{aggregation_method}_{scaling_factor_which}.pdf'
     filename_hist_plot = (f'{outpath}histograms_scaled_dist_'
                           f'{aggregation_method}_{scaling_factor_which}')+'_{}.pdf'

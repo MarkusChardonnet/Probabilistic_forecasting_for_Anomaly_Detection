@@ -688,6 +688,8 @@ def compute_scores(
 
     if reliability_eval_start_times is not None:
         reli_eval_path = f'{ad_path}reliability_eval-val-noabx_{which}_{scoring_distribution}/'
+        if use_scaling_factors:
+            reli_eval_path += f"using-SF_{scaling_factor_which}--{preprocess_scaling_factors}/"
         makedirs(reli_eval_path)
         data_collect = []
         df = pd.DataFrame()
@@ -805,9 +807,12 @@ def compute_zscore_scaling_factors(
     outpath = f'{ad_path}zscore_scaling_factors_{which}/'
     makedirs(outpath)
     filename = f'{outpath}zscore_scaling_factors_{aggregation_method}.csv'
-    filename_plot = f'{outpath}zscore_scaling_factors_{aggregation_method}_{scaling_factor_which}.pdf'
-    filename_hist_plot = (f'{outpath}histograms_scaled_dist_'
-                          f'{aggregation_method}_{scaling_factor_which}')+'_{}.pdf'
+    outpath_plots = f'{outpath}SF-{scaling_factor_which}_MA-{moving_average}/'
+    makedirs(outpath_plots)
+    filename_plot = (f'{outpath_plots}zscore_scaling_factors_'
+                     f'{aggregation_method}.pdf')
+    filename_hist_plot = (f'{outpath_plots}histograms_scaled_dist_'
+                          f'{aggregation_method}')+'_{}.pdf'
 
     df = pd.read_csv(csvpath_val_releval)
     max_dsc = int(np.round(df["days_after_last_obs"].max()))

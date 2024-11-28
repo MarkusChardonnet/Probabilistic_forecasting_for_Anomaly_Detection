@@ -38,11 +38,13 @@ def _add_month_bins(scores: pd.DataFrame, days_per_month=30.437) -> pd.DataFrame
 
 def _get_all_scores(path_to_scores, split="train", limit_months=None):
     """
-    Get all split scores for all multi-step predictions from path_to_scores. If
-    limit_months is set, only returns scores up to this months limit.
+    Get all split scores for all one-step & multi-step predictions from
+    path_to_scores. If limit_months is set, only returns scores up to this
+    months limit.
     """
     scores = []
-    for i in range(1, 4):
+    score_types = list(range(1, 4)) + ["False"]
+    for i in score_types:
         scores.append(pd.read_csv(f"{path_to_scores}{split}_ad_scores_{i}_coord-0.csv"))
 
     scores_list = [_transform_scores(x) for x in scores]
@@ -51,6 +53,9 @@ def _get_all_scores(path_to_scores, split="train", limit_months=None):
     scores_all = scores_all.join(scores_list[1][["score"]], rsuffix="_2", how="left")
     scores_all = scores_all.join(scores_list[2][["score"]], rsuffix="_3", how="left")
     scores_all.rename(columns={"score": "score_1"}, inplace=True)
+    # add one-step scores
+    scores_all = scores_all.join(scores_list[3][["score"]], how="left")
+    scores_all.rename(columns={"score": "score_0"}, inplace=True)
 
     scores_all = _add_month_bins(scores_all)
 
@@ -761,7 +766,7 @@ def display_scatterplot_w_scores(
         axs[i].margins(y=0.005)
         if i != 0:
             axs[i].set_ylabel("")
-        if i != 2:
+        if i != len(dic_to_plot) - 1:
             axs[i].get_legend().remove()
         if hide_ylabel_thickmarks:
             axs[i].set_yticklabels([])

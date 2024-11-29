@@ -347,6 +347,7 @@ def compute_scores(
         use_scaling_factors=False,
         scaling_factor_which="std_z_scores",
         preprocess_scaling_factors=False,
+        SF_remove_duplicates=False,
         **options
 ):
     """
@@ -410,6 +411,8 @@ def compute_scores(
             i) 'lower_bound-lb': set all values below lb to lb
             ii) 'cummax': take the cumulative maximum
             iii) 'moving_avg-window': take the moving average with window size
+        SF_remove_duplicates: bool, whether to remove duplicates from the scaling
+            factors
     """
 
     global USE_GPU, N_CPUS, N_DATASET_WORKERS
@@ -449,7 +452,8 @@ def compute_scores(
         which = "best" if load_best else "last"
         sf_file = (f"{forecast_saved_models_path}id-{forecast_model_id}/"
                    f"anomaly_detection/zscore_scaling_factors_{which}/"
-                   f"zscore_scaling_factors_{aggregation_method}.csv")
+                   f"zscore_scaling_factors_{aggregation_method}_"
+                   f"RD-{SF_remove_duplicates}.csv")
         sf = pd.read_csv(sf_file)
         if preprocess_scaling_factors:
             prep_sf_parts = preprocess_scaling_factors.split("-")
@@ -791,6 +795,7 @@ def compute_zscore_scaling_factors(
         send=False,
         moving_average=30,
         scaling_factor_which='std_z_scores',
+        SF_remove_duplicates=False,
         **kwargs):
 
     assert scoring_distribution == "z_score", \
@@ -806,8 +811,10 @@ def compute_zscore_scaling_factors(
         reli_eval_path, aggregation_method)
     outpath = f'{ad_path}zscore_scaling_factors_{which}/'
     makedirs(outpath)
-    filename = f'{outpath}zscore_scaling_factors_{aggregation_method}.csv'
-    outpath_plots = f'{outpath}SF-{scaling_factor_which}_MA-{moving_average}/'
+    filename = (f'{outpath}zscore_scaling_factors_{aggregation_method}_'
+                f'RD-{SF_remove_duplicates}.csv')
+    outpath_plots = (f'{outpath}SF-{scaling_factor_which}_MA-{moving_average}_'
+                     f'RD-{SF_remove_duplicates}/')
     makedirs(outpath_plots)
     filename_plot = (f'{outpath_plots}zscore_scaling_factors_'
                      f'{aggregation_method}.pdf')
@@ -815,10 +822,21 @@ def compute_zscore_scaling_factors(
                           f'{aggregation_method}')+'_{}.pdf'
 
     df = pd.read_csv(csvpath_val_releval)
+
+    # remove duplicates
+    if SF_remove_duplicates:
+        n_before = df.shape[0]
+        df = df.drop_duplicates(
+            subset=["host_id", "score_date", "days_after_last_obs", "z_score"])
+        n_after = df.shape[0]
+        print(f"removed {n_before-n_after} duplicates (before: {n_before}, after: {n_after})")
+
     max_dsc = int(np.round(df["days_after_last_obs"].max()))
     data = []
     for dsc in range(0, max_dsc, shift_by):
         left = dsc - interval_length/2
+        if SF_remove_duplicates:
+            left = -np.infty
         right = min(dsc + interval_length/2, max_dsc)
         vals = df.loc[
             (df["days_since_cutoff"] >= min(0, left)) &

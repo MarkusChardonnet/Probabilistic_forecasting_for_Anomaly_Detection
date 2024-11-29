@@ -515,7 +515,7 @@ def compute_scores(
     which = 'best' if load_best else 'last'
     scores_path = '{}scores_{}_{}/'.format(ad_path, which, scoring_distribution)
     if use_scaling_factors:
-        scores_path += f"using-SF_{scaling_factor_which}--{preprocess_scaling_factors}/"
+        scores_path += f"using-SF_{scaling_factor_which}--{preprocess_scaling_factors}--RD-{SF_remove_duplicates}/"
     makedirs(scores_path)
 
     # get params_dict
@@ -693,7 +693,7 @@ def compute_scores(
     if reliability_eval_start_times is not None:
         reli_eval_path = f'{ad_path}reliability_eval-val-noabx_{which}_{scoring_distribution}/'
         if use_scaling_factors:
-            reli_eval_path += f"using-SF_{scaling_factor_which}--{preprocess_scaling_factors}/"
+            reli_eval_path += f"using-SF_{scaling_factor_which}--{preprocess_scaling_factors}--RD-{SF_remove_duplicates}/"
         makedirs(reli_eval_path)
         data_collect = []
         df = pd.DataFrame()
@@ -954,6 +954,7 @@ def evaluate_scores(
     use_scaling_factors=False,
     scaling_factor_which="std_z_scores",
     preprocess_scaling_factors=False,
+    SF_remove_duplicates=False,
     **options,
 ):
     """
@@ -974,7 +975,7 @@ def evaluate_scores(
     which = "best" if load_best else "last"
     scores_path = "{}scores_{}_{}/".format(ad_path, which, scoring_distribution)
     if use_scaling_factors:
-        scores_path += f"using-SF_{scaling_factor_which}--{preprocess_scaling_factors}/"
+        scores_path += f"using-SF_{scaling_factor_which}--{preprocess_scaling_factors}--RD-{SF_remove_duplicates}/"
     evaluation_path = "{}evaluation_{}_{}_{}/".format(
         ad_path, which, only_jump_before_abx_exposure, aggregation_method)
     makedirs(evaluation_path)

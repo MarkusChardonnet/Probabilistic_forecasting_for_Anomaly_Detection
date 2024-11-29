@@ -332,6 +332,7 @@ param_dict_AD_microbial_novel_alpha_div2 = {
         'use_dyn_cov_after_abx': [True],
         'aggregation_method': ['coord-0'],
         'use_scaling_factors': [True],
+        'SF_remove_duplicates': [True, False],
         'scaling_factor_which': ['std_z_scores', 'nc_std_z_scores'],  # 'nc_std_z_scores'
         'preprocess_scaling_factors': [
                 'moving_avg-10-cummax-lower_bound-1',
@@ -370,6 +371,7 @@ param_dict_AD_microbial_novel_alpha_div2_re = {
         'use_dyn_cov_after_abx': [True],
         'reliability_eval_start_times': [list(range(0, 1162, 30))],
         'use_scaling_factors': [True],
+        'SF_remove_duplicates': [True, False],
         'scaling_factor_which': ['std_z_scores', 'nc_std_z_scores'],  # 'nc_std_z_scores'
         'preprocess_scaling_factors': [
                 'moving_avg-10-cummax-lower_bound-1',

@@ -445,6 +445,7 @@ def compute_scores(
         "use_scaling_factors": use_scaling_factors,
         "preprocess_scaling_factors": preprocess_scaling_factors,
         "scaling_factor_which": scaling_factor_which,
+        "SF_remove_duplicates": SF_remove_duplicates,
     }
 
     sf = None

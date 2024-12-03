@@ -380,3 +380,39 @@ param_dict_AD_microbial_novel_alpha_div2_re = {
 param_list_AD_microbial_novel_alpha_div2_reliability_eval = get_parameter_array(
         param_dict=param_dict_AD_microbial_novel_alpha_div2_re)
 
+# ---- as reference produce the unscaled AD scores
+# params for the actual AD score computation without scaling factors
+param_dict_AD_microbial_novel_alpha_div2_nsf = {
+        'load_best': [True],
+        'verbose': [True],
+        'seed': [seed],
+        'scoring_distribution': ['normal',],
+        'scoring_metric': ['left-tail'],
+        'plot_cond_standardized_dist': [['normal', ]],  # 'lognormal'
+        'only_jump_before_abx_exposure': [1,2,3],
+        'use_dyn_cov_after_abx': [True],
+        'aggregation_method': ['coord-0'],
+        'use_scaling_factors': [False],
+}
+param_list_AD_microbial_novel_alpha_div2_nsf = get_parameter_array(
+        param_dict=param_dict_AD_microbial_novel_alpha_div2_nsf)
+
+# params for the reliability evaluation using the scaling factors
+param_dict_AD_microbial_novel_alpha_div2_re_nsf = {
+        'load_best': [True],
+        'verbose': [True],
+        'seed': [seed],
+        'scoring_distribution': ['normal',],
+        'scoring_metric': ['left-tail'],
+        'only_jump_before_abx_exposure': [False],
+        'plot_cond_standardized_dist': [None],
+        'use_dyn_cov_after_abx': [True],
+        'reliability_eval_start_times': [list(range(0, 1162, 30))],
+        'use_scaling_factors': [False],
+}
+param_list_AD_microbial_novel_alpha_div2_reliability_eval_nsf = get_parameter_array(
+        param_dict=param_dict_AD_microbial_novel_alpha_div2_re_nsf)
+
+
+
+

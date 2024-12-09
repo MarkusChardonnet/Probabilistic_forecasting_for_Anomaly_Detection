@@ -52,34 +52,10 @@ def enrich_scores(c_scores_t, max_resolution=False):
     c_scores_t.drop(columns=["days_since_last_obs_before_cutoff"], inplace=True)
     c_scores_t_m = pd.merge(c_scores_t, cutoff_info, how="left", on="host_id")
 
-    # add days since cutoff
-    c_scores_t_m["days_since_cutoff"] = (
-        c_scores_t_m["day"] - c_scores_t_m["use_obs_until_day"]
-    ).astype(float)
-
     # add months since cutoff
     c_scores_t_m["months_since_cutoff"] = (
         c_scores_t_m["month5_bin"] - c_scores_t_m["cutoff_month"]
     ).astype(float)
-    # avoid python precision problems
-    c_scores_t_m["months_since_cutoff"] = np.round(
-        c_scores_t_m["months_since_cutoff"], 2
-    )
-
-    if not max_resolution:
-        # monthly rounding
-        # round to full months for simplicity. note: added 0.01 since lots of 0.5
-        # would otw be rounded down leading to uneven sample distribution
-        c_scores_t_m["months_since_cutoff"] = c_scores_t_m["months_since_cutoff"] + 0.01
-        c_scores_t_m["months_since_cutoff"] = np.round(
-            c_scores_t_m["months_since_cutoff"], 0
-        )
-        # fix -0.0: these are samples that were obtained prior to abx exposure!
-        bool_sample_prior = np.logical_and(
-            c_scores_t_m["month5_bin"] < c_scores_t_m["cutoff_month"],
-            c_scores_t_m["months_since_cutoff"] == -0.0,
-        )
-        c_scores_t_m.loc[bool_sample_prior, "months_since_cutoff"] = -1.0
 
     return c_scores_t_m
 

@@ -56,6 +56,10 @@ def enrich_scores(c_scores_t, max_resolution=False):
     c_scores_t_m["months_since_cutoff"] = (
         c_scores_t_m["month5_bin"] - c_scores_t_m["cutoff_month"]
     ).astype(float)
+    # avoid python precision problems
+    c_scores_t_m["months_since_cutoff"] = np.round(
+        c_scores_t_m["months_since_cutoff"], 2
+    )
 
     return c_scores_t_m
 

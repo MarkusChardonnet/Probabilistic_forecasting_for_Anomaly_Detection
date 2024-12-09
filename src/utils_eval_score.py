@@ -665,8 +665,7 @@ def _plot_score_after_nth_abx_exposure(
     ylabel = f"# samples w {y_axis}"
     xlabel = f"Months since {n}{suff} abx exposure"
     if grouped_samples:
-        xlabel += f"\n\n(Here {t1_reference} is last sample prior to abx \
-            since {min_samples} months)"
+        xlabel += (f"\n\n(Here {t1_reference} is last sample prior to abx since {min_samples} months)")
     fig, _ = _create_subplot(
         x_axis, y_axis, data, title, ylabel, xlabel, step_size, n, significance_df
     )

@@ -115,7 +115,7 @@ def select_last_score_per_host_per_bin(scores):
     """
     print(f"Before uniqueness: {scores.shape}")
     scores = (
-        scores.groupby(["host_id", "cutoff_month", "months_since_cutoff"])
+        scores.groupby(["host_id", "cutoff_month", "months_since_cutoff"], observed=True)
         .last()
         .reset_index()
         .copy()

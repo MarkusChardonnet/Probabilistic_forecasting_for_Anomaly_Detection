@@ -463,46 +463,46 @@ def _select_samples_around_nth_abx_exposure(
     all_samples = all_samples.assign(
         diff_age_nth_abx=all_samples["month5_bin"] - all_samples["age_nth_abx"]
     )
-    # avoid python precision problems
-    all_samples["diff_age_nth_abx"] = np.round(all_samples["diff_age_nth_abx"], 2)
-    if not max_resolution:
-        # monthly rounding
-        # round to full months for simplicity. note: added 0.01 since lots of 0.5
-        # would otw be rounded down leading to uneven sample distribution
-        all_samples["diff_age_nth_abx"] = all_samples["diff_age_nth_abx"] + 0.01
-        all_samples["diff_age_nth_abx"] = all_samples["diff_age_nth_abx"].round(0)
 
-    # select only samples before and after nth abx exposure
+    # only select samples that are up to min_samples months prior to n-th abx
+    # exposure and max_samples after
     abx_nth_samples = all_samples.loc[
         np.logical_and(
-            ~all_samples["diff_age_nth_abx"].isna(),
+            all_samples["diff_age_nth_abx"] >= min_samples,
+            all_samples["diff_age_nth_abx"] <= max_samples,
+        ),
+        :,
+    ]
+    abx_nth_samples = abx_nth_samples.copy()
+    # bin time since n-th abx exposure
+    if max_resolution:
+        step_size = 0.5
+    else:
+        step_size = 1.0
+    bins = np.arange(min_samples, max_samples + step_size, step_size)
+    # labels = [f"{int(bins[i])} to {int(bins[i+1])}" for i in range(len(bins)-1)]
+    # '-3 to -2', '-2 to -1', '-1 to 0', '0 to 1', '1 to 2', '2 to 3', '3 to 4'
+    # Use the left edges of the bins as float labels
+    labels = bins[:-1]
+    abx_nth_samples.loc[:, "diff_age_nth_abx"] = pd.cut(
+        abx_nth_samples["diff_age_nth_abx"],
+        bins=bins,
+        labels=labels,
+        right=False
+    )
+
+    # select only samples before and after nth abx exposure
+    abx_nth_samples = abx_nth_samples.loc[
+        np.logical_and(
+            ~abx_nth_samples["diff_age_nth_abx"].isna(),
             # really only samples around this n-th exposure
             np.logical_and(
-                all_samples["abx_any_cumcount"] <= (n + 1),
-                all_samples["abx_any_cumcount"] >= n,
+                abx_nth_samples["abx_any_cumcount"] <= (n + 1),
+                abx_nth_samples["abx_any_cumcount"] >= n,
             ),
         ),
         :,
     ]
-
-    # only select samples that are up to min_samples months prior to n-th abx
-    # exposure and max_samples after
-    abx_nth_samples = abx_nth_samples.loc[
-        np.logical_and(
-            abx_nth_samples["diff_age_nth_abx"] >= min_samples,
-            abx_nth_samples["diff_age_nth_abx"] <= max_samples,
-        ),
-        :,
-    ]
-
-    if not max_resolution:
-        # fix -0.0: these are samples that were obtained prior to abx exposure!
-        # can be ignored if we go with 0.5 months resolution
-        bool_sample_prior = np.logical_and(
-            abx_nth_samples["month5_bin"] < abx_nth_samples["age_nth_abx"],
-            abx_nth_samples["diff_age_nth_abx"] == -0.0,
-        )
-        abx_nth_samples.loc[bool_sample_prior, "diff_age_nth_abx"] = -1.0
 
     # remove samples with no observed features
     abx_nth_samples = abx_nth_samples.dropna(subset=[score_var])
@@ -510,7 +510,7 @@ def _select_samples_around_nth_abx_exposure(
     # if there are multiple scores per diff_age_nth_abx bin per host - take last
     # avoids having multiple scores per host per bin
     abx_nth_samples = (
-        abx_nth_samples.groupby(["host_id", "diff_age_nth_abx"])
+        abx_nth_samples.groupby(["host_id", "diff_age_nth_abx"], observed=True)
         .last()
         .reset_index()
         .copy()
@@ -643,14 +643,18 @@ def _plot_score_after_nth_abx_exposure(
     if max_resolution:
         step_size = 0.5
         t1_reference = -0.5
+        end_t1 = max_samples + 0.5
     else:
         step_size = 1
         t1_reference = -1.0
+        end_t1 = max_samples
 
     if grouped_samples:
-        t1_values = list(np.arange(t1_reference, max_samples + step_size, step_size))
+        start_t1 = t1_reference
     else:
-        t1_values = list(np.arange(min_samples, max_samples + step_size, step_size))
+        start_t1 = min_samples
+
+    t1_values = list(np.arange(start_t1, end_t1, step_size))
 
     significance_df = perform_significance_tests(
         data,
@@ -665,8 +669,7 @@ def _plot_score_after_nth_abx_exposure(
     ylabel = f"# samples w {y_axis}"
     xlabel = f"Months since {n}{suff} abx exposure"
     if grouped_samples:
-        xlabel += f"\n\n(Here {t1_reference} is last sample prior to abx \
-            since {min_samples} months)"
+        xlabel += (f"\n\n(Here {t1_reference} is last sample prior to abx since {min_samples} months)")
     fig, _ = _create_subplot(
         x_axis, y_axis, data, title, ylabel, xlabel, step_size, n, significance_df
     )

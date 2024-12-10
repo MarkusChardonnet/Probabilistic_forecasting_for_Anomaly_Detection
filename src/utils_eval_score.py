@@ -643,14 +643,18 @@ def _plot_score_after_nth_abx_exposure(
     if max_resolution:
         step_size = 0.5
         t1_reference = -0.5
+        end_t1 = max_samples + 0.5
     else:
         step_size = 1
         t1_reference = -1.0
+        end_t1 = max_samples
 
     if grouped_samples:
-        t1_values = list(np.arange(t1_reference, max_samples, step_size))
+        start_t1 = t1_reference
     else:
-        t1_values = list(np.arange(min_samples, max_samples, step_size))
+        start_t1 = min_samples
+
+    t1_values = list(np.arange(start_t1, end_t1, step_size))
 
     significance_df = perform_significance_tests(
         data,

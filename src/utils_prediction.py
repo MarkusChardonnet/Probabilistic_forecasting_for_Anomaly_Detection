@@ -1,26 +1,19 @@
 import matplotlib.pyplot as plt
+import pandas as pd
 import seaborn as sns
+from sklearn.compose import ColumnTransformer
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import (
-    accuracy_score,
     classification_report,
     confusion_matrix,
-    f1_score,
-    precision_score,
-    recall_score,
+    matthews_corrcoef,
 )
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder
 
 
 def calculate_metrics(y_true, y_pred):
-    accuracy = accuracy_score(y_true, y_pred)
-    precision = precision_score(y_true, y_pred, average="weighted")
-    recall = recall_score(y_true, y_pred, average="weighted")
-    f1 = f1_score(y_true, y_pred, average="weighted")
-
-    print("Accuracy:", accuracy)
-    print("Precision:", precision)
-    print("Recall:", recall)
-    print("F1-score:", f1)
-
     # Classification report
     report = classification_report(y_true, y_pred, output_dict=True)
     print(classification_report(y_true, y_pred))
@@ -35,6 +28,18 @@ def calculate_metrics(y_true, y_pred):
     plt.show()
 
     return report
+
+
+def report_metrics(y_true, y_pred, df_metrics, idx_id):
+    report = calculate_metrics(y_true, y_pred)
+
+    df_metrics.loc[idx_id, "weighted_avg_f1"] = report["weighted avg"]["f1-score"]
+    df_metrics.loc[idx_id, "macro_avg_f1"] = report["macro avg"]["f1-score"]
+    df_metrics.loc[idx_id, "true_f1_score"] = report["1.0"]["f1-score"]
+    df_metrics.loc[idx_id, "accuracy"] = report["accuracy"]
+    df_metrics.loc[idx_id, "MCC"] = matthews_corrcoef(y_true, y_pred)
+
+    return df_metrics
 
 
 def plot_distribution(columns, dataframes, figsize=(10, 6), kde=True):
@@ -61,3 +66,47 @@ def plot_distribution(columns, dataframes, figsize=(10, 6), kde=True):
 
     plt.tight_layout()
     plt.show()
+
+
+def train_n_evaluate_rf_model(target, features_ls, data):
+    X = data[features_ls]
+    y = data[target]
+
+    # Identify categorical and numerical features
+    categorical_features = X.select_dtypes(include=["object"]).columns
+
+    # Preprocessing for categorical data
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ("cat", OneHotEncoder(handle_unknown="ignore"), categorical_features)
+        ],
+        remainder="passthrough",  # keep numerical features as is
+    )
+
+    # Create a pipeline with preprocessing and classifier
+    clf = Pipeline(
+        steps=[
+            ("preprocessor", preprocessor),
+            ("classifier", RandomForestClassifier(random_state=42)),
+        ]
+    )
+
+    # Split the data
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.3, random_state=42
+    )
+
+    # Train the classifier
+    clf.fit(X_train, y_train)
+
+    # Predict on the test set
+    y_pred = clf.predict(X_test)
+
+    # evaluate classification
+    df_results = report_metrics(
+        y_test,
+        y_pred,
+        pd.DataFrame(),
+        "RF",
+    )
+    return df_results

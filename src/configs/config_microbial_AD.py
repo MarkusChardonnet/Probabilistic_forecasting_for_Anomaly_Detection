@@ -337,7 +337,7 @@ param_dict_AD_microbial_novel_alpha_div2 = {
         'preprocess_scaling_factors': [
                 'moving_avg-10-cummax-lower_bound-1',
                 'moving_avg-30-cummax-lower_bound-1',
-                'moving_avg-30-cummax',],
+                'moving_avg-30-cummax', 'moving_avg-10-cummax'],
 }
 param_list_AD_microbial_novel_alpha_div2 = get_parameter_array(
         param_dict=param_dict_AD_microbial_novel_alpha_div2)
@@ -375,7 +375,8 @@ param_dict_AD_microbial_novel_alpha_div2_re = {
         'scaling_factor_which': ['std_z_scores', 'nc_std_z_scores'],  # 'nc_std_z_scores'
         'preprocess_scaling_factors': [
                 'moving_avg-10-cummax-lower_bound-1',
-                'moving_avg-30-cummax-lower_bound-1','moving_avg-30-cummax'],
+                'moving_avg-30-cummax-lower_bound-1',
+                'moving_avg-30-cummax', 'moving_avg-10-cummax'],
 }
 param_list_AD_microbial_novel_alpha_div2_reliability_eval = get_parameter_array(
         param_dict=param_dict_AD_microbial_novel_alpha_div2_re)

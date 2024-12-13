@@ -8,7 +8,7 @@ from sklearn.metrics import (
     confusion_matrix,
     matthews_corrcoef,
 )
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GroupShuffleSplit, train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
@@ -68,7 +68,8 @@ def plot_distribution(columns, dataframes, figsize=(10, 6), kde=True):
     plt.show()
 
 
-def train_n_evaluate_rf_model(target, features_ls, data):
+def train_n_evaluate_rf_model(target, features_ls, data, stratify_split=True):
+    seed = 42
     X = data[features_ls]
     y = data[target]
 
@@ -87,14 +88,23 @@ def train_n_evaluate_rf_model(target, features_ls, data):
     clf = Pipeline(
         steps=[
             ("preprocessor", preprocessor),
-            ("classifier", RandomForestClassifier(random_state=42)),
+            ("classifier", RandomForestClassifier(random_state=seed)),
         ]
     )
 
     # Split the data
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.3, random_state=42
-    )
+    train_size = 0.7
+    if stratify_split:
+        gss = GroupShuffleSplit(n_splits=1, train_size=train_size, random_state=seed)
+        split = gss.split(data, groups=data["host_id"])
+        train_idx, test_idx = next(split)
+
+        X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
+        y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
+    else:
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=1 - train_size, random_state=seed
+        )
 
     # Train the classifier
     clf.fit(X_train, y_train)

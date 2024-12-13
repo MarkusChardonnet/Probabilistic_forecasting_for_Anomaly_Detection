@@ -680,7 +680,8 @@ def _plot_score_after_nth_abx_exposure(
     ylabel = "# samples"
     xlabel = f"Months since {n}{suff} abx exposure"
     if grouped_samples:
-        xlabel += f"\n\n(Here {t1_reference} is last sample prior to abx since {min_samples} months)"
+        xlabel += f"\n\n(Here {t1_reference} is last sample prior "
+        xlabel += f"to abx since {min_samples} months)"
     fig, _ = _create_subplot(
         x_axis,
         y_axis,
@@ -1100,8 +1101,9 @@ def calculate_matched_metric_n_diff(metric, abx_scores_flat, noabx, cov_groups):
         abx_scores_flat[f"mean_{metric}"] - abx_scores_flat[metric]
     )
 
+    lacking_ref_count = (abx_scores_flat[col_for_diff_to_matched].isna()).sum()
     print(
         f"Number of samples disregarded because of lacking reference "
-        f"in noabx: {(abx_scores_flat[col_for_diff_to_matched].isna()).sum()}"
+        f"in noabx: {lacking_ref_count}"
     )
     return abx_scores_flat

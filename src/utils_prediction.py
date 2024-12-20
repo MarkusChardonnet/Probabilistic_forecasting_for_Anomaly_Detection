@@ -1,11 +1,14 @@
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import seaborn as sns
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import (
+    accuracy_score,
     classification_report,
     confusion_matrix,
+    f1_score,
     matthews_corrcoef,
 )
 from sklearn.model_selection import GroupShuffleSplit, train_test_split
@@ -120,3 +123,60 @@ def train_n_evaluate_rf_model(target, features_ls, data, stratify_split=True):
         "RF",
     )
     return df_results
+
+
+def calculate_baseline_metrics(y_true, strategy="uniform", n_runs=1000):
+    """
+    Calculate baseline metrics under random guessing, averaged over multiple runs.
+
+    Args:
+        y_true (array-like): The true target labels.
+        strategy (str): Random guessing strategy ('uniform' or 'prior').
+        n_runs (int): Number of simulation runs to average over.
+
+    Returns:
+        pd.DataFrame: DataFrame containing the averaged metrics.
+    """
+    y_true = np.array(y_true)
+    total = len(y_true)
+    n_pos = np.sum(y_true == 1)
+
+    # Initialize list to store metrics
+    metrics_list = []
+
+    for _ in range(n_runs):
+        if strategy == "uniform":
+            p_pred_pos = 0.5
+        elif strategy == "prior":
+            p_pred_pos = n_pos / total
+        else:
+            raise ValueError("Strategy must be 'uniform' or 'prior'.")
+
+        # Generate predicted labels
+        y_pred = np.random.choice([0, 1], size=total, p=[1 - p_pred_pos, p_pred_pos])
+
+        # Calculate metrics
+        macro_avg_f1 = f1_score(y_true, y_pred, average="macro")
+        MCC = matthews_corrcoef(y_true, y_pred)
+        true_f1_score = f1_score(y_true, y_pred, pos_label=1, average="binary")
+        weighted_avg_f1 = f1_score(y_true, y_pred, average="weighted")
+        accuracy = accuracy_score(y_true, y_pred)
+
+        # Append metrics to the list
+        metrics_list.append(
+            {
+                "macro_avg_f1": macro_avg_f1,
+                "MCC": MCC,
+                "true_f1_score": true_f1_score,
+                "weighted_avg_f1": weighted_avg_f1,
+                "accuracy": accuracy,
+            }
+        )
+
+    # Create DataFrame from the metrics list
+    df_metrics = pd.DataFrame(metrics_list)
+
+    # Calculate mean of each metric
+    df_mean_metrics = df_metrics.mean().to_frame().T
+
+    return df_mean_metrics

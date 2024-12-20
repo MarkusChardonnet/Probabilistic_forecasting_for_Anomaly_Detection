@@ -22,7 +22,7 @@ def display_diet_information(df, diet_var, age_var, row_label, title=""):
     # ls_colors = [color_dict[i] for i in df_grouped.columns]
     ax = df_grouped.plot.bar(
         stacked=True,
-        figsize=(20, 5),
+        figsize=(10, 5),
     )
     ax.set_xlabel(age_var)
     ax.set_ylabel(f"count of {row_label}")

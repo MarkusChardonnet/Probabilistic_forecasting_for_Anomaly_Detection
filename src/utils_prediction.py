@@ -131,7 +131,7 @@ def calculate_baseline_metrics(y_true, strategy="uniform", n_runs=1000):
 
     Args:
         y_true (array-like): The true target labels.
-        strategy (str): Random guessing strategy ('uniform' or 'prior').
+        strategy (str): Random guessing strategy ('uniform', 'prior' or 'all_negative').
         n_runs (int): Number of simulation runs to average over.
 
     Returns:
@@ -149,6 +149,8 @@ def calculate_baseline_metrics(y_true, strategy="uniform", n_runs=1000):
             p_pred_pos = 0.5
         elif strategy == "prior":
             p_pred_pos = n_pos / total
+        elif strategy == "all_negative":
+            p_pred_pos = 0.0
         else:
             raise ValueError("Strategy must be 'uniform' or 'prior'.")
 

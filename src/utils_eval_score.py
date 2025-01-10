@@ -38,11 +38,13 @@ def _add_month_bins(scores: pd.DataFrame, days_per_month=30.437) -> pd.DataFrame
 
 def _get_all_scores(path_to_scores, split="train", limit_months=None):
     """
-    Get all split scores for all multi-step predictions from path_to_scores. If
-    limit_months is set, only returns scores up to this months limit.
+    Get all split scores for all one-step & multi-step predictions from
+    path_to_scores. If limit_months is set, only returns scores up to this
+    months limit.
     """
     scores = []
-    for i in range(1, 4):
+    score_types = list(range(1, 4)) + ["False"]
+    for i in score_types:
         scores.append(pd.read_csv(f"{path_to_scores}{split}_ad_scores_{i}_coord-0.csv"))
 
     scores_list = [_transform_scores(x) for x in scores]
@@ -51,6 +53,9 @@ def _get_all_scores(path_to_scores, split="train", limit_months=None):
     scores_all = scores_all.join(scores_list[1][["score"]], rsuffix="_2", how="left")
     scores_all = scores_all.join(scores_list[2][["score"]], rsuffix="_3", how="left")
     scores_all.rename(columns={"score": "score_1"}, inplace=True)
+    # add one-step scores
+    scores_all = scores_all.join(scores_list[3][["score"]], how="left")
+    scores_all.rename(columns={"score": "score_0"}, inplace=True)
 
     scores_all = _add_month_bins(scores_all)
 
@@ -77,6 +82,9 @@ def _add_md_from_ft(abx_scores_flat, ft_name, path_to_data="../data/original_dat
         "diet_milk",
         "diet_weaning",
         "delivery_mode",
+        "div_alpha_faith_pd",
+        "div_alpha_observed_features",
+        "div_alpha_shannon",
     ]
     ft_df = ft_df[["day", "host_id"] + cols_to_evaluate].copy()
     ft_df = ft_df.assign(
@@ -86,9 +94,6 @@ def _add_md_from_ft(abx_scores_flat, ft_name, path_to_data="../data/original_dat
     )
     # add additional information to inferred scores
     abx_scores_flat = abx_scores_flat.merge(ft_df, on=["host_id", "day"], how="left")
-
-    # drop all rows with no observations available
-    abx_scores_flat = abx_scores_flat.dropna(subset=["score_1"]).copy()
 
     return abx_scores_flat
 
@@ -104,12 +109,14 @@ def _create_subplot(
     n=None,
     result_df=None,
     nb_subplots=2,
+    boxplot_color="skyblue",
 ):
     """Creates boxplot and barplot"""
     # don't change original data
     data_c = data.copy()
 
-    # below try needed since different versions of python are used for modelling vs. eval
+    # below try needed since different versions of python are used for modelling
+    # vs. eval
     try:
         height_ratios = [1] + (nb_subplots - 1) * [0.5]
         fig, axs = plt.subplots(
@@ -131,17 +138,29 @@ def _create_subplot(
     max_x = data_c[x_axis].max()
     range_x = list(np.arange(min_x, max_x + step_size, step_size))
     data_c[f"{x_axis}_cat"] = pd.Categorical(data_c[x_axis], categories=range_x)
-    sns.boxplot(x=f"{x_axis}_cat", y=y_axis, data=data_c, ax=axs[0], color="skyblue")
+    sns.boxplot(
+        x=f"{x_axis}_cat", y=y_axis, data=data_c, ax=axs[0], color=boxplot_color
+    )
 
     axs[0].set_title(title)
     y_max = data_c[y_axis].max()
-    if result_df is not None:
-        axs[0].set_ylim(-1, 1.7 * y_max)
+    y_min = data_c[y_axis].min()
+    if y_min > -1:
+        y_min = -1
     else:
-        axs[0].set_ylim(-1, 1.1 * y_max)
+        y_min = y_min * 1.1
+    if result_df is not None:
+        axs[0].set_ylim(y_min, 1.7 * y_max)
+    else:
+        axs[0].set_ylim(y_min, 1.1 * y_max)
     if n is not None:
         zero_index = np.where(np.array(range_x) == 0.0)[0][0]
-        axs[0].axvline(zero_index, color="darkred")
+        axs[0].axvline(zero_index - 0.5, color="darkred")
+
+    # add horizontal line at zero if boxplot color is purple
+    if boxplot_color == "purple":
+        axs[0].axhline(0, color="grey")
+        axs[0].set_ylabel(axs[0].get_ylabel(), fontsize=8)
 
     # axs[1] is the barplot
     grouped_counts = (
@@ -195,7 +214,7 @@ def _create_subplot(
                 facecolor=v[0],
                 edgecolor=v[1],
             )
-        axs[1].axvline(zero_index, color="darkred")
+        axs[1].axvline(zero_index - 0.5, color="darkred")
         axs[1].set_ylabel("Number of samples")
         axs[1].set_xlabel(f"Months since {n}. abx exposure")
         axs[1].tick_params(axis="x", labelsize=min(10 * 22 / len(range_x), 10))
@@ -229,7 +248,7 @@ def _create_subplot(
         axs[1].legend(custom_lines, legend_txt)
 
     if n is not None:
-        axs[1].axvline(zero_index, color="darkred")
+        axs[1].axvline(zero_index - 0.5, color="darkred")
 
     axs[1].set_ylabel(ylabel)
     axs[1].set_xlabel(xlabel)
@@ -457,46 +476,43 @@ def _select_samples_around_nth_abx_exposure(
     all_samples = all_samples.assign(
         diff_age_nth_abx=all_samples["month5_bin"] - all_samples["age_nth_abx"]
     )
-    # avoid python precision problems
-    all_samples["diff_age_nth_abx"] = np.round(all_samples["diff_age_nth_abx"], 2)
-    if not max_resolution:
-        # monthly rounding
-        # round to full months for simplicity. note: added 0.01 since lots of 0.5
-        # would otw be rounded down leading to uneven sample distribution
-        all_samples["diff_age_nth_abx"] = all_samples["diff_age_nth_abx"] + 0.01
-        all_samples["diff_age_nth_abx"] = all_samples["diff_age_nth_abx"].round(0)
 
-    # select only samples before and after nth abx exposure
+    # only select samples that are up to min_samples months prior to n-th abx
+    # exposure and max_samples after
     abx_nth_samples = all_samples.loc[
         np.logical_and(
-            ~all_samples["diff_age_nth_abx"].isna(),
+            all_samples["diff_age_nth_abx"] >= min_samples,
+            all_samples["diff_age_nth_abx"] <= max_samples,
+        ),
+        :,
+    ]
+    abx_nth_samples = abx_nth_samples.copy()
+    # bin time since n-th abx exposure
+    if max_resolution:
+        step_size = 0.5
+    else:
+        step_size = 1.0
+    bins = np.arange(min_samples, max_samples + step_size, step_size)
+    # labels = [f"{int(bins[i])} to {int(bins[i+1])}" for i in range(len(bins)-1)]
+    # '-3 to -2', '-2 to -1', '-1 to 0', '0 to 1', '1 to 2', '2 to 3', '3 to 4'
+    # Use the left edges of the bins as float labels
+    labels = bins[:-1]
+    abx_nth_samples.loc[:, "diff_age_nth_abx"] = pd.cut(
+        abx_nth_samples["diff_age_nth_abx"], bins=bins, labels=labels, right=False
+    )
+
+    # select only samples before and after nth abx exposure
+    abx_nth_samples = abx_nth_samples.loc[
+        np.logical_and(
+            ~abx_nth_samples["diff_age_nth_abx"].isna(),
             # really only samples around this n-th exposure
             np.logical_and(
-                all_samples["abx_any_cumcount"] <= (n + 1),
-                all_samples["abx_any_cumcount"] >= n,
+                abx_nth_samples["abx_any_cumcount"] <= (n + 1),
+                abx_nth_samples["abx_any_cumcount"] >= n,
             ),
         ),
         :,
     ]
-
-    # only select samples that are up to min_samples months prior to n-th abx
-    # exposure and max_samples after
-    abx_nth_samples = abx_nth_samples.loc[
-        np.logical_and(
-            abx_nth_samples["diff_age_nth_abx"] >= min_samples,
-            abx_nth_samples["diff_age_nth_abx"] <= max_samples,
-        ),
-        :,
-    ]
-
-    if not max_resolution:
-        # fix -0.0: these are samples that were obtained prior to abx exposure!
-        # can be ignored if we go with 0.5 months resolution
-        bool_sample_prior = np.logical_and(
-            abx_nth_samples["month5_bin"] < abx_nth_samples["age_nth_abx"],
-            abx_nth_samples["diff_age_nth_abx"] == -0.0,
-        )
-        abx_nth_samples.loc[bool_sample_prior, "diff_age_nth_abx"] = -1.0
 
     # remove samples with no observed features
     abx_nth_samples = abx_nth_samples.dropna(subset=[score_var])
@@ -504,7 +520,7 @@ def _select_samples_around_nth_abx_exposure(
     # if there are multiple scores per diff_age_nth_abx bin per host - take last
     # avoids having multiple scores per host per bin
     abx_nth_samples = (
-        abx_nth_samples.groupby(["host_id", "diff_age_nth_abx"])
+        abx_nth_samples.groupby(["host_id", "diff_age_nth_abx"], observed=True)
         .last()
         .reset_index()
         .copy()
@@ -630,6 +646,7 @@ def _plot_score_after_nth_abx_exposure(
     grouped_samples: bool = False,
     max_resolution: bool = False,
     uniqueness_var_ls: list = None,
+    boxplot_color: str = "skyblue",
 ) -> str:
     suff = _get_ordinal_suffix(n)
 
@@ -637,14 +654,18 @@ def _plot_score_after_nth_abx_exposure(
     if max_resolution:
         step_size = 0.5
         t1_reference = -0.5
+        end_t1 = max_samples + 0.5
     else:
         step_size = 1
         t1_reference = -1.0
+        end_t1 = max_samples
 
     if grouped_samples:
-        t1_values = list(np.arange(t1_reference, max_samples + step_size, step_size))
+        start_t1 = t1_reference
     else:
-        t1_values = list(np.arange(min_samples, max_samples + step_size, step_size))
+        start_t1 = min_samples
+
+    t1_values = list(np.arange(start_t1, end_t1, step_size))
 
     significance_df = perform_significance_tests(
         data,
@@ -655,14 +676,25 @@ def _plot_score_after_nth_abx_exposure(
         uniqueness_var_ls=uniqueness_var_ls,
     )
 
-    title = f"Score before/after {n}{suff} abx exposure: {tag}"
-    ylabel = f"# samples w {y_axis}"
+    title = f"{y_axis} before/after {n}{suff} abx exposure: {tag}"
+    ylabel = "# samples"
     xlabel = f"Months since {n}{suff} abx exposure"
     if grouped_samples:
-        xlabel += f"\n\n(Here {t1_reference} is last sample prior to abx since {min_samples} months)"
+        xlabel += f"\n\n(Here {t1_reference} is last sample prior "
+        xlabel += f"to abx since {min_samples} months)"
     fig, _ = _create_subplot(
-        x_axis, y_axis, data, title, ylabel, xlabel, step_size, n, significance_df
+        x_axis,
+        y_axis,
+        data,
+        title,
+        ylabel,
+        xlabel,
+        step_size,
+        n,
+        significance_df,
+        boxplot_color=boxplot_color,
     )
+
     if path_to_save is not None:
         # if path_to_save is not a path make it a directory
         if not os.path.exists(path_to_save):
@@ -761,7 +793,7 @@ def display_scatterplot_w_scores(
         axs[i].margins(y=0.005)
         if i != 0:
             axs[i].set_ylabel("")
-        if i != 2:
+        if i != len(dic_to_plot) - 1:
             axs[i].get_legend().remove()
         if hide_ylabel_thickmarks:
             axs[i].set_yticklabels([])
@@ -832,8 +864,8 @@ def plot_trajectory(
         for idx, event in host_abx_events.iterrows():
             plt.axvline(
                 x=event["abx_start_age_months"],
-                color="red",
-                linestyle="--",
+                color="darkred",
+                # linestyle="-",
                 label="abx event" if idx == 0 else None,
             )
 
@@ -902,7 +934,8 @@ def _filter_hosts_w_microbiome_samples_prior_to_abx(abx_scores_flat, abx_age_at_
         m_first_vs_abx["age_1st_abx"] < m_first_vs_abx["first_microbiome_sample"]
     ].index
     print(
-        f"Number of hosts with 1st abx exposure prior to 1st microbiome sample: {len(hosts_to_exclude)}"
+        f"Number of hosts with 1st abx exposure prior to 1st microbiome sample: \
+            {len(hosts_to_exclude)}"
     )
 
     abx_scores_flat = abx_scores_flat[
@@ -910,7 +943,8 @@ def _filter_hosts_w_microbiome_samples_prior_to_abx(abx_scores_flat, abx_age_at_
     ].copy()
 
     print(
-        f"Number of hosts w microbiome sample prior to 1st abx exposure: {abx_scores_flat.host_id.nunique()}"
+        f"Number of hosts w microbiome sample prior to 1st abx exposure: \
+            {abx_scores_flat.host_id.nunique()}"
     )
 
     return abx_scores_flat
@@ -944,9 +978,16 @@ def get_scores_n_abx_info(
     abx_scores_flat = pd.concat([abx_scores_flat, abx_scores_flat_val])
 
     # add more metadata from ft
+    # - to abx
     abx_scores_flat = _add_md_from_ft(
         abx_scores_flat, ft_name, path_to_data=path_to_data
     )
+    # - to noabx
+    noabx_train = _add_md_from_ft(noabx_train, ft_name, path_to_data=path_to_data)
+    noabx_val = _add_md_from_ft(noabx_val, ft_name, path_to_data=path_to_data)
+
+    # drop all rows with no observations available from abx
+    abx_scores_flat = abx_scores_flat.dropna(subset=["score_1"]).copy()
 
     if abx_ts_name is not None:
         # get start of each abx course per host
@@ -1016,3 +1057,53 @@ def get_cutoff_value_sample_sizes(
     value_counts = pd.Series(cutoff_values).value_counts()
     sample_sizes = value_counts.to_dict()
     return cutoff_values, sample_sizes
+
+
+def _calculate_mean_diversity_per_cov(noabx, metric, cov_groups):
+    noabx_mean_metric = noabx.groupby(cov_groups)[metric].mean().reset_index()
+    return noabx_mean_metric.rename(columns={metric: f"mean_{metric}"})
+
+
+def calculate_matched_metric_n_diff(metric, abx_scores_flat, noabx, cov_groups):
+    """
+    Calculates the difference between the observed metric and the mean metric
+    matched by covariate groups.
+
+    Args:
+        metric (str): The name of the metric to calculate and compare.
+        abx_scores_flat (pd.DataFrame): DataFrame containing observed metrics
+        and covariate information.
+        noabx (pd.DataFrame): DataFrame containing data for the 'no antibiotic'
+        group - to be used for calculating the matched means of the metric.
+        cov_groups (list of str): List of column names to group by for matching.
+
+    Returns:
+        pd.DataFrame: The updated 'abx_scores_flat' DataFrame with the
+        calculated matched means and differences included.
+
+    """
+    # also replace nan in cov_group columns with "unknown" -> better matching
+    abx_scores_flat[cov_groups] = abx_scores_flat[cov_groups].fillna("unknown")
+    noabx.loc[:, cov_groups] = noabx[cov_groups].fillna("unknown")
+
+    # get average diversity metric for noabx infants grouped by covariates
+    noabx_mean_metric = _calculate_mean_diversity_per_cov(noabx, metric, cov_groups)
+
+    # match to mean_div from no_abx
+    abx_scores_flat = pd.merge(
+        abx_scores_flat, noabx_mean_metric, on=cov_groups, how="left"
+    )
+
+    # calculate difference between mean_div and observed div
+    # ignoring samples where mean metric is nan (no comparable group exists in noabx)
+    col_for_diff_to_matched = f"diff_2_matched_{metric}"
+    abx_scores_flat[col_for_diff_to_matched] = (
+        abx_scores_flat[f"mean_{metric}"] - abx_scores_flat[metric]
+    )
+
+    lacking_ref_count = (abx_scores_flat[col_for_diff_to_matched].isna()).sum()
+    print(
+        f"Number of samples disregarded because of lacking reference "
+        f"in noabx: {lacking_ref_count}"
+    )
+    return abx_scores_flat

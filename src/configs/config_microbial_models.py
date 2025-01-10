@@ -2005,4 +2005,10 @@ overview_dict_microbial_novel_alpha_div2 = dict(
     sortby=["dataset", 'val_predict_for_t', "val_loss_until_t_av_min"],
 )
 
+plot_paths_novel_alpha_div2 = {
+    'model_ids': [55,57], 'saved_models_path': microbial_models_path_novel_alpha_div2,
+    'which': 'best', 'paths_to_plot': [0,1,2,3,4,5], 'wait_time': 0,
+    'save_extras': {'bbox_inches': 'tight', 'pad_inches': 0.01},}
+
+
 

@@ -877,7 +877,7 @@ def plot_trajectory(
     # Add legend manually
     handles, labels = plt.gca().get_legend_handles_labels()
     if "abx event" not in labels:
-        handles.append(plt.Line2D([0], [0], color="red", linestyle="--"))
+        handles.append(plt.Line2D([0], [0], color="darkred"))
         labels.append("abx event")
     plt.legend(handles=handles, labels=labels)
 

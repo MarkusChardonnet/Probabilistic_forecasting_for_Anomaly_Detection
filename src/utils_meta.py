@@ -1,16 +1,18 @@
 # Functions dispaying metadata in plots
 import matplotlib.pyplot as plt
+from src.utils_color_maps import all_color_maps
 
 plt.rcParams.update({"font.family": "DejaVu Sans"})
 PLT_STYLE = "tableau-colorblind10"
 plt.style.use(PLT_STYLE)
 
 
-def display_diet_information(df, diet_var, age_var, row_label, title=""):
+def display_diet_information(df, diet_var, age_var, row_label, title="", x_axis=""):
     if diet_var == "diet_weaning":
-        group_order = ["no", "yes", "finished", "unknown"]
+        group_order = ["no", "yes", "unknown"]
     elif diet_var == "diet_milk":
-        group_order = ["bd", "mixed", "fd", "no milk", "unknown"]
+        group_order = ["bd", "mixed", "fd", "unknown"]
+    color_dict = all_color_maps[diet_var]
     test_df = df[[age_var, diet_var]].copy()
     # test_df[diet_var] = test_df[diet_var].astype(str)
     test_df[diet_var] = test_df[diet_var].fillna("unknown")
@@ -23,8 +25,9 @@ def display_diet_information(df, diet_var, age_var, row_label, title=""):
     ax = df_grouped.plot.bar(
         stacked=True,
         figsize=(10, 5),
+        color=[color_dict[col] for col in df_grouped.columns],
     )
-    ax.set_xlabel(age_var)
-    ax.set_ylabel(f"count of {row_label}")
+    ax.set_xlabel(x_axis)
+    ax.set_ylabel(f"# {row_label}")
     ax.set_title(title)
     return ax

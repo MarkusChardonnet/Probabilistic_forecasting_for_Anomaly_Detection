@@ -236,7 +236,7 @@ conda create --name score_eval numpy pandas matplotlib seaborn scipy ipython ipy
 conda activate score_eval
 pip install -e .
 ````
-With the same conda environment, a score time horizon reliability analysis can be performed that evaluates for how long the predicted scores remain constant on the no antibiotics scores (notebook `results/analyse_t_horizon_reliability.ipynb`) and the predictive performance of the inferred anomaly scores can be compared to baseline predictions in notebook `results/evaluate_predictions.ipynb`. Also, resulting anomaly scores can be compared to matched alpha diversity values in notebook `evaluate_matched_alpha.ipynb`.
+With the same conda environment, a score time horizon reliability analysis can be performed that evaluates for how long the predicted scores remain constant on the no antibiotics scores (notebook `results/analyse_t_horizon_reliability.ipynb`) and the predictive performance of the inferred anomaly scores can be compared to baseline predictions in notebook `results/evaluate_predictions.ipynb`. Also, resulting anomaly scores can be compared to matched alpha diversity values in notebook `evaluate_matched_alpha.ipynb` and individual score trajectories can be explored in `evaluate_indiv_score_increase.ipynb`.
 
 # TODOs and Possible Improvements
 - [x] different AD scoring method: using coordinate wise p-values based on beta distribution 

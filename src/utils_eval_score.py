@@ -122,13 +122,13 @@ def _create_subplot(
         fig, axs = plt.subplots(
             nb_subplots,
             1,
-            figsize=(10, 6),
+            figsize=(9, 6),
             height_ratios=height_ratios,
             sharex=True,
             dpi=400,
         )
     except:
-        fig, axs = plt.subplots(nb_subplots, 1, figsize=(10, 6), sharex=True, dpi=400)
+        fig, axs = plt.subplots(nb_subplots, 1, figsize=(9, 6), sharex=True, dpi=400)
 
     # axs[0] is the boxplot
     # category used to have consistent x-axis
@@ -142,7 +142,7 @@ def _create_subplot(
         x=f"{x_axis}_cat", y=y_axis, data=data_c, ax=axs[0], color=boxplot_color
     )
 
-    axs[0].set_title(title)
+    axs[0].set_title(title, fontsize=12)
     y_max = data_c[y_axis].max()
     y_min = data_c[y_axis].min()
     if y_min > -1:
@@ -215,8 +215,6 @@ def _create_subplot(
                 edgecolor=v[1],
             )
         axs[1].axvline(zero_index - 0.5, color="darkred")
-        axs[1].set_ylabel("Number of samples")
-        axs[1].set_xlabel(f"Months since {n}. abx exposure")
         axs[1].tick_params(axis="x", labelsize=min(10 * 22 / len(range_x), 10))
 
         # Create a custom legend
@@ -250,9 +248,10 @@ def _create_subplot(
     if n is not None:
         axs[1].axvline(zero_index - 0.5, color="darkred")
 
-    axs[1].set_ylabel(ylabel)
-    axs[1].set_xlabel(xlabel)
-
+    axs[1].set_ylabel(ylabel, fontsize=10)
+    axs[1].set_xlabel(xlabel, fontsize=10)
+    if "matched cut-offs" in title:
+        axs[1].set_ylim(0, 1.6 * grouped_counts.counts.max())
     plt.tight_layout()
     return fig, axs
 
@@ -676,12 +675,19 @@ def _plot_score_after_nth_abx_exposure(
         uniqueness_var_ls=uniqueness_var_ls,
     )
 
-    title = f"{y_axis} before/after {n}{suff} abx exposure: {tag}"
+    if n == 0:
+        xlabel = "Months since cut-off"
+        title = f"{y_axis.capitalize()} before/after cut-off {tag}"
+    else:
+        xlabel = f"Months since {n}{suff} abx exposure"
+        title = f"{y_axis.capitalize()} before/after {n}{suff} abx exposure {tag}"
     ylabel = "# samples"
-    xlabel = f"Months since {n}{suff} abx exposure"
     if grouped_samples:
         xlabel += f"\n\n(Here {t1_reference} is last sample prior "
-        xlabel += f"to abx since {min_samples} months)"
+        if n == 0:
+            xlabel += f"to cut-off since {min_samples} months)"
+        else:
+            xlabel += f"to abx since {min_samples} months)"
     fig, _ = _create_subplot(
         x_axis,
         y_axis,
@@ -700,7 +706,8 @@ def _plot_score_after_nth_abx_exposure(
         if not os.path.exists(path_to_save):
             os.makedirs(path_to_save)
         path_to_plot = f"{path_to_save}score_after_abx{n}{suff}_{flag}.pdf"
-        plt.savefig(path_to_plot)
+        print("Saving plot to", path_to_plot)
+        plt.savefig(path_to_plot, dpi=400, bbox_inches="tight", format="pdf")
         return path_to_plot
 
 
@@ -833,7 +840,7 @@ def plot_trajectory(
 ):
     host_data = df[df["host_id"] == host_id]
 
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(10, 6), dpi=600)
     for score_col in score_cols:
         if jitter:
             jitter_amount = 0.11
@@ -869,17 +876,19 @@ def plot_trajectory(
                 label="abx event" if idx == 0 else None,
             )
 
-    plt.title(f"Trajectory Over Time for Host ID: {host_id}")
-    plt.xlabel("Age [months]")
-    plt.ylabel("Score")
+    plt.title(f"Trajectory Over Time for Host ID: {host_id}", fontsize=10)
+    plt.xlabel("Age [months]", fontsize=10)
+    plt.ylabel("Score", fontsize=10)
+    plt.tick_params(axis="x", labelsize=9)
+    plt.tick_params(axis="y", labelsize=9)
     plt.grid(True)
 
     # Add legend manually
     handles, labels = plt.gca().get_legend_handles_labels()
     if "abx event" not in labels:
-        handles.append(plt.Line2D([0], [0], color="red", linestyle="--"))
+        handles.append(plt.Line2D([0], [0], color="darkred"))
         labels.append("abx event")
-    plt.legend(handles=handles, labels=labels)
+    plt.legend(handles=handles, labels=labels, fontsize=9)
 
     if path_to_output is not None:
         filename = os.path.join(
@@ -1096,7 +1105,7 @@ def calculate_matched_metric_n_diff(metric, abx_scores_flat, noabx, cov_groups):
 
     # calculate difference between mean_div and observed div
     # ignoring samples where mean metric is nan (no comparable group exists in noabx)
-    col_for_diff_to_matched = f"diff_2_matched_{metric}"
+    col_for_diff_to_matched = "Δ matched alpha diversity"
     abx_scores_flat[col_for_diff_to_matched] = (
         abx_scores_flat[f"mean_{metric}"] - abx_scores_flat[metric]
     )

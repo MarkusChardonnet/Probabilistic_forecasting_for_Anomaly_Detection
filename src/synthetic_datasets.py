@@ -447,13 +447,13 @@ class Microbiome_OrnsteinUhlenbeck(StockModel):
             self.fct_patterns = np.transpose(np.concatenate([self.fct[j](times)
                                                                 for j in range(self.dimensions)],axis=1),axes=(1,0))
 
-        self.ad_labels = np.zeros_like(self.fct_patterns)
+        self.ad_labels = np.zeros(self.nb_steps + 1)
 
         if self.S0 is None:
             self.S0 = self.fct_patterns[:,0]
 
         self.fct = lambda t: self.fct_patterns[:,int(t*self.nb_steps/self.maturity)]
-        self.anomalies = lambda t: self.ad_labels[:,int(t*self.nb_steps/self.maturity)]
+        self.anomalies = lambda t: self.ad_labels[int(t*self.nb_steps/self.maturity)]
         self.drift = lambda x, t: - self.periodic_coeff(t) * self.speed @ (x - self.fct(t))
         self.diffusion = lambda x, t: self.volatility @ np.sqrt(x + 1e-5)
         if self.noise_type == 'gaussian':
@@ -861,7 +861,7 @@ class Microbiome_OrnsteinUhlenbeck(StockModel):
         spot_paths = np.empty((self.nb_paths, self.dimensions, self.nb_steps + 1))
         deter_paths = np.empty_like(spot_paths)
         final_paths = np.empty_like(spot_paths)
-        ad_labels = np.empty_like(spot_paths)
+        ad_labels = np.zeros((self.nb_paths, self.nb_steps + 1))
         fct = np.empty_like(spot_paths)
 
         dt = self.maturity / self.nb_steps
@@ -899,14 +899,14 @@ class Microbiome_OrnsteinUhlenbeck(StockModel):
                         deter_paths[i, :, k - 1]
                         + self.drift(deter_paths[i, :, k - 1], (k - 1) * dt) * dt)
                 fct[i,:,k] = (self.fct((k - 1) * dt))
-                ad_labels[i, :, k] = (anomalies((k - 1) * dt))
+                ad_labels[i, k] = (anomalies((k - 1) * dt))
             if self.spike:
                 final_paths[i] += spikes['values']
                 ad_labels[i] = spikes['labels']
         
         # stock_path, final_paths, deter_paths, seasonal_function, ad_labels : [nb_paths, dimension, time_steps]
         # return season_pattern, ad_labels
-        return final_paths, ad_labels, deter_paths, fct, dt, None
+        return final_paths, ad_labels, deter_paths, fct, dt
 
 class AD_OrnsteinUhlenbeckWithSeason(StockModel):
 

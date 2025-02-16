@@ -440,12 +440,13 @@ def create_Microbiome_dataset(
                             ignore_index=True)
     df_overview.to_csv(data_overview)
 
-    hosts = np.array([str(i+1) for i in range(final_paths.shape[0])])
-    abx_exposure = ad_labels
     signature = final_paths
     dynamic = np.zeros((final_paths.shape[0], 0, final_paths.shape[2]))
     static = np.zeros((final_paths.shape[0], 0, final_paths.shape[2]))
-
+    abx_observed = (np.any(ad_labels > 0, axis=1)).astype(int)
+    hosts = np.array([str(i+1) for i in range(final_paths.shape[0])])
+    abx_exposure = (np.cumsum(ad_labels, axis=1) > 0).astype(int)
+    abx_exposure[~observed_dates.astype(np.bool)] = 0
 
     os.makedirs(path)
     with open('{}data.npy'.format(path), 'wb') as f:
@@ -454,10 +455,10 @@ def create_Microbiome_dataset(
         np.save(f, nb_obs)  # [nb_paths]
         np.save(f, signature) # [nb_paths, dim, time_steps]
         np.save(f, dynamic) # [nb_paths, dim_dynamic, time_steps]
-        np.save(f, dynamic) # [nb_paths, dim_dynamic, time_steps]
-        np.save(f, ad_labels) # anomaly labels [nb_paths, dim, time_steps]
-        np.save(f, deter_paths)  # [nb_paths, dimension, time_steps]
-        np.save(f, function)  # [nb_paths, dimension, time_steps]
+        np.save(f, static) # [nb_paths, dim_static, time_steps]
+        np.save(f, abx_observed) # [nb_paths]
+        np.save(f, hosts)  # [nb_paths]
+        np.save(f, abx_exposure)  # [nb_paths, time_steps]
     with open('{}metadata.txt'.format(path), 'w') as f:
         json.dump(hyperparam_dict, f, sort_keys=True)
 
@@ -1435,8 +1436,12 @@ def main(arg):
             seed=FLAGS.seed)
     elif "LOB" in dataset_name:
         create_LOB_dataset(hyperparam_dict=dataset_params, seed=FLAGS.seed)
-    elif "AD" in dataset_name or "Microbiome" in dataset_name:
+    # elif "AD" in dataset_name or "Microbiome" in dataset_name:
+    elif "AD" in dataset_name:
         create_AD_dataset(generation_model_name=dataset_name, hyperparam_dict=dataset_params,
+            seed=FLAGS.seed)
+    elif "Microbiome" in dataset_name:
+        create_Microbiome_dataset(generation_model_name=dataset_name, hyperparam_dict=dataset_params,
             seed=FLAGS.seed)
     else:
         create_dataset(

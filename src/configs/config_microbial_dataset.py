@@ -379,3 +379,69 @@ config_novel_alpha_faith_pd_entero_genus_scaled = {
 
 # ------------------------------------------------------------------------------
 #TODO: maybe try a dataset with static instead of dynamic features
+
+# ------------------------------------------------------------------------------
+# Synthetic data
+
+config_synthetic_novel_alpha_faith_noabx_pd = {
+    'model_name': "Microbiome_OrnsteinUhlenbeck",
+    'nb_paths': 100, 'nb_steps': 730,
+    'dimension': 1, 'obs_perc': 0.01, 'S0': [0.],
+    'maturity': 1., 'return_vol': False,
+    'speed': 30.,
+    'noise': {'type': "gaussian", 'cov': 0.},   # 0.02
+    'volatility': {
+        'vol_value': 8., # [[0.3,0.15],[0.15,0.3]],
+    },
+    'initial_value': False,
+    'fct_params': {
+        'type': 'invexp',
+        'scale': 25,
+        'decay': 5,
+    },
+    'anomaly_params': {
+        'type': None
+    }
+}
+
+occurence_law = 'single'
+occurence_prob = 1
+occurence_pos_law = 'uniform'
+occurence_pos_range = (0.1,1.)
+occurence_len_law = 'uniform'
+occurence_len_range =  (0.05,0.25)
+dim_occurence_law = 'indep'
+dim_occurence_prob = 1.
+dim_occurence_pos = 'indep'
+
+config_synthetic_novel_alpha_faith_abx_pd = {
+    'model_name': "Microbiome_OrnsteinUhlenbeck",
+    'nb_paths': 1000, 'nb_steps': 730,
+    'dimension': 1, 'obs_perc': 1., 'S0': [0.],
+    'maturity': 1., 'return_vol': False,
+    'speed': 15., 
+    'noise': {'type': "gaussian", 'cov': 0.},
+    'volatility': {
+        'vol_value': 0.3,
+    },
+    'initial_value': False,
+    'fct_params': {
+        'type': 'invexp',
+        'scale': 25,
+        'decay': 2.5
+    },
+    'anomaly_params': {
+        'type': 'scale',
+        'occurence_law': occurence_law,
+        'occurence_prob': occurence_prob,
+        'occurence_pos_law': occurence_pos_law,
+        'occurence_pos_range': occurence_pos_range,
+        'occurence_len_law': occurence_len_law,
+        'occurence_len_range': occurence_len_range,
+        'dim_occurence_law': dim_occurence_law,
+        'dim_occurence_prob': dim_occurence_prob,
+        'dim_occurence_pos': dim_occurence_pos,
+        'scale_level_law': 'uniform',
+        'scale_level_range': (1.5,3),
+    }
+}

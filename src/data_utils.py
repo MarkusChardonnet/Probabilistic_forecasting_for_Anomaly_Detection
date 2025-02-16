@@ -1292,7 +1292,7 @@ def main(arg):
             seed=FLAGS.seed)
     elif "LOB" in dataset_name:
         create_LOB_dataset(hyperparam_dict=dataset_params, seed=FLAGS.seed)
-    elif "AD" in dataset_name:
+    elif "AD" in dataset_name or "Microbiome" in dataset_name:
         create_AD_dataset(generation_model_name=dataset_name, hyperparam_dict=dataset_params,
             seed=FLAGS.seed)
     else:

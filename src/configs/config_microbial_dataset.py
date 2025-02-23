@@ -389,59 +389,84 @@ config_synthetic_novel_alpha_faith_noabx_pd = {
     'dimension': 1, 'obs_perc': 0.01, 'S0': [0.],
     'maturity': 1., 'return_vol': False,
     'speed': 30.,
-    'noise': {'type': "gaussian", 'cov': 0.},   # 0.02
+    'noise': {'type': "gaussian", 'cov': 0.},
     'volatility': {
-        'vol_value': 8., # [[0.3,0.15],[0.15,0.3]],
+        'vol_value': 10.,
     },
     'initial_value': False,
     'fct_params': {
         'type': 'invexp',
         'scale': 25,
-        'decay': 5,
+        'decay': 3,
     },
+    "dynamic_vars": [
+        {
+            "name": "delivery_mode",
+            "type": "static",
+            "nb_vals": 2,
+            "val_names": ["vaginal", "ceasarean"],
+            "probs": [0.9, 0.1],
+            "factor": [1.1, 0.9],
+            "duration": 180,
+        },
+        {
+            "name": "diet_weaning",
+            "type": "dynamic",
+            "nb_vals": 2,
+            "val_names": ["no", "yes"],
+            "goem_law": [0.0125, None],
+            "max_dur": [150, 1000],
+            "factor": [1.1, 0.9]
+        },
+        {
+            "name": "diet_milk",
+            "type": "dynamic",
+            "nb_vals": 3,
+            "val_names": ["bd", "mixed", "fd"],
+            "goem_law": [0.0125, 0.00625, 0.05],
+            "max_dur": [150, 640, 40],
+            "factor": [1.05, 1., 0.95]
+        }
+    ],
     'anomaly_params': {
         'type': None
     }
 }
 
-occurence_law = 'single'
-occurence_prob = 1
+# occurence_law = 'single'
+# occurence_law_param = 1
+occurence_law = 'geometric'
+occurence_law_param = 0.5
 occurence_pos_law = 'uniform'
-occurence_pos_range = (0.1,1.)
+occurence_pos_range = (0.01,1.)
 occurence_len_law = 'uniform'
 occurence_len_range =  (0.05,0.25)
-dim_occurence_law = 'indep'
-dim_occurence_prob = 1.
-dim_occurence_pos = 'indep'
 
 config_synthetic_novel_alpha_faith_abx_pd = {
     'model_name': "Microbiome_OrnsteinUhlenbeck",
-    'nb_paths': 1000, 'nb_steps': 730,
-    'dimension': 1, 'obs_perc': 1., 'S0': [0.],
+    'nb_paths': 500, 'nb_steps': 730,
+    'dimension': 1, 'obs_perc': 0.01, 'S0': [0.],
     'maturity': 1., 'return_vol': False,
-    'speed': 15., 
+    'speed': 30., 
     'noise': {'type': "gaussian", 'cov': 0.},
     'volatility': {
-        'vol_value': 0.3,
+        'vol_value': 10.,
     },
     'initial_value': False,
     'fct_params': {
         'type': 'invexp',
         'scale': 25,
-        'decay': 2.5
+        'decay': 3
     },
     'anomaly_params': {
-        'type': 'scale',
+        'type': 'cutoff',
         'occurence_law': occurence_law,
-        'occurence_prob': occurence_prob,
+        'occurence_law_param': occurence_law_param,
         'occurence_pos_law': occurence_pos_law,
         'occurence_pos_range': occurence_pos_range,
         'occurence_len_law': occurence_len_law,
         'occurence_len_range': occurence_len_range,
-        'dim_occurence_law': dim_occurence_law,
-        'dim_occurence_prob': dim_occurence_prob,
-        'dim_occurence_pos': dim_occurence_pos,
-        'scale_level_law': 'uniform',
-        'scale_level_range': (1.5,3),
+        'cutoff_level_law': 'uniform',
+        'cutoff_level_range': (0.2,0.5),
     }
 }

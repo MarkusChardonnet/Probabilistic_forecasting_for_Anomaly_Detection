@@ -379,7 +379,7 @@ class StockModel:
 class Microbiome_OrnsteinUhlenbeck(StockModel):
 
     def __init__(self, volatility, nb_paths, nb_steps, dimension, S0, noise,
-                 fct_params, anomaly_params, speed, maturity, sine_coeff=None, **kwargs):
+                 fct_params, anomaly_params, dynamic_vars, speed, maturity, sine_coeff=None, **kwargs):
         if S0 is not None:
             S0 = np.array(S0)
         super(Microbiome_OrnsteinUhlenbeck, self).__init__(
@@ -387,6 +387,7 @@ class Microbiome_OrnsteinUhlenbeck(StockModel):
             nb_steps=nb_steps, S0=S0, maturity=maturity,
             sine_coeff=sine_coeff
         )
+        self.dynamic_vars = dynamic_vars
         self.anomaly_params = anomaly_params
         self.anomaly_type = self.anomaly_params['type']
         self.get_fct_generator(fct_params)
@@ -452,10 +453,10 @@ class Microbiome_OrnsteinUhlenbeck(StockModel):
         if self.S0 is None:
             self.S0 = self.fct_patterns[:,0]
 
-        self.fct = lambda t: self.fct_patterns[:,int(t*self.nb_steps/self.maturity)]
+        # self.fct = lambda t: self.fct_patterns[:,int(t*self.nb_steps/self.maturity)]
         self.anomalies = lambda t: self.ad_labels[int(t*self.nb_steps/self.maturity)]
-        self.drift = lambda x, t: - self.periodic_coeff(t) * self.speed @ (x - self.fct(t))
-        self.diffusion = lambda x, t: self.volatility @ np.sqrt(x + 1e-5)
+        # self.drift = lambda x, t: - self.periodic_coeff(t) * self.speed @ (x - self.fct(t))
+        self.diffusion = lambda x, t: self.volatility @ np.sqrt(np.maximum(x,1e-5))
         if self.noise_type == 'gaussian':
             def noise(x, t):
                 if np.all(self.noise_cov == 0):
@@ -655,149 +656,147 @@ class Microbiome_OrnsteinUhlenbeck(StockModel):
         self.spike = False
 
         if self.anomaly_type is None:
-            return None, None, None, None, None
+            return None, None, []
 
-        if self.anomaly_type in ['scale', 'diffusion', 'noise', 'trend', 'cutoff']:
+        # if self.anomaly_type in ['scale', 'diffusion', 'noise', 'trend', 'cutoff']:
+        if self.anomaly_type in ['cutoff']:
 
-            self.occ_prob = self.anomaly_params['occurence_prob']
             self.occ_pos_range = self.anomaly_params['occurence_pos_range']
             self.occ_pos_law = self.anomaly_params['occurence_pos_law']
             self.occ_len_range = self.anomaly_params['occurence_len_range']
             self.occ_len_law = self.anomaly_params['occurence_len_law']
-            self.dim_occ_pos = self.anomaly_params['dim_occurence_pos']
-            self.dim_occ_law = self.anomaly_params['dim_occurence_law']
-            self.dim_occ_prob = self.anomaly_params['dim_occurence_prob']
+            # self.dim_occ_pos = self.anomaly_params['dim_occurence_pos']
+            # self.dim_occ_law = self.anomaly_params['dim_occurence_law']
+            # self.dim_occ_prob = self.anomaly_params['dim_occurence_prob']
+            self.occ_law = self.anomaly_params['occurence_law']
+            self.occ_law_param = self.anomaly_params['occurence_law_param']
 
             pos_list = []
-            
-            r = np.random.binomial(1, self.occ_prob, 1)
-            if r == 1:
-                olr0, olr1 = self.occ_len_range
-                opr0, opr1 = self.occ_pos_range
-                if self.dim_occ_pos == 'same':
+            olr0, olr1 = self.occ_len_range
+            opr0, opr1 = self.occ_pos_range
+            if self.occ_law == 'single':
+                r = np.random.binomial(1, self.occ_law_param, 1)
+                if r == 1:
                     if self.occ_len_law == 'uniform':
                         length = float(np.random.uniform(olr0,olr1,1))
                     if self.occ_pos_law == 'uniform':
                         pos = float(np.random.uniform(opr0,opr1-length,1))
                     for j in range(self.dimensions):
                         l = []
-                        l.append(pos, pos+length)
-                        pos_list.append(l)
-                elif self.dim_occ_pos == 'indep':
-                    for j in range(self.dimensions):
-                        if self.occ_len_law == 'uniform':
-                            length = float(np.random.uniform(olr0,olr1,1))
-                        if self.occ_pos_law == 'uniform':
-                            pos = float(np.random.uniform(opr0,opr1-length,1))
-                        l = []
                         l.append((pos, pos+length))
                         pos_list.append(l)
+            elif self.occ_law == 'geometric':
+                n = np.random.geometric(self.occ_law_param, 1)
+                pos_list = [[] for j in range(self.dimensions)]
+                for o in range(int(n)):
+                    if self.occ_len_law == 'uniform':
+                        length = float(np.random.uniform(olr0,olr1,1))
+                    if self.occ_pos_law == 'uniform':
+                        pos = float(np.random.uniform(opr0,opr1-length,1))
+                    for j in range(self.dimensions):
+                        pos_list[j].append((pos, pos+length))
 
-                for j in range(self.dimensions):
-                    for p in range(len(pos_list[j])):
-                        r = np.random.binomial(1, self.dim_occ_prob, 1)
-                        if r == 0:
-                            del pos_list[j][p]
+            exposure_steps = [int(p[0] * self.nb_steps) for p in pos_list[0]]
         
-        if self.anomaly_type == 'diffusion':
-            ad_labels = copy.copy(self.ad_labels)
+        # if self.anomaly_type == 'diffusion':
+        #     ad_labels = copy.copy(self.ad_labels)
 
-            diff_change = self.anomaly_params['diffusion_change']
-            diff_deviation = self.anomaly_params['diffusion_deviation']
+        #     diff_change = self.anomaly_params['diffusion_change']
+        #     diff_deviation = self.anomaly_params['diffusion_deviation']
 
-            diffusion_pattern = np.tile(np.expand_dims(self.volatility, 0), (self.nb_steps+1,1,1))
-            for j in range(self.dimensions):
-                for p in pos_list[j]:
-                    p0 = int(p[0] * self.nb_steps)
-                    p1 = int(p[1] * self.nb_steps)
-                    if diff_change == 'multiplicative':
-                        diffusion_pattern[p0:p1,j,j] *= diff_deviation
-                    elif diff_change == 'additive':
-                        diffusion_pattern[p0:p1,j,j] += diff_deviation
-                    ad_labels[j,p0:p1] = 1
+        #     diffusion_pattern = np.tile(np.expand_dims(self.volatility, 0), (self.nb_steps+1,1,1))
+        #     for j in range(self.dimensions):
+        #         for p in pos_list[j]:
+        #             p0 = int(p[0] * self.nb_steps)
+        #             p1 = int(p[1] * self.nb_steps)
+        #             if diff_change == 'multiplicative':
+        #                 diffusion_pattern[p0:p1,j,j] *= diff_deviation
+        #             elif diff_change == 'additive':
+        #                 diffusion_pattern[p0:p1,j,j] += diff_deviation
+        #             ad_labels[j,p0:p1] = 1
 
-            anomalies = lambda t: ad_labels[:,int(t*self.nb_steps/self.maturity)]
-            diffusion = lambda x, t: diffusion_pattern[int(t*self.nb_steps/self.maturity)]
+        #     anomalies = lambda t: ad_labels[:,int(t*self.nb_steps/self.maturity)]
+        #     diffusion = lambda x, t: diffusion_pattern[int(t*self.nb_steps/self.maturity)]
                 
-            return None, diffusion, None, anomalies, None
+        #     return None, diffusion, None, anomalies, exposure_steps
         
-        if self.anomaly_type == 'noise':
-            ad_labels = copy.copy(self.ad_labels)
+        # if self.anomaly_type == 'noise':
+        #     ad_labels = copy.copy(self.ad_labels)
 
-            noise_change = self.anomaly_params['noise_change']
-            noise_deviation = self.anomaly_params['noise_deviation']
+        #     noise_change = self.anomaly_params['noise_change']
+        #     noise_deviation = self.anomaly_params['noise_deviation']
                 
-            noise_cov_pattern = np.tile(np.expand_dims(self.noise_cov, 0), (self.nb_steps+1,1,1))
-            for j in range(self.dimensions):
-                for p in pos_list[j]:
-                    p0 = int(p[0] * self.nb_steps)
-                    p1 = int(p[1] * self.nb_steps)
-                    if noise_change == 'multiplicative':
-                        noise_cov_pattern[p0:p1,j,j] *= noise_deviation
-                    elif noise_change == 'additive':
-                        noise_cov_pattern[p0:p1,j,j] += noise_deviation
-                    ad_labels[j,p0:p1] = 1
+        #     noise_cov_pattern = np.tile(np.expand_dims(self.noise_cov, 0), (self.nb_steps+1,1,1))
+        #     for j in range(self.dimensions):
+        #         for p in pos_list[j]:
+        #             p0 = int(p[0] * self.nb_steps)
+        #             p1 = int(p[1] * self.nb_steps)
+        #             if noise_change == 'multiplicative':
+        #                 noise_cov_pattern[p0:p1,j,j] *= noise_deviation
+        #             elif noise_change == 'additive':
+        #                 noise_cov_pattern[p0:p1,j,j] += noise_deviation
+        #             ad_labels[j,p0:p1] = 1
 
-            anomalies = lambda t: ad_labels[:,int(t*self.nb_steps/self.maturity)]
-            noise = lambda x, t: noise_cov_pattern[int(t*self.nb_steps/self.maturity)] @ np.random.normal(0, 1, self.dimensions)
+        #     anomalies = lambda t: ad_labels[:,int(t*self.nb_steps/self.maturity)]
+        #     noise = lambda x, t: noise_cov_pattern[int(t*self.nb_steps/self.maturity)] @ np.random.normal(0, 1, self.dimensions)
                 
-            return None, None, noise, anomalies, None
+        #     return None, None, noise, anomalies, exposure_steps
         
-        elif self.anomaly_type == 'scale':
+        # elif self.anomaly_type == 'scale':
 
-            fct_patterns = copy.copy(self.fct_patterns)
-            ad_labels = copy.copy(self.ad_labels)
+        #     fct_patterns = copy.copy(self.fct_patterns)
+        #     ad_labels = copy.copy(self.ad_labels)
 
-            scale_level_law = self.anomaly_params['scale_level_law']
+        #     scale_level_law = self.anomaly_params['scale_level_law']
 
-            for j in range(self.dimensions):
-                for p in pos_list[j]:
-                    p0 = int(p[0] * self.nb_steps)
-                    p1 = int(p[1] * self.nb_steps)
-                    if scale_level_law == 'uniform':
-                        c0, c1 = self.anomaly_params['scale_level_range']
-                        scale_level = float(np.random.uniform(c0,c1,1))
-                    fct_patterns[j,p0:p1] *= scale_level
-                    ad_labels[j,p0:p1] = 1
+        #     for j in range(self.dimensions):
+        #         for p in pos_list[j]:
+        #             p0 = int(p[0] * self.nb_steps)
+        #             p1 = int(p[1] * self.nb_steps)
+        #             if scale_level_law == 'uniform':
+        #                 c0, c1 = self.anomaly_params['scale_level_range']
+        #                 scale_level = float(np.random.uniform(c0,c1,1))
+        #             fct_patterns[j,p0:p1] *= scale_level
+        #             ad_labels[j,p0:p1] = 1
 
-            seasons = lambda t: fct_patterns[:,int(t*self.nb_steps/self.maturity)]
-            anomalies = lambda t: ad_labels[:,int(t*self.nb_steps/self.maturity)]
-            drift = lambda x, t: - self.periodic_coeff(t) * self.speed @ (x - seasons(t))
+        #     seasons = lambda t: fct_patterns[:,int(t*self.nb_steps/self.maturity)]
+        #     anomalies = lambda t: ad_labels[:,int(t*self.nb_steps/self.maturity)]
+        #     drift = lambda x, t: - self.periodic_coeff(t) * self.speed @ (x - seasons(t))
 
-            return drift, None, None, anomalies, None
+        #     return drift, None, None, anomalies, exposure_steps
         
-        elif self.anomaly_type == 'trend':
+        # elif self.anomaly_type == 'trend':
 
-            fct_patterns = copy.copy(self.fct_patterns)
-            ad_labels = copy.copy(self.ad_labels)
+        #     fct_patterns = copy.copy(self.fct_patterns)
+        #     ad_labels = copy.copy(self.ad_labels)
 
-            trend_level_law = self.anomaly_params['trend_level_law']
+        #     trend_level_law = self.anomaly_params['trend_level_law']
 
-            for j in range(self.dimensions):
-                for p in pos_list[j]:
-                    p0 = int(p[0] * self.nb_steps)
-                    p1 = int(p[1] * self.nb_steps)
-                    if trend_level_law == 'uniform':
-                        c0, c1 = self.anomaly_params['trend_level_range']
-                        trend_level = float(np.random.uniform(c0,c1,1))
-                        if self.anomaly_params['trend_level_sign'] == 'both':
-                            s = np.random.binomial(1, 0.5, 1)
-                            if s == 0:
-                                trend_level = -trend_level
-                        elif self.anomaly_params['trend_level_sign'] == 'minus':
-                            trend_level = -trend_level
+        #     for j in range(self.dimensions):
+        #         for p in pos_list[j]:
+        #             p0 = int(p[0] * self.nb_steps)
+        #             p1 = int(p[1] * self.nb_steps)
+        #             if trend_level_law == 'uniform':
+        #                 c0, c1 = self.anomaly_params['trend_level_range']
+        #                 trend_level = float(np.random.uniform(c0,c1,1))
+        #                 if self.anomaly_params['trend_level_sign'] == 'both':
+        #                     s = np.random.binomial(1, 0.5, 1)
+        #                     if s == 0:
+        #                         trend_level = -trend_level
+        #                 elif self.anomaly_params['trend_level_sign'] == 'minus':
+        #                     trend_level = -trend_level
 
-                    length = p1-p0
-                    fct_patterns[j,p0:p1] += np.arange(length) * trend_level / self.nb_steps
-                    ad_labels[j,p0:p1] = 1
+        #             length = p1-p0
+        #             fct_patterns[j,p0:p1] += np.arange(length) * trend_level / self.nb_steps
+        #             ad_labels[j,p0:p1] = 1
 
-            seasons = lambda t: fct_patterns[:,int(t*self.nb_steps/self.maturity)]
-            anomalies = lambda t: ad_labels[:,int(t*self.nb_steps/self.maturity)]
-            drift = lambda x, t: - self.periodic_coeff(t) * self.speed @ (x - seasons(t))
+        #     seasons = lambda t: fct_patterns[:,int(t*self.nb_steps/self.maturity)]
+        #     anomalies = lambda t: ad_labels[:,int(t*self.nb_steps/self.maturity)]
+        #     drift = lambda x, t: - self.periodic_coeff(t) * self.speed @ (x - seasons(t))
 
-            return drift, None, None, anomalies, None
+        #     return drift, None, None, anomalies, exposure_steps
         
-        elif self.anomaly_type == 'cutoff':
+        if self.anomaly_type == 'cutoff':
 
             fct_patterns = copy.copy(self.fct_patterns)
             ad_labels = copy.copy(self.ad_labels)
@@ -812,43 +811,49 @@ class Microbiome_OrnsteinUhlenbeck(StockModel):
                         c0, c1 = self.anomaly_params['cutoff_level_range']
                         cutoff_level = float(np.random.uniform(c0,c1,1))
                     elif cutoff_level_law == 'current_level':
-                        cutoff_level = self.seasons(p[0])
-                    fct_patterns[j,p0:p1] = cutoff_level
-                    ad_labels[j,p0:p1] = 1
+                        cutoff_level = self.fct_patterns(p[0])
+                    fct_patterns[j,p0:p1] = cutoff_level * fct_patterns[j,p0]
+                    ad_labels[p0:p1] = 1
 
-            seasons = lambda t: fct_patterns[:,int(t*self.nb_steps/self.maturity)]
-            anomalies = lambda t: ad_labels[:,int(t*self.nb_steps/self.maturity)]
-            drift = lambda x, t: - self.periodic_coeff(t) * self.speed @ (x - seasons(t))
+            # seasons = lambda t: fct_patterns[:,int(t*self.nb_steps/self.maturity)]
+            # anomalies = lambda t: ad_labels[int(t*self.nb_steps/self.maturity)]
+            # drift = lambda x, t: - self.periodic_coeff(t) * self.speed @ (x - seasons(t))
 
-            return drift, None, None, anomalies, None
+            # return drift, None, None, anomalies, exposure_steps
+
+            return fct_patterns, ad_labels, exposure_steps
         
-        elif self.anomaly_type == 'spike':
-            self.spike = True
 
-            ad_labels = copy.copy(self.ad_labels)
-            
-            r1, r2 = self.anomaly_params['occurence_pos_range']
-            prob = self.anomaly_params['occurence_prob']
-            amp_law = self.anomaly_params['spike_amp_law']
-            a1, a2 = self.anomaly_params['spike_amp_range']
-            
-            range_mask = np.zeros((self.dimensions, self.nb_steps+1), dtype=np.bool)
-            range_mask[int(r1*self.nb_steps/self.maturity):int(r2*self.nb_steps/self.maturity)] = True
-            if amp_law == 'uniform':
-                values = np.random.uniform(a1, a2, (self.dimensions, self.nb_steps+1))
-                neg = 2. * np.random.binomial(1,0.5,(self.dimensions, self.nb_steps+1)) - 1.
-                values *= neg
-            else:
-                NotImplementedError
-            pos = np.random.binomial(1,1-prob,(self.dimensions, self.nb_steps+1)).astype(np.bool)
-            mask = np.logical_or(pos, range_mask)
-            values[mask] = 0.
-            ad_labels[~mask] = 1
+    def get_dynamic_vars(self, fct_patterns):
 
-            spikes = {'values': values,
-                      'labels': ad_labels}
+        dynamic_vars = np.zeros((self.nb_steps + 1, 0))
 
-            return None, None, None, None, spikes
+        for var in self.dynamic_vars:
+            if var["type"] == "static":
+                x = np.random.random()
+                s = var["probs"][0]
+                v = 0
+                while s < x:
+                    v += 1
+                    s += var["probs"][v]
+                var_values = np.zeros((self.nb_steps + 1, var["nb_vals"]))
+                var_values[:,v] = 1
+                fct_patterns[:var["duration"],:] *= var["factor"][v]
+                dynamic_vars = np.concatenate([dynamic_vars, var_values],axis=1)
+            if var["type"] == "dynamic":
+                durations = [0]
+                var_values = np.zeros((self.nb_steps + 1, var["nb_vals"]))
+                for v in range(var["nb_vals"]):
+                    if var["goem_law"][v] is not None:
+                        x = np.random.geometric(var["goem_law"][v])
+                    else:
+                        x = self.nb_steps + 1
+                    durations.append(durations[-1] + min(x, var["max_dur"][v]))
+                    var_values[durations[-2]:durations[-1],v] = 1
+                    fct_patterns[durations[-2]:durations[-1],:] *= var["factor"][v]
+                dynamic_vars = np.concatenate([dynamic_vars, var_values],axis=1)
+
+        return fct_patterns, dynamic_vars
 
 
     def generate_paths(self, start_X=None, no_S0=True):
@@ -861,8 +866,10 @@ class Microbiome_OrnsteinUhlenbeck(StockModel):
         spot_paths = np.empty((self.nb_paths, self.dimensions, self.nb_steps + 1))
         deter_paths = np.empty_like(spot_paths)
         final_paths = np.empty_like(spot_paths)
-        ad_labels = np.zeros((self.nb_paths, self.nb_steps + 1))
-        fct = np.empty_like(spot_paths)
+        ad_label_paths = np.zeros((self.nb_paths, self.nb_steps + 1))
+        path_fct_patterns = np.empty_like(spot_paths)
+        path_exposure_steps = np.empty(self.nb_paths, dtype=object)
+        dynamic = np.zeros((self.nb_paths, sum([var["nb_vals"] for var in self.dynamic_vars]), self.nb_steps + 1))
 
         dt = self.maturity / self.nb_steps
 
@@ -872,21 +879,28 @@ class Microbiome_OrnsteinUhlenbeck(StockModel):
             if i % 100 == 0 and i != 0:
                 print("Generated {} paths".format(i))
 
-            drift, diffusion, noise, anomalies, spikes = self.get_anomaly_fcts()
-            if drift is None:
-                drift = self.drift
-            if diffusion is None:
-                diffusion = self.diffusion
-            if noise is None:
-                noise = self.noise
-            if anomalies is None:
+            fct_patterns, ad_labels, exposure_steps = self.get_anomaly_fcts()
+            diffusion = self.diffusion
+            noise = self.noise
+            if ad_labels is None:
                 anomalies = self.anomalies
+            else: 
+                anomalies = lambda t: ad_labels[int(t*self.nb_steps/self.maturity)]
+            if fct_patterns is None:
+                fct_patterns = self.fct_patterns
+            path_exposure_steps[i] = exposure_steps
+
+            fct_patterns, dynamic_vars = self.get_dynamic_vars(fct_patterns)
+            dynamic[i] = np.transpose(dynamic_vars)
+
+            fct = lambda t: fct_patterns[:,int(t*self.nb_steps/self.maturity)]
+            drift = lambda x, t: - self.periodic_coeff(t) * self.speed @ (x - fct(t))
 
             if start_X is None:
                 spot_paths[i, :, 0] = self.S0
                 deter_paths[i, :, 0] = self.S0
                 final_paths[i, :, 0] = (spot_paths[i, :, 0] + noise(spot_paths[i, :, 0], (0) * dt)) # @ eps)
-                fct[i, :, 0] = (self.fct(0.))
+                path_fct_patterns[i, :, 0] = (fct(0.))
             for k in range(1, self.nb_steps + 1):
                 random_numbers_bm = np.random.normal(0, 1, self.dimensions)
                 dW = random_numbers_bm * np.sqrt(dt)
@@ -897,16 +911,13 @@ class Microbiome_OrnsteinUhlenbeck(StockModel):
                 final_paths[i, :, k] = (spot_paths[i, :, k] + noise(spot_paths[i, :, k], (k) * dt)) # @ eps)
                 deter_paths[i, :, k] = (
                         deter_paths[i, :, k - 1]
-                        + self.drift(deter_paths[i, :, k - 1], (k - 1) * dt) * dt)
-                fct[i,:,k] = (self.fct((k - 1) * dt))
-                ad_labels[i, k] = (anomalies((k - 1) * dt))
-            if self.spike:
-                final_paths[i] += spikes['values']
-                ad_labels[i] = spikes['labels']
+                        + drift(deter_paths[i, :, k - 1], (k - 1) * dt) * dt)
+                path_fct_patterns[i,:,k] = (fct((k - 1) * dt))
+                ad_label_paths[i, k] = (anomalies((k - 1) * dt))
         
         # stock_path, final_paths, deter_paths, seasonal_function, ad_labels : [nb_paths, dimension, time_steps]
         # return season_pattern, ad_labels
-        return final_paths, ad_labels, deter_paths, fct, dt
+        return final_paths, ad_label_paths, deter_paths, path_fct_patterns, dt, path_exposure_steps, dynamic
 
 class AD_OrnsteinUhlenbeckWithSeason(StockModel):
 

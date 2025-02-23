@@ -354,7 +354,7 @@ def create_Microbiome_dataset(
 
     df_overview, data_overview = get_dataset_overview()
 
-    np.random.seed(seed=seed)
+    # np.random.seed(seed=seed)
     hyperparam_dict['model_name'] = generation_model_name
     original_desc = json.dumps(hyperparam_dict, sort_keys=True)
     obs_perc = hyperparam_dict['obs_perc']
@@ -380,7 +380,7 @@ def create_Microbiome_dataset(
 
     generation_model = _STOCK_MODELS[generation_model_name](**hyperparam_dict)
     # stock paths shape: [nb_paths, dim, time_steps]
-    final_paths, ad_labels, deter_paths, function, dt = generation_model.generate_paths()
+    final_paths, ad_labels, deter_paths, function, dt, exposure_steps, dynamic = generation_model.generate_paths()
     size = final_paths.shape
     observed_dates = np.random.random(size=(size[0], size[2]))
     if "X_dependent_observation_prob" in hyperparam_dict:
@@ -441,7 +441,7 @@ def create_Microbiome_dataset(
     df_overview.to_csv(data_overview)
 
     signature = final_paths
-    dynamic = np.zeros((final_paths.shape[0], 0, final_paths.shape[2]))
+    # dynamic = np.zeros((final_paths.shape[0], 0, final_paths.shape[2]))
     static = np.zeros((final_paths.shape[0], 0, final_paths.shape[2]))
     abx_observed = (np.any(ad_labels > 0, axis=1)).astype(int)
     hosts = np.array([str(i+1) for i in range(final_paths.shape[0])])
@@ -459,6 +459,7 @@ def create_Microbiome_dataset(
         np.save(f, abx_observed) # [nb_paths]
         np.save(f, hosts)  # [nb_paths]
         np.save(f, abx_exposure)  # [nb_paths, time_steps]
+        np.save(f, exposure_steps)
     with open('{}metadata.txt'.format(path), 'w') as f:
         json.dump(hyperparam_dict, f, sort_keys=True)
 

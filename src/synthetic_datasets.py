@@ -445,16 +445,16 @@ class Microbiome_OrnsteinUhlenbeck(StockModel):
             # same procedure as for RMDF, generate already array
             # times = np.expand_dims(np.arange(self.nb_steps+1), axis=1)
             times = np.expand_dims(np.linspace(0., 1., self.nb_steps + 1), axis=1)
-            self.fct_patterns = np.transpose(np.concatenate([self.fct[j](times)
+            self.fct_pattern = np.transpose(np.concatenate([self.fct[j](times)
                                                                 for j in range(self.dimensions)],axis=1),axes=(1,0))
 
         self.ad_labels = np.zeros(self.nb_steps + 1)
 
         if self.S0 is None:
-            self.S0 = self.fct_patterns[:,0]
+            self.S0 = self.fct_pattern[:,0]
 
         # self.fct = lambda t: self.fct_patterns[:,int(t*self.nb_steps/self.maturity)]
-        self.anomalies = lambda t: self.ad_labels[int(t*self.nb_steps/self.maturity)]
+        # self.anomalies = lambda t: self.ad_labels[int(t*self.nb_steps/self.maturity)]
         # self.drift = lambda x, t: - self.periodic_coeff(t) * self.speed @ (x - self.fct(t))
         self.diffusion = lambda x, t: self.volatility @ np.sqrt(np.maximum(x,1e-5))
         if self.noise_type == 'gaussian':
@@ -798,7 +798,7 @@ class Microbiome_OrnsteinUhlenbeck(StockModel):
         
         if self.anomaly_type == 'cutoff':
 
-            fct_patterns = copy.copy(self.fct_patterns)
+            fct_pattern = copy.copy(self.fct_pattern)
             ad_labels = copy.copy(self.ad_labels)
 
             cutoff_level_law = self.anomaly_params['cutoff_level_law']
@@ -811,8 +811,8 @@ class Microbiome_OrnsteinUhlenbeck(StockModel):
                         c0, c1 = self.anomaly_params['cutoff_level_range']
                         cutoff_level = float(np.random.uniform(c0,c1,1))
                     elif cutoff_level_law == 'current_level':
-                        cutoff_level = self.fct_patterns(p[0])
-                    fct_patterns[j,p0:p1] = cutoff_level * fct_patterns[j,p0]
+                        cutoff_level = self.fct_pattern(p[0])
+                    fct_pattern[j,p0:p1] = cutoff_level * fct_pattern[j,p0]
                     ad_labels[p0:p1] = 1
 
             # seasons = lambda t: fct_patterns[:,int(t*self.nb_steps/self.maturity)]
@@ -821,10 +821,10 @@ class Microbiome_OrnsteinUhlenbeck(StockModel):
 
             # return drift, None, None, anomalies, exposure_steps
 
-            return fct_patterns, ad_labels, exposure_steps
+            return fct_pattern, ad_labels, exposure_steps
         
 
-    def get_dynamic_vars(self, fct_patterns):
+    def get_dynamic_vars(self, fct_pattern):
 
         dynamic_vars = np.zeros((self.nb_steps + 1, 0))
 
@@ -838,7 +838,7 @@ class Microbiome_OrnsteinUhlenbeck(StockModel):
                     s += var["probs"][v]
                 var_values = np.zeros((self.nb_steps + 1, var["nb_vals"]))
                 var_values[:,v] = 1
-                fct_patterns[:var["duration"],:] *= var["factor"][v]
+                fct_pattern[:,:var["duration"]] *= var["factor"][v]
                 dynamic_vars = np.concatenate([dynamic_vars, var_values],axis=1)
             if var["type"] == "dynamic":
                 durations = [0]
@@ -850,10 +850,10 @@ class Microbiome_OrnsteinUhlenbeck(StockModel):
                         x = self.nb_steps + 1
                     durations.append(durations[-1] + min(x, var["max_dur"][v]))
                     var_values[durations[-2]:durations[-1],v] = 1
-                    fct_patterns[durations[-2]:durations[-1],:] *= var["factor"][v]
+                    fct_pattern[:,durations[-2]:durations[-1]] *= var["factor"][v]
                 dynamic_vars = np.concatenate([dynamic_vars, var_values],axis=1)
 
-        return fct_patterns, dynamic_vars
+        return fct_pattern, dynamic_vars
 
 
     def generate_paths(self, start_X=None, no_S0=True):
@@ -879,21 +879,22 @@ class Microbiome_OrnsteinUhlenbeck(StockModel):
             if i % 100 == 0 and i != 0:
                 print("Generated {} paths".format(i))
 
-            fct_patterns, ad_labels, exposure_steps = self.get_anomaly_fcts()
+            fct_pattern, ad_labels, exposure_steps = self.get_anomaly_fcts()
             diffusion = self.diffusion
             noise = self.noise
             if ad_labels is None:
-                anomalies = self.anomalies
-            else: 
-                anomalies = lambda t: ad_labels[int(t*self.nb_steps/self.maturity)]
-            if fct_patterns is None:
-                fct_patterns = self.fct_patterns
+                ad_labels = self.ad_labels
+            anomalies = lambda t: ad_labels[int(t*self.nb_steps/self.maturity)]
+            if fct_pattern is None:
+                fct_pattern = copy.copy(self.fct_pattern)
             path_exposure_steps[i] = exposure_steps
 
-            fct_patterns, dynamic_vars = self.get_dynamic_vars(fct_patterns)
+            fct_pattern, dynamic_vars = self.get_dynamic_vars(fct_pattern)
             dynamic[i] = np.transpose(dynamic_vars)
 
-            fct = lambda t: fct_patterns[:,int(t*self.nb_steps/self.maturity)]
+            print("B", dynamic_vars)
+
+            fct = lambda t: fct_pattern[:,int(t*self.nb_steps/self.maturity)]
             drift = lambda x, t: - self.periodic_coeff(t) * self.speed @ (x - fct(t))
 
             if start_X is None:

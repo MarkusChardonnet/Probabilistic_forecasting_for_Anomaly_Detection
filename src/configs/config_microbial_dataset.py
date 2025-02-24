@@ -385,7 +385,7 @@ config_novel_alpha_faith_pd_entero_genus_scaled = {
 
 config_synthetic_novel_alpha_faith_noabx_pd = {
     'model_name': "Microbiome_OrnsteinUhlenbeck",
-    'nb_paths': 100, 'nb_steps': 730,
+    'nb_paths': 300, 'nb_steps': 730,
     'dimension': 1, 'obs_perc': 0.01, 'S0': [0.],
     'maturity': 1., 'return_vol': False,
     'speed': 30.,
@@ -424,7 +424,7 @@ config_synthetic_novel_alpha_faith_noabx_pd = {
             "nb_vals": 3,
             "val_names": ["bd", "mixed", "fd"],
             "goem_law": [0.0125, 0.00625, 0.05],
-            "max_dur": [150, 640, 40],
+            "max_dur": [150, 360, 40],
             "factor": [1.05, 1., 0.95]
         }
     ],
@@ -458,6 +458,35 @@ config_synthetic_novel_alpha_faith_abx_pd = {
         'scale': 25,
         'decay': 3
     },
+    "dynamic_vars": [
+        {
+            "name": "delivery_mode",
+            "type": "static",
+            "nb_vals": 2,
+            "val_names": ["vaginal", "ceasarean"],
+            "probs": [0.9, 0.1],
+            "factor": [1.1, 0.9],
+            "duration": 180,
+        },
+        {
+            "name": "diet_weaning",
+            "type": "dynamic",
+            "nb_vals": 2,
+            "val_names": ["no", "yes"],
+            "goem_law": [0.0125, None],
+            "max_dur": [150, 1000],
+            "factor": [1.1, 0.9]
+        },
+        {
+            "name": "diet_milk",
+            "type": "dynamic",
+            "nb_vals": 3,
+            "val_names": ["bd", "mixed", "fd"],
+            "goem_law": [0.0125, 0.00625, 0.05],
+            "max_dur": [150, 360, 40],
+            "factor": [1.05, 1., 0.95]
+        }
+    ],
     'anomaly_params': {
         'type': 'cutoff',
         'occurence_law': occurence_law,

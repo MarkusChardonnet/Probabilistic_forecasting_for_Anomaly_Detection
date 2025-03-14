@@ -149,7 +149,7 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
         signature[idx,:,time] = host_data_signature[i]
         host_feature = np.zeros(dynamic_feature_digitized_size)
         c = 0
-        for f in range(nb_static_features):
+        for f in range(nb_dynamic_features):
             feature = host_data_dynamic[i,f]
             feature_idx = dynamic_feature_values[f].index(feature)
             host_feature[c + feature_idx] = 1.

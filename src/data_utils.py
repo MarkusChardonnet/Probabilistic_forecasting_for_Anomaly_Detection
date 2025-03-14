@@ -321,6 +321,151 @@ def create_AD_dataset(
     # stock_path dimension: [nb_paths, dimension, time_steps]
     return path, time_id
 
+def create_Microbiome_dataset(
+        generation_model_name="Microbiome_OrnsteinUhlenbeck", 
+        hyperparam_dict=hyperparam_default,
+        seed=0):
+    """
+    create a synthetic dataset using one of the stock-models
+    :param stock_model_name: str, name of the stockmodel, see _STOCK_MODELS
+    :param hyperparam_dict: dict, contains all needed parameters for the model
+            it can also contain additional options for dataset generation:
+                - masked    None, float or array of floats. if None: no mask is
+                            used; if float: lambda of the poisson distribution;
+                            if array of floats: gives the bernoulli probability
+                            for each coordinate to be observed
+                - timelag_in_dt_steps   None or int. if None: no timelag used;
+                            if int: number of (dt) steps by which the 1st
+                            coordinate is shifted to generate the 2nd coord.,
+                            this is used to generate mask accordingly (such that
+                            second coord. is observed whenever the informatin is
+                            already known from first coord.
+                - timelag_shift1    bool, if True: observe the second coord.
+                            additionally only at one step after the observation
+                            times of the first coord. with the given prob., if
+                            False: observe the second coord. additionally at all
+                            times within timelag_in_dt_steps after observation
+                            times of first coordinate, at each time with given
+                            probability (in masked); default: True
+    :param seed: int, random seed for the generation of the dataset
+    :return: str (path where the dataset is saved), int (time_id to identify
+                the dataset)
+    """
+
+    df_overview, data_overview = get_dataset_overview()
+
+    # np.random.seed(seed=seed)
+    hyperparam_dict['model_name'] = generation_model_name
+    original_desc = json.dumps(hyperparam_dict, sort_keys=True)
+    obs_perc = hyperparam_dict['obs_perc']
+    masked = False
+    masked_lambda = None
+    mask_probs = None
+    timelag_in_dt_steps = None
+    timelag_shift1 = True
+    if "masked" in hyperparam_dict and hyperparam_dict['masked'] is not None:
+        masked = True
+        if isinstance(hyperparam_dict['masked'], float):
+            masked_lambda = hyperparam_dict['masked']
+        elif isinstance(hyperparam_dict['masked'], (tuple, list)):
+            mask_probs = hyperparam_dict['masked']
+            assert len(mask_probs) == hyperparam_dict['dimension']
+        else:
+            raise ValueError("please provide a float (poisson lambda) "
+                             "in hyperparam_dict['masked']")
+        if "timelag_in_dt_steps" in hyperparam_dict:
+            timelag_in_dt_steps = hyperparam_dict["timelag_in_dt_steps"]
+        if "timelag_shift1" in hyperparam_dict:
+            timelag_shift1 = hyperparam_dict["timelag_shift1"]
+
+    generation_model = _STOCK_MODELS[generation_model_name](**hyperparam_dict)
+    # stock paths shape: [nb_paths, dim, time_steps]
+    final_paths, ad_labels, deter_paths, function, dt, exposure_steps, dynamic = generation_model.generate_paths()
+    size = final_paths.shape
+    observed_dates = np.random.random(size=(size[0], size[2]))
+    if "X_dependent_observation_prob" in hyperparam_dict:
+        print("use X_dependent_observation_prob")
+        prob_f = eval(hyperparam_dict["X_dependent_observation_prob"])
+        obs_perc = prob_f(final_paths)
+    observed_dates = (observed_dates < obs_perc)*1
+    observed_dates[:, 0] = 1
+    nb_obs = np.sum(observed_dates[:, 1:], axis=1)
+    if masked:
+        mask = np.zeros(shape=size)
+        mask[:,:,0] = 1
+        for i in range(size[0]):
+            for j in range(1, size[2]):
+                if observed_dates[i,j] == 1:
+                    if masked_lambda is not None: # dimensions are masked with joint poisson probability
+                        amount = min(1+np.random.poisson(masked_lambda),
+                                     size[1])
+                        observed = np.random.choice(
+                            size[1], amount, replace=False)
+                        mask[i, observed, j] = 1
+                    elif mask_probs is not None: # dimensions are masked independently (each dim has own bernouilli)
+                        for k in range(size[1]):
+                            mask[i, k, j] = np.random.binomial(1, mask_probs[k])
+        if timelag_in_dt_steps is not None: # ?????
+            mask_shift = np.zeros_like(mask[:,0,:])
+            mask_shift[:,timelag_in_dt_steps:] = mask[:,0,:-timelag_in_dt_steps]
+            if timelag_shift1:
+                mask_shift1 = np.zeros_like(mask[:,1,:])
+                mask_shift1[:,0] = 1
+                mask_shift1[:, 2:] = mask[:, 1, 1:-1]
+                mask[:,1,:] = np.maximum(mask_shift1, mask_shift)
+            else:
+                mult = copy.deepcopy(mask[:,0,:])
+                for i in range(1, timelag_in_dt_steps):
+                    mult[:,i:] = np.maximum(mult[:,i:], mask[:,0,:-i])
+                mask1 = mult*np.random.binomial(1, mask_probs[1], mult.shape)
+                mask[:,1,:] = np.maximum(mask1, mask_shift)
+        observed_dates = mask
+
+    # time_id = int(time.time())
+    time_id = 1
+    if len(df_overview) > 0:
+        time_id = np.max(df_overview["id"].values) + 1
+    file_name = '{}-{}'.format(generation_model_name, time_id)
+    path = '{}{}/'.format(training_data_path, file_name)
+    hyperparam_dict['dt'] = dt
+    desc = json.dumps(hyperparam_dict, sort_keys=True)
+    if os.path.exists(path):
+        print('Path already exists - abort')
+        raise ValueError
+    df_app = pd.DataFrame(
+        data=[[generation_model_name, time_id, original_desc]],
+        columns=['name', 'id', 'description']
+    )
+    df_overview = pd.concat([df_overview, df_app],
+                            ignore_index=True)
+    df_overview.to_csv(data_overview)
+
+    signature = final_paths
+    # dynamic = np.zeros((final_paths.shape[0], 0, final_paths.shape[2]))
+    static = np.zeros((final_paths.shape[0], 0, final_paths.shape[2]))
+    abx_observed = (np.any(ad_labels > 0, axis=1)).astype(int)
+    hosts = np.array([str(i+1) for i in range(final_paths.shape[0])])
+    abx_exposure = (np.cumsum(ad_labels, axis=1) > 0).astype(int)
+    abx_exposure[~observed_dates.astype(np.bool)] = 0
+
+    os.makedirs(path)
+    with open('{}data.npy'.format(path), 'wb') as f:
+        np.save(f, final_paths) # [nb_paths, dim, time_steps]
+        np.save(f, observed_dates) # [nb_paths, time_steps]
+        np.save(f, nb_obs)  # [nb_paths]
+        np.save(f, signature) # [nb_paths, dim, time_steps]
+        np.save(f, dynamic) # [nb_paths, dim_dynamic, time_steps]
+        np.save(f, static) # [nb_paths, dim_static, time_steps]
+        np.save(f, abx_observed) # [nb_paths]
+        np.save(f, hosts)  # [nb_paths]
+        np.save(f, abx_exposure)  # [nb_paths, time_steps]
+        np.save(f, exposure_steps)
+    with open('{}metadata.txt'.format(path), 'w') as f:
+        json.dump(hyperparam_dict, f, sort_keys=True)
+
+    # stock_path dimension: [nb_paths, dimension, time_steps]
+    return path, time_id
+
 def create_combined_dataset(
         stock_model_names=("BlackScholes", "OrnsteinUhlenbeck"),
         hyperparam_dicts=(hyperparam_default, hyperparam_default),
@@ -1292,8 +1437,12 @@ def main(arg):
             seed=FLAGS.seed)
     elif "LOB" in dataset_name:
         create_LOB_dataset(hyperparam_dict=dataset_params, seed=FLAGS.seed)
+    # elif "AD" in dataset_name or "Microbiome" in dataset_name:
     elif "AD" in dataset_name:
         create_AD_dataset(generation_model_name=dataset_name, hyperparam_dict=dataset_params,
+            seed=FLAGS.seed)
+    elif "Microbiome" in dataset_name:
+        create_Microbiome_dataset(generation_model_name=dataset_name, hyperparam_dict=dataset_params,
             seed=FLAGS.seed)
     else:
         create_dataset(

@@ -51,8 +51,6 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
     for feature in features:
         if feature.startswith(abx_feature_prefix):
             abx_features.append(feature)
-
-
     
     if isinstance(signature_features, str):
         signature_features_filename = signature_features
@@ -89,7 +87,7 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
             nb_static_features)], dtype=object)
     static_feature_values_counter = np.array(
         [len(static_feature_values[i]) for i in range(nb_static_features)])
-    static_feature_digitized_size = len(sum(static_feature_values, []))
+    static_feature_digitized_size = len(sum(static_feature_values, []))  # same as sum(static_feature_values_counter)
 
     dynamic_feature_values = np.array(
         [sorted(list(set(host_data_dynamic[:,i])), key=str) for i in range(

@@ -17,6 +17,7 @@ from absl import app
 from absl import flags
 import wget
 from zipfile import ZipFile
+from sklearn.model_selection import train_test_split
 
 from configs import config
 import synthetic_datasets
@@ -460,8 +461,58 @@ def create_Microbiome_dataset(
         np.save(f, hosts)  # [nb_paths]
         np.save(f, abx_exposure)  # [nb_paths, time_steps]
         np.save(f, exposure_steps)
-    with open('{}metadata.txt'.format(path), 'w') as f:
-        json.dump(hyperparam_dict, f, sort_keys=True)
+    # with open('{}metadata.txt'.format(path), 'w') as f:
+    #     json.dump(hyperparam_dict, f, sort_keys=True)
+
+    ### CREATE DATASET SUBDIVISION TRAIN/TEST/VAL ###
+    val_size = 0.2
+    which_split = ["all", "no_abx", "abx"]
+    abx_observed = abx_observed.astype(bool)
+    abx_train_idx, abx_val_idx = train_test_split(
+        np.where(abx_observed)[0], test_size=val_size,
+        random_state=seed)
+    noabx_train_idx, noabx_val_idx = train_test_split(
+        np.where(~abx_observed)[0], test_size=val_size,
+        random_state=seed)
+    for split in which_split:
+        if split == 'all':
+            train_idx = np.concatenate((abx_train_idx, noabx_train_idx))
+            val_idx = np.concatenate((abx_val_idx, noabx_val_idx))
+        elif split == 'no_abx':
+            train_idx = noabx_train_idx
+            val_idx = noabx_val_idx
+        elif split == 'abx':
+            train_idx = abx_train_idx
+            val_idx = abx_val_idx
+        else:
+            raise ValueError("Unknown split type")
+        
+        idx_dataset_path = os.path.join(path, split)
+        if not os.path.isdir(idx_dataset_path):
+            os.mkdir(idx_dataset_path)
+        with open(os.path.join(idx_dataset_path, 'train_idx.npy'), 'wb') as f:
+            np.save(f, train_idx)
+        with open(os.path.join(idx_dataset_path, 'val_idx.npy'), 'wb') as f:
+            np.save(f, val_idx)
+
+    metadata_dict = {"S0": None,
+            "dimension": final_paths.shape[1],
+            "dimension_dyn_feat": dynamic.shape[1],
+            "dimension_sig_feat" : static.shape[1],
+            "dt": 1 / float(final_paths.shape[2] - 1),
+            "maturity": 1.,
+            "model_name": "synthetic",
+            "nb_paths": final_paths.shape[0],
+            "nb_steps": final_paths.shape[2] - 1,
+            "period": 1.,
+            "starting_date": 0,
+            "seed": seed,
+            "val_size": val_size,
+            "dataset_name": "Microbiome_OrnsteinUhlenbeck",
+    }
+
+    with open(os.path.join(path, 'metadata.txt'), 'w') as f:
+        json.dump(metadata_dict, f, sort_keys=True)
 
     # stock_path dimension: [nb_paths, dimension, time_steps]
     return path, time_id

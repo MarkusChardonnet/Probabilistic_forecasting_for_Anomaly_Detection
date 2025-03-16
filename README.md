@@ -50,6 +50,12 @@ The probabilistic forecasting is based on the PD-NJODE framework. This framework
     python make_microbial_dataset.py --dataset_config=config_genus
     ```
 
+- Setting up the synthetic infant microbiome dataset :
+    ```bash
+    cd src
+    python data_utils.py --dataset_name=Microbiome_OrnsteinUhlenbeck --dataset_params=config_synthetic_novel_alpha_faith_pd
+    ```
+
 ### Training the probabilistic forecasting module
 
 Important flags:

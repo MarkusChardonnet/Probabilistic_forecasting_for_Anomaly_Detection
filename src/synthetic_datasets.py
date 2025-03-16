@@ -661,30 +661,30 @@ class Microbiome_OrnsteinUhlenbeck(StockModel):
         # if self.anomaly_type in ['scale', 'diffusion', 'noise', 'trend', 'cutoff']:
         if self.anomaly_type in ['cutoff']:
 
+            self.occ_prob = self.anomaly_params['occurence_prob']
             self.occ_pos_range = self.anomaly_params['occurence_pos_range']
             self.occ_pos_law = self.anomaly_params['occurence_pos_law']
             self.occ_len_range = self.anomaly_params['occurence_len_range']
             self.occ_len_law = self.anomaly_params['occurence_len_law']
-            # self.dim_occ_pos = self.anomaly_params['dim_occurence_pos']
-            # self.dim_occ_law = self.anomaly_params['dim_occurence_law']
-            # self.dim_occ_prob = self.anomaly_params['dim_occurence_prob']
             self.occ_law = self.anomaly_params['occurence_law']
             self.occ_law_param = self.anomaly_params['occurence_law_param']
+
+            r = np.random.binomial(1, self.occ_prob, 1)
+            if r == 0:
+                return None, None, []
 
             pos_list = []
             olr0, olr1 = self.occ_len_range
             opr0, opr1 = self.occ_pos_range
             if self.occ_law == 'single':
-                r = np.random.binomial(1, self.occ_law_param, 1)
-                if r == 1:
-                    if self.occ_len_law == 'uniform':
-                        length = float(np.random.uniform(olr0,olr1,1))
-                    if self.occ_pos_law == 'uniform':
-                        pos = float(np.random.uniform(opr0,opr1-length,1))
-                    for j in range(self.dimensions):
-                        l = []
-                        l.append((pos, pos+length))
-                        pos_list.append(l)
+                if self.occ_len_law == 'uniform':
+                    length = float(np.random.uniform(olr0,olr1,1))
+                if self.occ_pos_law == 'uniform':
+                    pos = float(np.random.uniform(opr0,opr1-length,1))
+                for j in range(self.dimensions):
+                    l = []
+                    l.append((pos, pos+length))
+                    pos_list.append(l)
             elif self.occ_law == 'geometric':
                 n = np.random.geometric(self.occ_law_param, 1)
                 pos_list = [[] for j in range(self.dimensions)]
@@ -849,8 +849,9 @@ class Microbiome_OrnsteinUhlenbeck(StockModel):
                     else:
                         x = self.nb_steps + 1
                     durations.append(durations[-1] + min(x, var["max_dur"][v]))
-                    var_values[durations[-2]:durations[-1],v] = 1
-                    fct_pattern[:,durations[-2]:durations[-1]] *= var["factor"][v]
+                    if durations[-2] < self.nb_steps:
+                        var_values[durations[-2]:min(durations[-1],self.nb_steps + 1),v] = 1
+                        fct_pattern[:,durations[-2]:durations[-1]] *= var["factor"][v]
                 dynamic_vars = np.concatenate([dynamic_vars, var_values],axis=1)
 
         return fct_pattern, dynamic_vars
@@ -891,8 +892,6 @@ class Microbiome_OrnsteinUhlenbeck(StockModel):
 
             fct_pattern, dynamic_vars = self.get_dynamic_vars(fct_pattern)
             dynamic[i] = np.transpose(dynamic_vars)
-
-            print("B", dynamic_vars)
 
             fct = lambda t: fct_pattern[:,int(t*self.nb_steps/self.maturity)]
             drift = lambda x, t: - self.periodic_coeff(t) * self.speed @ (x - fct(t))

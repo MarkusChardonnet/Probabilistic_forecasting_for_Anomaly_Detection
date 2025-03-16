@@ -412,20 +412,20 @@ config_synthetic_novel_alpha_faith_noabx_pd = {
         {
             "name": "diet_weaning",
             "type": "dynamic",
-            "nb_vals": 2,
-            "val_names": ["no", "yes"],
-            "goem_law": [0.0125, None],
-            "max_dur": [150, 1000],
-            "factor": [1.1, 0.9]
+            "nb_vals": 3,
+            "val_names": ["no", "yes", "unknown"],
+            "goem_law": [0.0125, None, None],
+            "max_dur": [150, 1000, 1000],
+            "factor": [0.9, 1.1, 1.]
         },
         {
             "name": "diet_milk",
             "type": "dynamic",
-            "nb_vals": 3,
-            "val_names": ["bd", "mixed", "fd"],
-            "goem_law": [0.0125, 0.00625, 0.05],
-            "max_dur": [150, 360, 40],
-            "factor": [1.05, 1., 0.95]
+            "nb_vals": 4,
+            "val_names": ["bd", "mixed", "fd", "unknown"],
+            "goem_law": [0.0125, 0.00625, 0.05, None],
+            "max_dur": [150, 360, 40, 1000],
+            "factor": [0.95, 1., 1.05, 1.]
         }
     ],
     'anomaly_params': {
@@ -433,8 +433,7 @@ config_synthetic_novel_alpha_faith_noabx_pd = {
     }
 }
 
-# occurence_law = 'single'
-# occurence_law_param = 1
+occurence_prob = 0.5
 occurence_law = 'geometric'
 occurence_law_param = 0.5
 occurence_pos_law = 'uniform'
@@ -444,7 +443,7 @@ occurence_len_range =  (0.05,0.25)
 
 config_synthetic_novel_alpha_faith_abx_pd = {
     'model_name': "Microbiome_OrnsteinUhlenbeck",
-    'nb_paths': 500, 'nb_steps': 730,
+    'nb_paths': 1000, 'nb_steps': 730,
     'dimension': 1, 'obs_perc': 0.01, 'S0': [0.],
     'maturity': 1., 'return_vol': False,
     'speed': 30., 
@@ -471,24 +470,84 @@ config_synthetic_novel_alpha_faith_abx_pd = {
         {
             "name": "diet_weaning",
             "type": "dynamic",
-            "nb_vals": 2,
-            "val_names": ["no", "yes"],
-            "goem_law": [0.0125, None],
-            "max_dur": [150, 1000],
-            "factor": [1.1, 0.9]
+            "nb_vals": 3,
+            "val_names": ["no", "yes", "unknown"],
+            "goem_law": [0.0125, None, None],
+            "max_dur": [150, 1000, 1000],
+            "factor": [0.9, 1.1, 1.]
         },
         {
             "name": "diet_milk",
             "type": "dynamic",
-            "nb_vals": 3,
-            "val_names": ["bd", "mixed", "fd"],
-            "goem_law": [0.0125, 0.00625, 0.05],
-            "max_dur": [150, 360, 40],
-            "factor": [1.05, 1., 0.95]
+            "nb_vals": 4,
+            "val_names": ["bd", "mixed", "fd", "unknown"],
+            "goem_law": [0.0125, 0.00625, 0.05, None],
+            "max_dur": [150, 360, 40, 1000],
+            "factor": [0.95, 1., 1.05, 1.]
         }
     ],
     'anomaly_params': {
         'type': 'cutoff',
+        'occurence_prob': 1,
+        'occurence_law': occurence_law,
+        'occurence_law_param': occurence_law_param,
+        'occurence_pos_law': occurence_pos_law,
+        'occurence_pos_range': occurence_pos_range,
+        'occurence_len_law': occurence_len_law,
+        'occurence_len_range': occurence_len_range,
+        'cutoff_level_law': 'uniform',
+        'cutoff_level_range': (0.2,0.5),
+    }
+}
+
+config_synthetic_novel_alpha_faith_pd = {
+    'model_name': "Microbiome_OrnsteinUhlenbeck",
+    'nb_paths': 1000, 'nb_steps': 730,
+    'dimension': 1, 'obs_perc': 0.01, 'S0': [0.],
+    'maturity': 1., 'return_vol': False,
+    'speed': 30., 
+    'noise': {'type': "gaussian", 'cov': 0.},
+    'volatility': {
+        'vol_value': 10.,
+    },
+    'initial_value': False,
+    'fct_params': {
+        'type': 'invexp',
+        'scale': 25,
+        'decay': 3
+    },
+    "dynamic_vars": [
+        {
+            "name": "delivery_mode",
+            "type": "static",
+            "nb_vals": 2,
+            "val_names": ["vaginal", "ceasarean"],
+            "probs": [0.9, 0.1],
+            "factor": [1.1, 0.9],
+            "duration": 180,
+        },
+        {
+            "name": "diet_weaning",
+            "type": "dynamic",
+            "nb_vals": 3,
+            "val_names": ["no", "yes", "unknown"],
+            "goem_law": [0.0125, None, None],
+            "max_dur": [150, 1000, 1000],
+            "factor": [0.9, 1.1, 1.]
+        },
+        {
+            "name": "diet_milk",
+            "type": "dynamic",
+            "nb_vals": 4,
+            "val_names": ["bd", "mixed", "fd", "unknown"],
+            "goem_law": [0.0125, 0.00625, 0.05, None],
+            "max_dur": [150, 360, 40, 1000],
+            "factor": [0.95, 1., 1.05, 1.]
+        }
+    ],
+    'anomaly_params': {
+        'type': 'cutoff',
+        'occurence_prob': occurence_prob,
         'occurence_law': occurence_law,
         'occurence_law_param': occurence_law_param,
         'occurence_pos_law': occurence_pos_law,

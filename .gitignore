@@ -20,7 +20,6 @@ src/configs/config_AD*.py
 src/wandb/
 
 test.py
-test.ipynb
 
 *.egg-info/
 .installed.cfg

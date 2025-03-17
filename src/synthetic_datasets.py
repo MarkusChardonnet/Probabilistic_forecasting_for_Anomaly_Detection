@@ -376,7 +376,549 @@ class StockModel:
             return_path=True, get_loss=True, weight=weight, M=M)
         return loss
     
+class Microbiome_OrnsteinUhlenbeck(StockModel):
 
+    def __init__(self, volatility, nb_paths, nb_steps, dimension, S0, noise,
+                 fct_params, anomaly_params, dynamic_vars, speed, maturity, sine_coeff=None, **kwargs):
+        if S0 is not None:
+            S0 = np.array(S0)
+        super(Microbiome_OrnsteinUhlenbeck, self).__init__(
+            volatility=volatility, nb_paths=nb_paths, drift=None,
+            nb_steps=nb_steps, S0=S0, maturity=maturity,
+            sine_coeff=sine_coeff
+        )
+        self.dynamic_vars = dynamic_vars
+        self.anomaly_params = anomaly_params
+        self.anomaly_type = self.anomaly_params['type']
+        self.get_fct_generator(fct_params)
+
+        # to change
+        if speed is not None:
+            if isinstance(speed, float):
+                self.speed = speed * np.eye(self.dimensions)
+            if isinstance(speed, list) and isinstance(speed[0], float):
+                self.speed = np.array(speed) * np.eye(self.dimensions)
+            if isinstance(speed, list) and isinstance(speed[0], list):
+                self.speed = np.array(speed)
+            assert(self.speed.shape == (self.dimensions, self.dimensions))
+        else:
+            NotImplementedError
+
+        if noise is not None:
+            self.noise_type = noise['type']
+            if isinstance(noise['cov'], float):
+                self.noise_cov = noise['cov'] * np.eye(self.dimensions)
+            if isinstance(noise['cov'], list) and isinstance(noise['cov'][0], float):
+                self.noise_cov = np.array(noise['cov']) * np.eye(self.dimensions)
+            if isinstance(noise['cov'], list) and isinstance(noise['cov'][0], list):
+                self.noise_cov = np.array(noise['cov'])
+            assert(self.noise_cov.shape == (self.dimensions, self.dimensions))
+        else:
+            self.noise_cov = np.zeros((self.dimensions, self.dimensions))
+
+        if volatility is not None:
+            if isinstance(volatility['vol_value'], float):
+                self.volatility = volatility['vol_value'] * np.eye(self.dimensions)
+            if isinstance(volatility['vol_value'], list) and isinstance(volatility['vol_value'][0], float):
+                self.volatility = np.array(volatility['vol_value']) * np.eye(self.dimensions)
+            if isinstance(volatility['vol_value'], list) and isinstance(volatility['vol_value'][0], list):
+                self.volatility = np.array(volatility['vol_value'])
+            assert(self.noise_cov.shape == (self.dimensions, self.dimensions))
+        else:
+            self.volatility = np.zeros((self.dimensions, self.dimensions))
+
+    def get_fct_generator(self, fct_params):
+
+        self.fct_type = fct_params['type']
+
+        if self.fct_type == 'invexp':
+            self.fct_scale = fct_params['scale']
+            self.fct_decay = fct_params['decay']
+            self.fct = [lambda x : self.fct_scale * (1 - np.exp(-self.fct_decay * x)) for j in range(self.dimensions)]
+
+        return 0
+
+
+    def get_components(self):
+
+        if self.fct_type == 'invexp':
+            # same procedure as for RMDF, generate already array
+            # times = np.expand_dims(np.arange(self.nb_steps+1), axis=1)
+            times = np.expand_dims(np.linspace(0., 1., self.nb_steps + 1), axis=1)
+            self.fct_pattern = np.transpose(np.concatenate([self.fct[j](times)
+                                                                for j in range(self.dimensions)],axis=1),axes=(1,0))
+
+        self.ad_labels = np.zeros(self.nb_steps + 1)
+
+        if self.S0 is None:
+            self.S0 = self.fct_pattern[:,0]
+
+        # self.fct = lambda t: self.fct_patterns[:,int(t*self.nb_steps/self.maturity)]
+        # self.anomalies = lambda t: self.ad_labels[int(t*self.nb_steps/self.maturity)]
+        # self.drift = lambda x, t: - self.periodic_coeff(t) * self.speed @ (x - self.fct(t))
+        self.diffusion = lambda x, t: self.volatility @ np.sqrt(np.maximum(x,1e-5))
+        if self.noise_type == 'gaussian':
+            def noise(x, t):
+                if np.all(self.noise_cov == 0):
+                    return np.zeros(self.dimensions)
+                eps = np.random.normal(x, x, self.dimensions)
+                return self.noise_cov @ eps
+            self.noise = noise
+
+    
+    def compute_cond_exp(self, times, time_ptr, X, obs_idx, delta_t, T, start_X,
+                         n_obs_ot, return_path=True, get_loss=False,
+                         weight=0.5, store_and_use_stored=False,
+                         start_time=None, functions = None,
+                         **kwargs):
+        
+        if return_path and store_and_use_stored:
+            if get_loss:
+                if self.path_t is not None and self.loss is not None:
+                    return self.loss, self.path_t, self.path_y
+            else:
+                if self.path_t is not None:
+                    return self.loss, self.path_t, self.path_y
+        elif store_and_use_stored:
+            if get_loss:
+                if self.loss is not None:
+                    return self.loss
+
+        y = start_X
+        batch_size = start_X.shape[0]
+
+        current_time = 0.0
+        if start_time:
+            current_time = start_time
+
+        loss = 0
+
+        if return_path:
+            if start_time:
+                path_t = []
+                path_y = []
+            else:
+                path_t = [0.]
+                path_y = [y]
+
+        last_times = current_time * np.ones(batch_size)
+
+        for i, obs_time in enumerate(times):
+            # the following is needed for the combined stock model datasets
+            if obs_time > T + 1e-10*delta_t:
+                break
+            if obs_time <= current_time:
+                continue
+
+            # Calculate conditional expectation stepwise
+            while current_time < (obs_time - 1e-10*delta_t):
+                if current_time < obs_time - delta_t:
+                    delta_t_ = delta_t
+                else:
+                    delta_t_ = obs_time - current_time
+
+                current_time = current_time + delta_t_
+                diff_t = current_time * np.ones(batch_size) - last_times
+                y = self.next_cond_moments(y, diff_t, delta_t, current_time, functions)
+
+                # Storing the conditional expectation
+                if return_path:
+                    path_t.append(current_time)
+                    path_y.append(y)
+
+            # Reached an observation - set new interval
+            start = time_ptr[i]
+            end = time_ptr[i + 1]
+            X_obs = X[start:end]
+            i_obs = obs_idx[start:end]
+            last_times[i_obs] = current_time * np.ones(len(i_obs))
+
+            # Update h. Also updating loss, tau and last_X
+            Y_bj = y
+            temp = copy.copy(y)
+            temp[i_obs] = X_obs
+            y = temp
+            Y = y
+
+            if get_loss:
+                loss = loss + compute_loss(X_obs=X_obs, Y_obs=Y[i_obs],
+                                           Y_obs_bj=Y_bj[i_obs],
+                                           n_obs_ot=n_obs_ot[i_obs],
+                                           batch_size=batch_size, weight=weight)
+
+            if return_path:
+                path_t.append(obs_time)
+                path_y.append(y)
+
+        last_time = current_time
+        # after every observation has been processed, propagating until T
+        while current_time < T - 1e-10 * delta_t:
+            if current_time < T - delta_t:
+                delta_t_ = delta_t
+            else:
+                delta_t_ = T - current_time
+            
+            '''
+            y1 = y[:,:self.dimensions]
+            y1 = self.next_cond_exp(y1, delta_t_, current_time)
+            current_time = current_time + delta_t_
+            diff_t = current_time * np.ones(batch_size) - last_times
+            
+            cond_moments = self.cond_moments(cond_exp=y1, diff_t=diff_t, current_t=current_time, 
+                                        functions=functions)
+            y = np.concatenate([y1,cond_moments], axis=1)
+            '''
+            current_time = current_time + delta_t_
+            diff_t = current_time * np.ones(batch_size) - last_times
+            y = self.next_cond_moments(y, diff_t, delta_t, current_time, functions)
+            
+            # Storing the predictions.
+            if return_path:
+                path_t.append(current_time)
+                path_y.append(y)
+
+        if get_loss and store_and_use_stored:
+            self.loss = loss
+        if return_path and store_and_use_stored:
+            self.path_t = np.array(path_t)
+            self.path_y = np.array(path_y)
+
+        # print(np.array(path_y)[:,0,1] - np.power(np.array(path_y)[:,0,0],2))
+
+        if return_path:
+            # path dimension: [time_steps, batch_size, output_size]
+            return loss, np.array(path_t), np.array(path_y)
+        else:
+            return loss
+    
+        
+    def get_optimal_loss(self, times, time_ptr, X, obs_idx, delta_t, T, start_X,
+                         n_obs_ot, weight=0.5, M=None, mult=None):
+
+        if mult is not None and mult > 1:
+            bs, dim = start_X.shape
+            _dim = round(dim / mult)
+            X = X[:, :_dim]
+            start_X = start_X[:, :_dim]
+            if M is not None:
+                M = M[:, :_dim]
+
+        loss, _, _ = self.compute_cond_exp(
+            times, time_ptr, X, obs_idx, delta_t, T, start_X, n_obs_ot,
+            return_path=True, get_loss=True, weight=weight, M=M)
+        return loss
+
+    def next_cond_moments(self, y, diff_t, delta_t, current_t, functions=None):  # and in higher dimension ????
+
+        self.get_components()
+        if functions is None:
+            functions = ['id']
+
+        dim = self.dimensions
+        batch_size = y.shape[0]
+
+        res = np.zeros((batch_size, dim * len(functions)))
+
+        factor = np.expand_dims(self.periodic_coeff(current_t) *  self.speed, axis=0)
+        diff_t = np.expand_dims(diff_t, axis=(1,2))
+        vol = np.matmul(self.volatility, np.transpose(self.volatility)).reshape(1, dim, dim)
+
+        
+        cond_exp_integral = delta_t * np.matmul(np.tile(factor, (batch_size, 1, 1)), 
+                                                np.tile(np.expand_dims(self.fct(current_t),axis=(0,2)), 
+                                                        (batch_size, 1, 1))).reshape(batch_size,dim)
+
+        mat_diff_t = - np.tile(factor, (batch_size, 1, 1)) * np.tile(diff_t, (1, dim, dim))
+        exp_term_diff_t = np.concatenate([expm(m).reshape(1,dim,dim) for m in mat_diff_t], axis=0)
+        cond_var_add = np.matmul(np.matmul(exp_term_diff_t, np.tile(vol, (batch_size, 1, 1))), exp_term_diff_t.transpose((0,2,1)))
+        cond_var_add = delta_t * np.diagonal(cond_var_add, axis1=1, axis2=2)
+
+        mat_delta_t = - np.tile(factor, (batch_size, 1, 1)) * np.tile(np.array([delta_t]).reshape(1,1,1), (batch_size, dim, dim))
+        exp_term_delta_t = np.concatenate([expm(m).reshape(1,dim,dim) for m in mat_delta_t], axis=0)
+
+        which = np.argmax(np.array(functions) == 'id')
+        prev_con_exp = y[:,dim*which:dim*(which+1)]
+        cond_exp = np.matmul(exp_term_delta_t, prev_con_exp.reshape(batch_size,dim,1)).reshape(batch_size,dim) + cond_exp_integral
+        res[:,dim*which:dim*(which+1)] = cond_exp
+
+        for i,f in enumerate(functions):
+            if f == "power-2":
+                #cond_var = y[:,(i+1)*dim:(i+2)*dim] - np.power(prev_con_exp,2)
+                cond_var = y[:,i*dim:(i+1)*dim] - np.power(prev_con_exp,2)
+                cond_var += cond_var_add
+                cond_exp_2 = cond_var + np.power(cond_exp, 2)
+                #res[:,(i+1)*dim:(i+2)*dim] = cond_exp_2
+                res[:,i*dim:(i+1)*dim] = cond_exp_2
+        return res
+
+    def get_anomaly_fcts(self):
+
+        self.spike = False
+
+        if self.anomaly_type is None:
+            return None, None, []
+
+        # if self.anomaly_type in ['scale', 'diffusion', 'noise', 'trend', 'cutoff']:
+        if self.anomaly_type in ['cutoff']:
+            self.occ_prob = self.anomaly_params['occurence_prob']
+            self.occ_pos_range = self.anomaly_params['occurence_pos_range']
+            self.occ_pos_law = self.anomaly_params['occurence_pos_law']
+            self.occ_len_range = self.anomaly_params['occurence_len_range']
+            self.occ_len_law = self.anomaly_params['occurence_len_law']
+            self.occ_law = self.anomaly_params['occurence_law']
+            self.occ_law_param = self.anomaly_params['occurence_law_param']
+
+            r = np.random.binomial(1, self.occ_prob, 1)
+            if r == 0:
+                return None, None, []
+
+            pos_list = []
+            olr0, olr1 = self.occ_len_range
+            opr0, opr1 = self.occ_pos_range
+            if self.occ_law == 'single':
+                if self.occ_len_law == 'uniform':
+                    length = float(np.random.uniform(olr0,olr1,1))
+                if self.occ_pos_law == 'uniform':
+                    pos = float(np.random.uniform(opr0,opr1-length,1))
+                for j in range(self.dimensions):
+                    l = []
+                    l.append((pos, pos+length))
+                    pos_list.append(l)
+
+            elif self.occ_law == 'geometric':
+                n = np.random.geometric(self.occ_law_param, 1)
+                pos_list = [[] for j in range(self.dimensions)]
+                for o in range(int(n)):
+                    if self.occ_len_law == 'uniform':
+                        length = float(np.random.uniform(olr0,olr1,1))
+                    if self.occ_pos_law == 'uniform':
+                        pos = float(np.random.uniform(opr0,opr1-length,1))
+                    for j in range(self.dimensions):
+                        pos_list[j].append((pos, pos+length))
+
+            exposure_steps = [int(p[0] * self.nb_steps) for p in pos_list[0]]
+        
+        # if self.anomaly_type == 'diffusion':
+        #     ad_labels = copy.copy(self.ad_labels)
+
+        #     diff_change = self.anomaly_params['diffusion_change']
+        #     diff_deviation = self.anomaly_params['diffusion_deviation']
+
+        #     diffusion_pattern = np.tile(np.expand_dims(self.volatility, 0), (self.nb_steps+1,1,1))
+        #     for j in range(self.dimensions):
+        #         for p in pos_list[j]:
+        #             p0 = int(p[0] * self.nb_steps)
+        #             p1 = int(p[1] * self.nb_steps)
+        #             if diff_change == 'multiplicative':
+        #                 diffusion_pattern[p0:p1,j,j] *= diff_deviation
+        #             elif diff_change == 'additive':
+        #                 diffusion_pattern[p0:p1,j,j] += diff_deviation
+        #             ad_labels[j,p0:p1] = 1
+
+        #     anomalies = lambda t: ad_labels[:,int(t*self.nb_steps/self.maturity)]
+        #     diffusion = lambda x, t: diffusion_pattern[int(t*self.nb_steps/self.maturity)]
+                
+        #     return None, diffusion, None, anomalies, exposure_steps
+        
+        # if self.anomaly_type == 'noise':
+        #     ad_labels = copy.copy(self.ad_labels)
+
+        #     noise_change = self.anomaly_params['noise_change']
+        #     noise_deviation = self.anomaly_params['noise_deviation']
+                
+        #     noise_cov_pattern = np.tile(np.expand_dims(self.noise_cov, 0), (self.nb_steps+1,1,1))
+        #     for j in range(self.dimensions):
+        #         for p in pos_list[j]:
+        #             p0 = int(p[0] * self.nb_steps)
+        #             p1 = int(p[1] * self.nb_steps)
+        #             if noise_change == 'multiplicative':
+        #                 noise_cov_pattern[p0:p1,j,j] *= noise_deviation
+        #             elif noise_change == 'additive':
+        #                 noise_cov_pattern[p0:p1,j,j] += noise_deviation
+        #             ad_labels[j,p0:p1] = 1
+
+        #     anomalies = lambda t: ad_labels[:,int(t*self.nb_steps/self.maturity)]
+        #     noise = lambda x, t: noise_cov_pattern[int(t*self.nb_steps/self.maturity)] @ np.random.normal(0, 1, self.dimensions)
+                
+        #     return None, None, noise, anomalies, exposure_steps
+        
+        # elif self.anomaly_type == 'scale':
+
+        #     fct_patterns = copy.copy(self.fct_patterns)
+        #     ad_labels = copy.copy(self.ad_labels)
+
+        #     scale_level_law = self.anomaly_params['scale_level_law']
+
+        #     for j in range(self.dimensions):
+        #         for p in pos_list[j]:
+        #             p0 = int(p[0] * self.nb_steps)
+        #             p1 = int(p[1] * self.nb_steps)
+        #             if scale_level_law == 'uniform':
+        #                 c0, c1 = self.anomaly_params['scale_level_range']
+        #                 scale_level = float(np.random.uniform(c0,c1,1))
+        #             fct_patterns[j,p0:p1] *= scale_level
+        #             ad_labels[j,p0:p1] = 1
+
+        #     seasons = lambda t: fct_patterns[:,int(t*self.nb_steps/self.maturity)]
+        #     anomalies = lambda t: ad_labels[:,int(t*self.nb_steps/self.maturity)]
+        #     drift = lambda x, t: - self.periodic_coeff(t) * self.speed @ (x - seasons(t))
+
+        #     return drift, None, None, anomalies, exposure_steps
+        
+        # elif self.anomaly_type == 'trend':
+
+        #     fct_patterns = copy.copy(self.fct_patterns)
+        #     ad_labels = copy.copy(self.ad_labels)
+
+        #     trend_level_law = self.anomaly_params['trend_level_law']
+
+        #     for j in range(self.dimensions):
+        #         for p in pos_list[j]:
+        #             p0 = int(p[0] * self.nb_steps)
+        #             p1 = int(p[1] * self.nb_steps)
+        #             if trend_level_law == 'uniform':
+        #                 c0, c1 = self.anomaly_params['trend_level_range']
+        #                 trend_level = float(np.random.uniform(c0,c1,1))
+        #                 if self.anomaly_params['trend_level_sign'] == 'both':
+        #                     s = np.random.binomial(1, 0.5, 1)
+        #                     if s == 0:
+        #                         trend_level = -trend_level
+        #                 elif self.anomaly_params['trend_level_sign'] == 'minus':
+        #                     trend_level = -trend_level
+
+        #             length = p1-p0
+        #             fct_patterns[j,p0:p1] += np.arange(length) * trend_level / self.nb_steps
+        #             ad_labels[j,p0:p1] = 1
+
+        #     seasons = lambda t: fct_patterns[:,int(t*self.nb_steps/self.maturity)]
+        #     anomalies = lambda t: ad_labels[:,int(t*self.nb_steps/self.maturity)]
+        #     drift = lambda x, t: - self.periodic_coeff(t) * self.speed @ (x - seasons(t))
+
+        #     return drift, None, None, anomalies, exposure_steps
+        
+        if self.anomaly_type == 'cutoff':
+
+            fct_pattern = copy.copy(self.fct_pattern)
+            ad_labels = copy.copy(self.ad_labels)
+
+            cutoff_level_law = self.anomaly_params['cutoff_level_law']
+
+            for j in range(self.dimensions):
+                for p in pos_list[j]:
+                    p0 = int(p[0] * self.nb_steps)
+                    p1 = int(p[1] * self.nb_steps)
+                    if cutoff_level_law == 'uniform':
+                        c0, c1 = self.anomaly_params['cutoff_level_range']
+                        cutoff_level = float(np.random.uniform(c0,c1,1))
+                    elif cutoff_level_law == 'current_level':
+                        cutoff_level = self.fct_pattern(p[0])
+                    fct_pattern[j,p0:p1] = cutoff_level * fct_pattern[j,p0]
+                    ad_labels[p0:p1] = 1
+
+            # seasons = lambda t: fct_patterns[:,int(t*self.nb_steps/self.maturity)]
+            # anomalies = lambda t: ad_labels[int(t*self.nb_steps/self.maturity)]
+            # drift = lambda x, t: - self.periodic_coeff(t) * self.speed @ (x - seasons(t))
+
+            # return drift, None, None, anomalies, exposure_steps
+
+            return fct_pattern, ad_labels, exposure_steps
+        
+
+    def get_dynamic_vars(self, fct_pattern):
+
+        dynamic_vars = np.zeros((self.nb_steps + 1, 0))
+
+        for var in self.dynamic_vars:
+            if var["type"] == "static":
+                x = np.random.random()
+                s = var["probs"][0]
+                v = 0
+                while s < x:
+                    v += 1
+                    s += var["probs"][v]
+                var_values = np.zeros((self.nb_steps + 1, var["nb_vals"]))
+                var_values[:,v] = 1
+                fct_pattern[:,:var["duration"]] *= var["factor"][v]
+                dynamic_vars = np.concatenate([dynamic_vars, var_values],axis=1)
+            if var["type"] == "dynamic":
+                durations = [0]
+                var_values = np.zeros((self.nb_steps + 1, var["nb_vals"]))
+                for v in range(var["nb_vals"]):
+                    if var["goem_law"][v] is not None:
+                        x = np.random.geometric(var["goem_law"][v])
+                    else:
+                        x = self.nb_steps + 1
+                    durations.append(durations[-1] + min(x, var["max_dur"][v]))
+                    if durations[-2] < self.nb_steps:
+                        var_values[durations[-2]:min(durations[-1],self.nb_steps + 1),v] = 1
+                        fct_pattern[:,durations[-2]:durations[-1]] *= var["factor"][v]
+
+                dynamic_vars = np.concatenate([dynamic_vars, var_values],axis=1)
+
+        return fct_pattern, dynamic_vars
+
+
+    def generate_paths(self, start_X=None, no_S0=True):
+        # Diffusion of the variance: dv = -k(v-season(t))*dt + vol*dW
+        if no_S0:
+            self.S0 = None
+
+        self.get_components()
+
+        spot_paths = np.empty((self.nb_paths, self.dimensions, self.nb_steps + 1))
+        deter_paths = np.empty_like(spot_paths)
+        final_paths = np.empty_like(spot_paths)
+        ad_label_paths = np.zeros((self.nb_paths, self.nb_steps + 1))
+        path_fct_patterns = np.empty_like(spot_paths)
+        path_exposure_steps = np.empty(self.nb_paths, dtype=object)
+        dynamic = np.zeros((self.nb_paths, sum([var["nb_vals"] for var in self.dynamic_vars]), self.nb_steps + 1))
+
+        dt = self.maturity / self.nb_steps
+
+        if start_X is not None:
+            spot_paths[:, :, 0] = start_X
+        for i in range(self.nb_paths):
+            if i % 100 == 0 and i != 0:
+                print("Generated {} paths".format(i))
+
+            fct_pattern, ad_labels, exposure_steps = self.get_anomaly_fcts()
+            diffusion = self.diffusion
+            noise = self.noise
+            if ad_labels is None:
+                ad_labels = self.ad_labels
+            anomalies = lambda t: ad_labels[int(t*self.nb_steps/self.maturity)]
+            if fct_pattern is None:
+                fct_pattern = copy.copy(self.fct_pattern)
+            path_exposure_steps[i] = exposure_steps
+
+            fct_pattern, dynamic_vars = self.get_dynamic_vars(fct_pattern)
+            dynamic[i] = np.transpose(dynamic_vars)
+
+            fct = lambda t: fct_pattern[:,int(t*self.nb_steps/self.maturity)]
+            drift = lambda x, t: - self.periodic_coeff(t) * self.speed @ (x - fct(t))
+
+            if start_X is None:
+                spot_paths[i, :, 0] = self.S0
+                deter_paths[i, :, 0] = self.S0
+                final_paths[i, :, 0] = (spot_paths[i, :, 0] + noise(spot_paths[i, :, 0], (0) * dt)) # @ eps)
+                path_fct_patterns[i, :, 0] = (fct(0.))
+            for k in range(1, self.nb_steps + 1):
+                random_numbers_bm = np.random.normal(0, 1, self.dimensions)
+                dW = random_numbers_bm * np.sqrt(dt)
+                spot_paths[i, :, k] = (
+                        spot_paths[i, :, k - 1]
+                        + drift(spot_paths[i, :, k - 1], (k - 1) * dt) * dt
+                        + diffusion(spot_paths[i, :, k - 1], (k) * dt) @ dW)
+                final_paths[i, :, k] = (spot_paths[i, :, k] + noise(spot_paths[i, :, k], (k) * dt)) # @ eps)
+                deter_paths[i, :, k] = (
+                        deter_paths[i, :, k - 1]
+                        + drift(deter_paths[i, :, k - 1], (k - 1) * dt) * dt)
+                path_fct_patterns[i,:,k] = (fct((k - 1) * dt))
+                ad_label_paths[i, k] = (anomalies((k - 1) * dt))
+        
+        # stock_path, final_paths, deter_paths, seasonal_function, ad_labels : [nb_paths, dimension, time_steps]
+        # return season_pattern, ad_labels
+        return final_paths, ad_label_paths, deter_paths, path_fct_patterns, dt, path_exposure_steps, dynamic
 
 class AD_OrnsteinUhlenbeckWithSeason(StockModel):
 
@@ -2564,6 +3106,7 @@ DATASETS = {
     # "AD_GLISSM": AD_GLISSM,
     # "AD_TSAGen": AD_TSAGen,
     "AD_OrnsteinUhlenbeckWithSeason": AD_OrnsteinUhlenbeckWithSeason,
+    "Microbiome_OrnsteinUhlenbeck": Microbiome_OrnsteinUhlenbeck,
     "BlackScholes": BlackScholes,
     "Heston": Heston,
     "OrnsteinUhlenbeck": OrnsteinUhlenbeck,

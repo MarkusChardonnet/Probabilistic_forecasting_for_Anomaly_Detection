@@ -50,6 +50,12 @@ The probabilistic forecasting is based on the PD-NJODE framework. This framework
     python make_microbial_dataset.py --dataset_config=config_genus
     ```
 
+- Setting up the synthetic infant microbiome dataset :
+    ```bash
+    cd src
+    python data_utils.py --dataset_name=Microbiome_OrnsteinUhlenbeck --dataset_params=config_synthetic_novel_alpha_faith_pd
+    ```
+
 ### Training the probabilistic forecasting module
 
 Important flags:
@@ -241,7 +247,7 @@ conda create --name score_eval numpy pandas matplotlib seaborn scipy ipython ipy
 conda activate score_eval
 pip install -e .
 ````
-With the same conda environment, a score time horizon reliability analysis can be performed that evaluates for how long the predicted scores remain constant on the no antibiotics scores.
+With the same conda environment, a score time horizon reliability analysis can be performed that evaluates for how long the predicted scores remain constant on the no antibiotics scores (notebook `results/analyse_t_horizon_reliability.ipynb`) and the predictive performance of the inferred anomaly scores can be compared to baseline predictions in notebook `results/evaluate_predictions.ipynb`. Also, resulting anomaly scores can be compared to matched alpha diversity values in notebook `evaluate_matched_alpha.ipynb` and individual score trajectories can be explored in `evaluate_indiv_score_increase.ipynb`.
 
 # TODOs and Possible Improvements
 - [x] different AD scoring method: using coordinate wise p-values based on beta distribution 
@@ -257,3 +263,11 @@ With the same conda environment, a score time horizon reliability analysis can b
 - [x] implement plotting of selected (instead of all) dists
 - [x] run
 
+**14.03.2025**:
+- [x] fix the bug in the real dataset generation that caused the dynamic features not to be used
+- [] rerun model training with fixed bug in dataset generation that caused dynamic features not to be used
+- [] fix the synthetic dataset generation to have the same number of dynamic features as the real dataset
+- [] fix the synthetic dataset generation to have same type of output as the real dataset
+- [] train model on synthetic dataset (of same size as real one) and evaluate it on a very large synthetic dataset to have better statistics
+- [] maybe: train model on larger synthetic dataset and see whether it performs better on the same evaluation dataset as above
+- [] maybe (as followup work?): train model first on large synthetic dataset and then on real dataset to see whether it can learn the real dataset better

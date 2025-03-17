@@ -461,9 +461,7 @@ def create_Microbiome_dataset(
         np.save(f, hosts)  # [nb_paths]
         np.save(f, abx_exposure)  # [nb_paths, time_steps]
         np.save(f, exposure_steps)
-    # with open('{}metadata.txt'.format(path), 'w') as f:
-    #     json.dump(hyperparam_dict, f, sort_keys=True)
-
+        
     ### CREATE DATASET SUBDIVISION TRAIN/TEST/VAL ###
     val_size = 0.2
     which_split = ["all", "no_abx", "abx"]

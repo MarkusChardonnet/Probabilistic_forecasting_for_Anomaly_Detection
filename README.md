@@ -263,3 +263,11 @@ With the same conda environment, a score time horizon reliability analysis can b
 - [x] implement plotting of selected (instead of all) dists
 - [x] run
 
+**14.03.2025**:
+- [x] fix the bug in the real dataset generation that caused the dynamic features not to be used
+- [] rerun model training with fixed bug in dataset generation that caused dynamic features not to be used
+- [] fix the synthetic dataset generation to have the same number of dynamic features as the real dataset
+- [] fix the synthetic dataset generation to have same type of output as the real dataset
+- [] train model on synthetic dataset (of same size as real one) and evaluate it on a very large synthetic dataset to have better statistics
+- [] maybe: train model on larger synthetic dataset and see whether it performs better on the same evaluation dataset as above
+- [] maybe (as followup work?): train model first on large synthetic dataset and then on real dataset to see whether it can learn the real dataset better

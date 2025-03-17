@@ -660,7 +660,6 @@ class Microbiome_OrnsteinUhlenbeck(StockModel):
 
         # if self.anomaly_type in ['scale', 'diffusion', 'noise', 'trend', 'cutoff']:
         if self.anomaly_type in ['cutoff']:
-
             self.occ_prob = self.anomaly_params['occurence_prob']
             self.occ_pos_range = self.anomaly_params['occurence_pos_range']
             self.occ_pos_law = self.anomaly_params['occurence_pos_law']
@@ -685,6 +684,7 @@ class Microbiome_OrnsteinUhlenbeck(StockModel):
                     l = []
                     l.append((pos, pos+length))
                     pos_list.append(l)
+
             elif self.occ_law == 'geometric':
                 n = np.random.geometric(self.occ_law_param, 1)
                 pos_list = [[] for j in range(self.dimensions)]
@@ -852,6 +852,7 @@ class Microbiome_OrnsteinUhlenbeck(StockModel):
                     if durations[-2] < self.nb_steps:
                         var_values[durations[-2]:min(durations[-1],self.nb_steps + 1),v] = 1
                         fct_pattern[:,durations[-2]:durations[-1]] *= var["factor"][v]
+
                 dynamic_vars = np.concatenate([dynamic_vars, var_values],axis=1)
 
         return fct_pattern, dynamic_vars

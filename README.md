@@ -54,6 +54,7 @@ The probabilistic forecasting is based on the PD-NJODE framework. This framework
     ```bash
     cd src
     python data_utils.py --dataset_name=Microbiome_OrnsteinUhlenbeck --dataset_params=config_synthetic_novel_alpha_faith_pd
+    python data_utils.py --dataset_name=Microbiome_OrnsteinUhlenbeck --dataset_params=config_synthetic_novel_alpha_faith_pd_test
     ```
 
 ### Training the probabilistic forecasting module
@@ -265,6 +266,7 @@ With the same conda environment, a score time horizon reliability analysis can b
 - [x] implement coordinate wise scoring
 - [x] implement plotting of selected (instead of all) dists
 - [x] run
+- [] maybe try a dataset with static instead of dynamic features
 
 **14.03.2025**:
 - [x] fix the bug in the real dataset generation that caused the dynamic features not to be used
@@ -274,3 +276,9 @@ With the same conda environment, a score time horizon reliability analysis can b
 - [] train model on synthetic dataset (of same size as real one) and evaluate it on a very large synthetic dataset to have better statistics
 - [] maybe: train model on larger synthetic dataset and see whether it performs better on the same evaluation dataset as above
 - [] maybe (as followup work?): train model first on large synthetic dataset and then on real dataset to see whether it can learn the real dataset better
+- [x] make synthetic data generation deterministic with the seed
+- [] implement a way to retrain model
+- [] implement a way to evaluate model on new dataset
+
+
+

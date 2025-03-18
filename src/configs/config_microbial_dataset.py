@@ -1,3 +1,5 @@
+import copy
+
 config_genus = {
     'dataset': 'ft_vat19_anomaly_v20240105_genus.tsv',
     'dataset_name': 'microbial_genus',
@@ -245,6 +247,7 @@ config_div_alpha_faith_pd_5 = {
 }
 
 # ------------------------------------------------------------------------------
+# this is the final dataset used for the paper
 config_novel_alpha_faith_pd = {
     'dataset': 'ft_vat19_anomaly_v20240806_entero_family.tsv',
     'dataset_name': 'microbial_novel_alpha_faith_pd',
@@ -377,15 +380,15 @@ config_novel_alpha_faith_pd_entero_genus_scaled = {
     'compute_scaling_on': 'train-noabx',
 }
 
-# ------------------------------------------------------------------------------
-#TODO: maybe try a dataset with static instead of dynamic features
 
 # ------------------------------------------------------------------------------
 # Synthetic data
+# ------------------------------------------------------------------------------
 
 config_synthetic_novel_alpha_faith_noabx_pd = {
     'model_name': "Microbiome_OrnsteinUhlenbeck",
-    'nb_paths': 300, 'nb_steps': 730,
+    'seed': 123,
+    'nb_paths': 300, 'nb_steps': 1162,
     'dimension': 1, 'obs_perc': 0.01, 'S0': [0.],
     'maturity': 1., 'return_vol': False,
     'speed': 30.,
@@ -443,7 +446,7 @@ occurence_len_range =  (0.05,0.25)
 
 config_synthetic_novel_alpha_faith_abx_pd = {
     'model_name': "Microbiome_OrnsteinUhlenbeck",
-    'nb_paths': 1000, 'nb_steps': 730,
+    'nb_paths': 1000, 'nb_steps': 1162,
     'dimension': 1, 'obs_perc': 0.01, 'S0': [0.],
     'maturity': 1., 'return_vol': False,
     'speed': 30., 
@@ -502,7 +505,9 @@ config_synthetic_novel_alpha_faith_abx_pd = {
 
 config_synthetic_novel_alpha_faith_pd = {
     'model_name': "Microbiome_OrnsteinUhlenbeck",
-    'nb_paths': 1000, 'nb_steps': 730,
+    'nb_paths': 300, 'nb_steps': 1162,
+    'val_size': 0.2,
+    'which_split': ["all", "no_abx"],
     'dimension': 1, 'obs_perc': 0.01, 'S0': [0.],
     'maturity': 1., 'return_vol': False,
     'speed': 30., 
@@ -558,3 +563,8 @@ config_synthetic_novel_alpha_faith_pd = {
         'cutoff_level_range': (0.2,0.5),
     }
 }
+
+config_synthetic_novel_alpha_faith_pd_test = copy.deepcopy(
+    config_synthetic_novel_alpha_faith_pd)
+config_synthetic_novel_alpha_faith_pd_test['nb_paths_val'] = 10000
+

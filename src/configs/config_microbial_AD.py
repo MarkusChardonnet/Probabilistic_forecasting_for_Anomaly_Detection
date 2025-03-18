@@ -398,7 +398,7 @@ param_dict_AD_microbial_novel_alpha_div2_nsf = {
 param_list_AD_microbial_novel_alpha_div2_nsf = get_parameter_array(
         param_dict=param_dict_AD_microbial_novel_alpha_div2_nsf)
 
-# params for the reliability evaluation using the scaling factors
+# params for the reliability evaluation not using the scaling factors
 param_dict_AD_microbial_novel_alpha_div2_re_nsf = {
         'load_best': [True],
         'verbose': [True],

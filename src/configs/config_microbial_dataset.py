@@ -505,6 +505,7 @@ config_synthetic_novel_alpha_faith_abx_pd = {
 
 config_synthetic_novel_alpha_faith_pd = {
     'model_name': "Microbiome_OrnsteinUhlenbeck",
+    'seed': 0,
     'nb_paths': 300, 'nb_steps': 1162,
     'val_size': 0.2,
     'which_split': ["all", "no_abx"],
@@ -567,4 +568,6 @@ config_synthetic_novel_alpha_faith_pd = {
 config_synthetic_novel_alpha_faith_pd_test = copy.deepcopy(
     config_synthetic_novel_alpha_faith_pd)
 config_synthetic_novel_alpha_faith_pd_test['nb_paths_val'] = 10000
+config_synthetic_novel_alpha_faith_pd_test.pop('val_size')
+config_synthetic_novel_alpha_faith_pd_test['seed'] = 1
 

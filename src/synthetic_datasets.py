@@ -877,9 +877,7 @@ class Microbiome_OrnsteinUhlenbeck(StockModel):
 
         if start_X is not None:
             spot_paths[:, :, 0] = start_X
-        for i in range(self.nb_paths):
-            if i % 100 == 0 and i != 0:
-                print("Generated {} paths".format(i))
+        for i in tqdm.tqdm(range(self.nb_paths), total=self.nb_paths):
 
             fct_pattern, ad_labels, exposure_steps = self.get_anomaly_fcts()
             diffusion = self.diffusion

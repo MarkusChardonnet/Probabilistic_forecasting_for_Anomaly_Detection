@@ -279,7 +279,7 @@ param_list_AD_microbial_novel_alpha_div_reliability_eval_2 += get_parameter_arra
 # ------------------------------------------------------------------------------
 # AD for novel alpha diversity metric models -- new validation loss
 AD_microbial_novel_alpha_div2 = "{}saved_models_microbial_novel_alpha_div2/".format(data_path)
-AD_microbial_novel_alpha_div_ids2 = [55, 57]
+AD_microbial_novel_alpha_div_ids2 = [57]
 
 # params for getting the scaling factors
 param_dict_AD_microbial_novel_alpha_div2sf = {
@@ -320,7 +320,7 @@ param_list_AD_microbial_novel_alpha_div2_scaling_factors2 = get_parameter_array(
         param_dict=param_dict_AD_microbial_novel_alpha_div2sf2)
 
 # params for the actual AD score computation using the scaling factors
-AD_microbial_novel_alpha_div_ids2_1 = [55, 57]
+AD_microbial_novel_alpha_div_ids2_1 = [57]
 param_dict_AD_microbial_novel_alpha_div2 = {
         'load_best': [True],
         'verbose': [True],
@@ -398,7 +398,7 @@ param_dict_AD_microbial_novel_alpha_div2_nsf = {
 param_list_AD_microbial_novel_alpha_div2_nsf = get_parameter_array(
         param_dict=param_dict_AD_microbial_novel_alpha_div2_nsf)
 
-# params for the reliability evaluation using the scaling factors
+# params for the reliability evaluation not using the scaling factors
 param_dict_AD_microbial_novel_alpha_div2_re_nsf = {
         'load_best': [True],
         'verbose': [True],
@@ -415,5 +415,25 @@ param_list_AD_microbial_novel_alpha_div2_reliability_eval_nsf = get_parameter_ar
         param_dict=param_dict_AD_microbial_novel_alpha_div2_re_nsf)
 
 
+# ------------------------------------------------------------------------------
+# AD for synthetic dataset models
+# ------------------------------------------------------------------------------
+AD_synthetic_sm_path = "{}saved_models_synthetic_microbial/".format(data_path)
+AD_synthetic_ids = [1]
 
-
+# params for the AD score computation on the real dataset (w/o scaling factors)
+param_dict_AD_synthetic_on_real = {
+        'load_best': [True],
+        'verbose': [True],
+        'seed': [seed],
+        'dataset': ['microbial_novel_alpha_faith_pd'],
+        'scoring_distribution': ['normal',],
+        'scoring_metric': ['left-tail'],
+        'plot_cond_standardized_dist': [['normal', ]],  # 'lognormal'
+        'only_jump_before_abx_exposure': [1,2,3],
+        'use_dyn_cov_after_abx': [True],
+        'aggregation_method': ['coord-0'],
+        'use_scaling_factors': [False],
+}
+param_list_AD_synthetic_on_real = get_parameter_array(
+        param_dict=param_dict_AD_synthetic_on_real)

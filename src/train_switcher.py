@@ -25,7 +25,9 @@ def train_switcher(**params):
                 from configs import config
                 data_dict = eval("config."+data_dict)
             params["dataset"] = data_dict["model_name"]
-    if params['dataset'] in list(synthetic_datasets.DATASETS) or \
+    if 'Microbiome_' in params['dataset']:
+        return Microbial_train.train(**params)
+    elif params['dataset'] in list(synthetic_datasets.DATASETS) or \
             'combined' in params['dataset'] or 'FBM[' in params['dataset']:
         return train.train(**params)
     elif params['dataset'] in ['Cloud_KPI']:

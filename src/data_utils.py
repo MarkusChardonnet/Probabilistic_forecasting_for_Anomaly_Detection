@@ -353,6 +353,9 @@ def create_Microbiome_dataset(
                 the dataset)
     """
 
+    if seed is not None:
+        np.random.seed(seed)
+
     df_overview, data_overview = get_dataset_overview()
 
     # np.random.seed(seed=seed)
@@ -378,6 +381,14 @@ def create_Microbiome_dataset(
             timelag_in_dt_steps = hyperparam_dict["timelag_in_dt_steps"]
         if "timelag_shift1" in hyperparam_dict:
             timelag_shift1 = hyperparam_dict["timelag_shift1"]
+    nb_paths_train = hyperparam_dict.get('nb_paths', 1000)
+    nb_paths_val = hyperparam_dict.get('nb_paths_val', 0)
+    val_size = hyperparam_dict.get('val_size', None)
+    if val_size is not None:
+        nb_paths = nb_paths_train
+    else:
+        nb_paths = nb_paths_train + nb_paths_val
+        hyperparam_dict['nb_paths'] = nb_paths
 
     generation_model = _STOCK_MODELS[generation_model_name](**hyperparam_dict)
     # stock paths shape: [nb_paths, dim, time_steps]
@@ -451,20 +462,21 @@ def create_Microbiome_dataset(
 
     os.makedirs(path)
     with open('{}data.npy'.format(path), 'wb') as f:
-        np.save(f, final_paths) # [nb_paths, dim, time_steps]
+        np.save(f, final_paths.astype(np.float32)) # [nb_paths, dim, time_steps]
         np.save(f, observed_dates) # [nb_paths, time_steps]
         np.save(f, nb_obs)  # [nb_paths]
-        np.save(f, signature) # [nb_paths, dim, time_steps]
-        np.save(f, dynamic) # [nb_paths, dim_dynamic, time_steps]
-        np.save(f, static) # [nb_paths, dim_static, time_steps]
+        np.save(f, signature.astype(np.float32)) # [nb_paths, dim, time_steps]
+        np.save(f, dynamic.astype(np.float32)) # [nb_paths, dim_dynamic, time_steps]
+        np.save(f, static.astype(np.float32)) # [nb_paths, dim_static, time_steps]
         np.save(f, abx_observed) # [nb_paths]
         np.save(f, hosts)  # [nb_paths]
         np.save(f, abx_exposure)  # [nb_paths, time_steps]
         np.save(f, exposure_steps)
         
     ### CREATE DATASET SUBDIVISION TRAIN/TEST/VAL ###
-    val_size = 0.2
-    which_split = ["all", "no_abx", "abx"]
+    if val_size is None:
+        val_size = nb_paths_val / nb_paths
+    which_split = hyperparam_dict.get('which_split', ['all', 'no_abx'])
     abx_observed = abx_observed.astype(bool)
     abx_train_idx, abx_val_idx = train_test_split(
         np.where(abx_observed)[0], test_size=val_size,
@@ -492,11 +504,15 @@ def create_Microbiome_dataset(
             np.save(f, train_idx)
         with open(os.path.join(idx_dataset_path, 'val_idx.npy'), 'wb') as f:
             np.save(f, val_idx)
+        print("Split {} done".format(split))
+        print("train size: ", len(train_idx), "val size: ", len(val_idx))
+        print("train indices: ", train_idx)
+        print("val indices: ", val_idx)
 
     metadata_dict = {"S0": None,
             "dimension": final_paths.shape[1],
             "dimension_dyn_feat": dynamic.shape[1],
-            "dimension_sig_feat" : static.shape[1],
+            "dimension_sig_feat" : signature.shape[1],
             "dt": 1 / float(final_paths.shape[2] - 1),
             "maturity": 1.,
             "model_name": "synthetic",
@@ -507,6 +523,14 @@ def create_Microbiome_dataset(
             "seed": seed,
             "val_size": val_size,
             "dataset_name": "Microbiome_OrnsteinUhlenbeck",
+
+             "static_features": [],
+             "dynamic_features": [
+                 x.get('name') for x in hyperparam_dict["dynamic_vars"]],
+             "signature_features": ["div_alpha_faith_pd"],
+             "microbial_features": ["div_alpha_faith_pd"],
+             "dataset": "synthetic_Microbiome_OrnsteinUhlenbeck",
+             "init_val_method": None,
     }
 
     with open(os.path.join(path, 'metadata.txt'), 'w') as f:

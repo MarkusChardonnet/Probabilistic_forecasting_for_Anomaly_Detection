@@ -5,8 +5,7 @@ The general approach is Based on Probabilistic Forecasting. The principle is to 
 
 The probabilistic forecasting is based on the PD-NJODE framework. This framework is described in the paper [Optimal Estimation of Generic Dynamics by Path-Dependent Neural Jump ODEs](https://arxiv.org/abs/2206.14284) and the code is available at [PD-NJODE](https://github.com/FlorianKrach/PD-NJODE).
 
-## Model inference
-### Dependencies
+## Dependencies
 - Python 3.7 and Conda
 - Create environment in python 3.7:
   ```bash
@@ -23,14 +22,14 @@ The probabilistic forecasting is based on the PD-NJODE framework. This framework
     ```
 
 
-### Configurations 
+## Configurations 
 - The configurations can be accessed through the following folder :
     ```bash
     cd src/configs
     ```
 - Those are the configurations for generating the synthetic data, training the forecasting and anomaly detection models, plotting and monitoring.
 
-### Generating the data
+## Generating the data
 
 - Here is an example for the generation of synthetic data from the modified Orstein-Uhlenbeck process : 
     ```bash
@@ -54,9 +53,10 @@ The probabilistic forecasting is based on the PD-NJODE framework. This framework
     ```bash
     cd src
     python data_utils.py --dataset_name=Microbiome_OrnsteinUhlenbeck --dataset_params=config_synthetic_novel_alpha_faith_pd
+    python data_utils.py --dataset_name=Microbiome_OrnsteinUhlenbeck --dataset_params=config_synthetic_novel_alpha_faith_pd_test
     ```
 
-### Training the probabilistic forecasting module
+## Training the probabilistic forecasting module
 
 Important flags:
 
@@ -78,7 +78,7 @@ Important flags:
     python run.py --params=param_list_microbial_genus --NB_JOBS=1 --USE_GPU=True --GPU_NUM=0
     ```
 
-### Training / Evaluating the Anomaly detection modules on data with ingested anomalies
+## Training / Evaluating the Anomaly detection modules on data with ingested anomalies
 
 Important flags:
 
@@ -99,9 +99,9 @@ Important flags:
     ```
 
 
-
-### Training commands (Florian)
-#### Generate Dataset:
+---
+## Training commands (Florian)
+## Generate Dataset:
 ```shell
 python make_microbial_dataset.py --dataset_config=config_otu_sig_highab
 python make_microbial_dataset.py --dataset_config=config_genus_sig_highab
@@ -126,6 +126,7 @@ python make_microbial_dataset.py --dataset_config=config_div_alpha_faith_pd_5
 
 novel alpha diversity metric datasets:
 ```shell
+# the following is the dataset which is used for the final evaluation
 python make_microbial_dataset.py --dataset_config=config_novel_alpha_faith_pd
 python make_microbial_dataset.py --dataset_config=config_novel_alpha_faith_pd_w_geo
 
@@ -139,7 +140,15 @@ python make_microbial_dataset.py --dataset_config=config_novel_alpha_faith_pd_en
 python make_microbial_dataset.py --dataset_config=config_novel_alpha_faith_pd_entero_genus_scaled
 ```
 
-#### Training PD-NJODE:
+synthetic datasets:
+```shell
+python data_utils.py --dataset_name=Microbiome_OrnsteinUhlenbeck --dataset_params=config_synthetic_novel_alpha_faith_pd
+python data_utils.py --dataset_name=Microbiome_OrnsteinUhlenbeck --dataset_params=config_synthetic_novel_alpha_faith_pd_large
+python data_utils.py --dataset_name=Microbiome_OrnsteinUhlenbeck --dataset_params=config_synthetic_novel_alpha_faith_pd_test
+```
+
+
+## Training PD-NJODE:
 on OTU dataset:
 ```shell
 python run.py --params=param_list_microbial_otu2 --NB_JOBS=64 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_otu2
@@ -171,12 +180,29 @@ novel alpha diversity metric datasets:
 ```shell
 python run.py --params=param_list_microbial_novel_alpha_div --NB_JOBS=24 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_novel_alpha_div
 
+# the following is the model training which is used for the final evaluation
 python run.py --params=param_list_microbial_novel_alpha_div2 --NB_JOBS=24 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_novel_alpha_div2
 python run.py --plot_paths=plot_paths_novel_alpha_div2
 ```
 
+Based on the training results, the model ids 55,56,57 (using RNN, no signature and increasing probability to only use dynamic features as inputs; with the 3 different validation horizons) are selected. Computing the outputs on the validation set shows that only 57 never predicts a cond variance <0. 
+Moreover, this model produces increasing confidence interval sizes and it has the best eval loss (i.e. train loss on val set) of the 3 models. Therefore, this model is selected for further evaluation.
 
-#### Compute Anomaly Detection Scores:
+
+### Synthetic datasets
+```shell
+python run.py --params=param_list_synthetic_microbial --NB_JOBS=24 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_synthetic_microbial
+python run.py --plot_paths=plot_paths_synthetic
+```
+
+### Retraining pretrained models
+```shell
+python run.py --params=param_list_microbial_retrain --NB_JOBS=24 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_retrain
+```
+
+
+
+## Compute Anomaly Detection Scores:
 on OTU dataset:
 ```shell
 python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_otu3_ids --ad_params=param_list_AD_microbial_otu --forecast_saved_models_path=AD_microbial_otu3 --compute_scores=True --evaluate_scores=True
@@ -240,6 +266,13 @@ python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_novel_alpha_div_id
 ```
 
 
+synthetic datasets:
+```shell
+python Microbial_AD_eval.py --forecast_model_ids=AD_synthetic_ids --ad_params=param_list_AD_synthetic_on_real --forecast_saved_models_path=AD_synthetic_sm_path --compute_scores=True --evaluate_scores=False
+```
+
+
+
 ## Score evaluation
 Once you trained a microbiome-based model, you can evaluate the resulting scores in the notebook `results/evaluate_scores.ipynb`. To run the notebook, create and activate this conda environment:
 ````
@@ -262,12 +295,20 @@ With the same conda environment, a score time horizon reliability analysis can b
 - [x] implement coordinate wise scoring
 - [x] implement plotting of selected (instead of all) dists
 - [x] run
+- [ ] maybe try a dataset with static instead of dynamic features
 
 **14.03.2025**:
 - [x] fix the bug in the real dataset generation that caused the dynamic features not to be used
-- [] rerun model training with fixed bug in dataset generation that caused dynamic features not to be used
-- [] fix the synthetic dataset generation to have the same number of dynamic features as the real dataset
-- [] fix the synthetic dataset generation to have same type of output as the real dataset
-- [] train model on synthetic dataset (of same size as real one) and evaluate it on a very large synthetic dataset to have better statistics
-- [] maybe: train model on larger synthetic dataset and see whether it performs better on the same evaluation dataset as above
-- [] maybe (as followup work?): train model first on large synthetic dataset and then on real dataset to see whether it can learn the real dataset better
+- [x] rerun model training with fixed bug in dataset generation that caused dynamic features not to be used
+- [x] fix the synthetic dataset generation to have the same number of dynamic features as the real dataset
+- [x] fix the synthetic dataset generation to have same type of output as the real dataset
+- [1/2] train model on synthetic dataset (of same size as real one) and evaluate it on a very large synthetic dataset to have better/more significant statistics
+- [1/2] maybe: train model on larger synthetic dataset and see whether it performs better on the same evaluation dataset as above
+- [ ] maybe (as followup work?): train model first on large synthetic dataset and then on real dataset to see whether it can learn the real dataset better
+- [x] make synthetic data generation deterministic with the seed
+- [x] implement a way to retrain model
+- [x] implement a way to evaluate model on new dataset
+- [ ] implement a way to only retrain/finetune the last layer of a pretrained model
+
+
+

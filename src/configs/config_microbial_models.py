@@ -1,3 +1,6 @@
+import copy
+import os.path
+
 import numpy as np
 import torch
 
@@ -1965,7 +1968,6 @@ param_dict_microbial_sig_rnn_novel_alpha_div2 = {
         'periodic_current_t': [True],
         'scale_dt': [scale_dt],
         'enc_input_t': [enc_input_t],
-        # 'add_readout_activation': [(None, [])], # add_readout_activation # ('softmax',['id']) ('sum2one',['id'])
         'add_dynamic_cov': [True],
         'pre-train': [10000],
         'zero_weight_init': [False],
@@ -1979,6 +1981,61 @@ param_dict_microbial_sig_rnn_novel_alpha_div2 = {
     }
 param_list_microbial_novel_alpha_div2 += get_parameter_array(
         param_dict=param_dict_microbial_sig_rnn_novel_alpha_div2)
+
+# best model also trained on dataset with geo location
+param_dict_microbial_sig_rnn_novel_alpha_div2 = {
+        'dataset': ['microbial_novel_alpha_faith_pd_w_geo',],
+        'dataset_split': ["no_abx",],
+        'epochs': [6000],
+        'batch_size': [batch_size],
+        'save_every': [1],
+        'learning_rate': [learning_rate],
+        'seed': [seed],
+        'hidden_size': [hidden_size],
+        'bias': [bias],
+        'dropout_rate': [dropout_rate],
+        'ode_nn': [ode_nn1],  # ode_nn, ode_nn1
+        'readout_nn': [readout_nn],
+        'enc_nn': [enc_nn],
+        'use_rnn': [True],
+        'input_sig': [False],
+        'level': [2],
+        'residual_enc_dec': [True,],
+        'func_appl_X': [["power-2"]],              # [["power-2", "power-3", "power-4"]]
+        'add_pred': [["var"]],
+        'test': [test],
+        'solver': [solver],
+        'solver_delta_t_factor': [solver_delta_t_factor],
+        'weight': [0.],
+        'weight_evolve': [{'type': 'linear', 'target': 1, 'reach': None}],
+        'plot': [True],
+        'which_loss': ["variance_bis2"],
+        'which_eval_loss': ['val_variance'],
+        'evaluate': [False],
+        'eval_metrics': [eval_metrics],
+        'paths_to_plot': [(0,)],
+        'plot_variance': [True],
+        'std_factor': [std_factor],
+        'plot_moments': [plot_moments],
+        'saved_models_path': [microbial_models_path_novel_alpha_div2],
+        'use_cond_exp': [True],
+        'input_current_t': [input_current_t],
+        'periodic_current_t': [True],
+        'scale_dt': [scale_dt],
+        'enc_input_t': [enc_input_t],
+        'add_dynamic_cov': [True],
+        'pre-train': [10000],
+        'zero_weight_init': [False],
+        'val_use_input_until_t': [[0.2, 0.4, 0.6, 0.8]],
+        'val_predict_for_t': [366./1162],
+        'use_only_dyn_ft_as_input': [
+            "lambda t,x: (torch.rand(x) < (min(t,5000)-2000)/6000)"
+        ],
+        'which_best_loss': ['val_loss_until_t_av'],
+    }
+param_list_microbial_novel_alpha_div2 += get_parameter_array(
+        param_dict=param_dict_microbial_sig_rnn_novel_alpha_div2)
+
 
 
 overview_dict_microbial_novel_alpha_div2 = dict(
@@ -2006,9 +2063,195 @@ overview_dict_microbial_novel_alpha_div2 = dict(
 )
 
 plot_paths_novel_alpha_div2 = {
-    'model_ids': [55,57], 'saved_models_path': microbial_models_path_novel_alpha_div2,
+    'model_ids': [55, 56, 57], 'saved_models_path': microbial_models_path_novel_alpha_div2,
     'which': 'best', 'paths_to_plot': [0,1,2,3,4,5], 'wait_time': 0,
     'save_extras': {'bbox_inches': 'tight', 'pad_inches': 0.01},}
 
 
+# ------------------------------------------------------------------------------
+# training on synthetic datasets
+# ------------------------------------------------------------------------------
+
+synthetic_microbial_models_path = "{}saved_models_synthetic_microbial/".format(data_path)
+param_list_synthetic_microbial = []
+
+
+param_dict_synthetic_microbial = {
+        'data_dict': ['config_synthetic_novel_alpha_faith_pd'], #TODO
+        'dataset_split': ["no_abx",],
+        'epochs': [6000],
+        'batch_size': [batch_size],
+        'save_every': [1],
+        'learning_rate': [learning_rate],
+        'seed': [seed],
+        'hidden_size': [hidden_size],
+        'bias': [bias],
+        'dropout_rate': [dropout_rate],
+        'ode_nn': [ode_nn1],  # ode_nn, ode_nn1
+        'readout_nn': [readout_nn],
+        'enc_nn': [enc_nn],
+        'use_rnn': [True],
+        'input_sig': [False, True],
+        'level': [2],
+        'residual_enc_dec': [True,],
+        'func_appl_X': [["power-2"]],              # [["power-2", "power-3", "power-4"]]
+        'add_pred': [["var"]],
+        'test': [test],
+        'solver': [solver],
+        'solver_delta_t_factor': [solver_delta_t_factor],
+        'weight': [0.],
+        'weight_evolve': [{'type': 'linear', 'target': 1, 'reach': None}],
+        'plot': [True],
+        'which_loss': ["variance_bis2"],
+        'which_eval_loss': ['val_variance'],
+        'evaluate': [False],
+        'eval_metrics': [eval_metrics],
+        'paths_to_plot': [(0,)],
+        'plot_variance': [True],
+        'std_factor': [std_factor],
+        'plot_moments': [plot_moments],
+        'saved_models_path': [synthetic_microbial_models_path],
+        'use_cond_exp': [True],
+        'input_current_t': [input_current_t],
+        'periodic_current_t': [True],
+        'scale_dt': [scale_dt],
+        'enc_input_t': [enc_input_t],
+        # 'add_readout_activation': [(None, [])], # add_readout_activation # ('softmax',['id']) ('sum2one',['id'])
+        'add_dynamic_cov': [True],
+        'pre-train': [10000],
+        'zero_weight_init': [False],
+        'val_use_input_until_t': [[0.2, 0.4, 0.6, 0.8]],
+        'val_predict_for_t': [366./1162],
+        'use_only_dyn_ft_as_input': [
+            "lambda t,x: (torch.rand(x) < (min(t,5000)-2000)/6000)"
+        ],
+        'which_best_loss': ['val_loss_until_t_av'],
+    }
+param_list_synthetic_microbial += get_parameter_array(
+        param_dict=param_dict_synthetic_microbial)
+
+param_dict_synthetic_microbial2 = copy.deepcopy(param_dict_synthetic_microbial)
+param_dict_synthetic_microbial2['data_dict'] = ['config_synthetic_novel_alpha_faith_pd_large']
+param_dict_synthetic_microbial2['epochs'] = [300]
+param_dict_synthetic_microbial2['use_only_dyn_ft_as_input'] = ["lambda t,x: (torch.rand(x) < (min(t,250)-100)/300)"]
+param_list_synthetic_microbial += get_parameter_array(
+        param_dict=param_dict_synthetic_microbial2)
+
+
+overview_dict_synthetic_microbial = dict(
+    ids_from=1, ids_to=len(param_list_synthetic_microbial),
+    path=synthetic_microbial_models_path,
+    params_extract_desc=(
+        'dataset', 'dataset_split',
+        'ode_nn', 'enc_nn', 'readout_nn',
+        'dropout_rate', 'hidden_size', 'batch_size',
+        'pre-train',
+        'which_loss', 'which_eval_loss', 'add_pred',
+        'solver_delta_t_factor', 'add_readout_activation',
+        'residual_enc_dec', 'use_rnn',
+        'input_sig', 'level', 'use_observation_as_input',
+        'val_use_input_until_t', 'val_predict_for_t',
+        'use_only_dyn_ft_as_input'),
+    val_test_params_extract=(
+        ("max", "epoch", "epoch", "epochs_trained"),
+        ("min", "eval_loss", "eval_loss", "eval_loss_min"),
+        ("min", "val_loss", "val_loss", "val_loss_min"),
+        ("min", "val_loss_until_t_av", "val_loss_until_t_av",
+         "val_loss_until_t_av_min"),
+    ),
+    sortby=["dataset", 'val_predict_for_t', "val_loss_until_t_av_min"],
+)
+
+plot_paths_synthetic = {
+    'model_ids': [], 'saved_models_path': synthetic_microbial_models_path,
+    'which': 'best', 'paths_to_plot': [0,1,2,3,4,5], 'wait_time': 0,
+    'save_extras': {'bbox_inches': 'tight', 'pad_inches': 0.01},}
+
+
+# ------------------------------------------------------------------------------
+# retraining models, trained on synthetic data, on real data
+# ------------------------------------------------------------------------------
+microbial_models_path_retrain = "{}saved_models_microbial_retrain/".format(data_path)
+param_list_microbial_retrain = []
+
+
+param_dict_microbial_retrain = {
+        'load_pretrained_model': [os.path.join(
+            synthetic_microbial_models_path, "id-1", "best_checkpoint")],
+        'dataset': ['microbial_novel_alpha_faith_pd',],
+        'dataset_split': ["no_abx",],
+        'epochs': [6000],
+        'batch_size': [batch_size],
+        'save_every': [1],
+        'learning_rate': [learning_rate],
+        'seed': [seed],
+        'hidden_size': [hidden_size],
+        'bias': [bias],
+        'dropout_rate': [dropout_rate],
+        'ode_nn': [ode_nn1],  # ode_nn, ode_nn1
+        'readout_nn': [readout_nn],
+        'enc_nn': [enc_nn],
+        'use_rnn': [True],
+        'input_sig': [False],
+        'level': [2],
+        'residual_enc_dec': [True,],
+        'func_appl_X': [["power-2"]],              # [["power-2", "power-3", "power-4"]]
+        'add_pred': [["var"]],
+        'test': [test],
+        'solver': [solver],
+        'solver_delta_t_factor': [solver_delta_t_factor],
+        'weight': [0.],
+        'weight_evolve': [{'type': 'linear', 'target': 1, 'reach': None}],
+        'plot': [True],
+        'which_loss': ["variance_bis2"],
+        'which_eval_loss': ['val_variance'],
+        'evaluate': [False],
+        'eval_metrics': [eval_metrics],
+        'paths_to_plot': [(0,)],
+        'plot_variance': [True],
+        'std_factor': [std_factor],
+        'plot_moments': [plot_moments],
+        'saved_models_path': [microbial_models_path_retrain],
+        'use_cond_exp': [True],
+        'input_current_t': [input_current_t],
+        'periodic_current_t': [True],
+        'scale_dt': [scale_dt],
+        'enc_input_t': [enc_input_t],
+        'add_dynamic_cov': [True],
+        # 'pre-train': [10000],
+        'zero_weight_init': [False],
+        'val_use_input_until_t': [[0.2, 0.4, 0.6, 0.8]],
+        'val_predict_for_t': [366./1162],
+        'use_only_dyn_ft_as_input': [
+            "lambda t,x: (torch.rand(x) < (min(t,5000)-2000)/6000)"
+        ],
+        'which_best_loss': ['val_loss_until_t_av'],
+    }
+param_list_microbial_retrain += get_parameter_array(
+        param_dict=param_dict_microbial_retrain)
+
+overview_dict_microbial_retrain = dict(
+    ids_from=1, ids_to=len(param_list_microbial_retrain),
+    path=microbial_models_path_retrain,
+    params_extract_desc=(
+        'dataset', 'dataset_split',
+        'load_pretrained_model',
+        'ode_nn', 'enc_nn', 'readout_nn',
+        'dropout_rate', 'hidden_size', 'batch_size',
+        'pre-train',
+        'which_loss', 'which_eval_loss', 'add_pred',
+        'solver_delta_t_factor', 'add_readout_activation',
+        'residual_enc_dec', 'use_rnn',
+        'input_sig', 'level', 'use_observation_as_input',
+        'val_use_input_until_t', 'val_predict_for_t',
+        'use_only_dyn_ft_as_input'),
+    val_test_params_extract=(
+        ("max", "epoch", "epoch", "epochs_trained"),
+        ("min", "eval_loss", "eval_loss", "eval_loss_min"),
+        ("min", "val_loss", "val_loss", "val_loss_min"),
+        ("min", "val_loss_until_t_av", "val_loss_until_t_av",
+         "val_loss_until_t_av_min"),
+    ),
+    sortby=["dataset", 'val_predict_for_t', "val_loss_until_t_av_min"],
+)
 

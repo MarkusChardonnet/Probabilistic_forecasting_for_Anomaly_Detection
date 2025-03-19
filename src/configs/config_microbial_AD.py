@@ -415,5 +415,25 @@ param_list_AD_microbial_novel_alpha_div2_reliability_eval_nsf = get_parameter_ar
         param_dict=param_dict_AD_microbial_novel_alpha_div2_re_nsf)
 
 
+# ------------------------------------------------------------------------------
+# AD for synthetic dataset models
+# ------------------------------------------------------------------------------
+AD_synthetic_sm_path = "{}saved_models_synthetic_microbial/".format(data_path)
+AD_synthetic_ids = [1]
 
-
+# params for the AD score computation on the real dataset (w/o scaling factors)
+param_dict_AD_synthetic_on_real = {
+        'load_best': [True],
+        'verbose': [True],
+        'seed': [seed],
+        'dataset': ['microbial_novel_alpha_faith_pd'],
+        'scoring_distribution': ['normal',],
+        'scoring_metric': ['left-tail'],
+        'plot_cond_standardized_dist': [['normal', ]],  # 'lognormal'
+        'only_jump_before_abx_exposure': [1,2,3],
+        'use_dyn_cov_after_abx': [True],
+        'aggregation_method': ['coord-0'],
+        'use_scaling_factors': [False],
+}
+param_list_AD_synthetic_on_real = get_parameter_array(
+        param_dict=param_dict_AD_synthetic_on_real)

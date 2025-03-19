@@ -226,6 +226,18 @@ def train(
             'weight_evolve'
             'solver_delta_t_factor' inverse factor for the delta_t of the solver
                             use 1/a to scale by a
+            'pre-train'     None or int, number of epochs to pre-train the model
+                            with a random encoder-decoder task, to get a better
+                            working encoder-decoder pair initialization. This is
+                            independent from the 'load_pretrained_model' option.
+            'load_pretrained_model'     str (optional), path to the pre-trained
+                            model to load for further retraining. the path needs
+                            to be complete from the execution path. Attention:
+                            the model needs to have the same structure as the
+                            model to be trained, otherwise it will not work.
+                            I.e. it needs to have the exact same weights. If
+                            this pre-trained model was already retrained, then
+                            the retrained model will be loaded instead.
     """
 
     global ANOMALY_DETECTION, USE_GPU, SEND, N_CPUS, N_DATASET_WORKERS
@@ -516,6 +528,16 @@ def train(
     gradient_clip = None
     if 'gradient_clip' in options:
         gradient_clip = options["gradient_clip"]
+
+    # load pre-trained model if wanted. If this pre-trained model was already
+    #   retrained, then the retrained model will be loaded in the next step,
+    #   i.e., the training will be continued.
+    if "load_pretrained_model" in options:
+        load_pretrained_model = options["load_pretrained_model"]
+        models.get_ckpt_model(load_pretrained_model, model, optimizer, device)
+        model.epoch = 1  # for the retraining we set the epoch to 1 again
+        print("loaded pre-trained model from {} and set epoch=1".format(
+            load_pretrained_model))
 
     # load saved model if wanted/possible
     best_val_loss = np.infty

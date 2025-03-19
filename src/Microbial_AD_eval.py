@@ -1014,6 +1014,7 @@ def evaluate_scores(
             text_for_files=caption
         )
 
+    # TODO: this does not support the evaluation on synthetic datasets
     dataset_name = config.microbial_ft_filename.replace(".tsv", "")
     abx_ts_name = config.abx_ts_filename
     noabx_train, noabx_val, abx_scores, _, abx_age_at_all = get_scores_n_abx_info(
@@ -1226,18 +1227,36 @@ def main(arg):
                 forecast_params.append(forecast_params_dict)
 
         for i,forecast_param in enumerate(forecast_params):
+            # this extracts the dataset name and id from the data_dict if only
+            #   this is given in the forecast_param, i.e., this is the dataset
+            #   that was used for training the model. Below there is the option
+            #   that this is overwritten with a new test dataset given in the
+            #   ad_params
             if 'dataset' not in forecast_param:
                 if 'data_dict' not in forecast_param:
                     raise KeyError('the "dataset" needs to be specified')
                 else:
                     data_dict = forecast_param["data_dict"]
-                    if isinstance(data_dict, str):
-                        data_dict = eval("config."+data_dict)
-                    forecast_param["dataset"] = data_dict["model_name"]
+                    dataset, dataset_id = data_utils._get_dataset_name_id_from_dict(
+                        data_dict=data_dict)
+                    dataset_id = int(dataset_id)
+                    dataset = "{}-{}".format(dataset, dataset_id)
+                    forecast_param["dataset"] = dataset
             for ad_param in ad_params:
                 print("AD param: ", ad_param)
+                dataset = forecast_param["dataset"]
                 if 'dataset' in ad_param:
+                    dataset = ad_param["dataset"]
                     del ad_param["dataset"]
+                    print("using dataset from ad_param: ", dataset)
+                elif 'data_dict' in ad_param:
+                    data_dict = ad_param["data_dict"]
+                    dataset, dataset_id = data_utils._get_dataset_name_id_from_dict(
+                        data_dict=data_dict)
+                    dataset_id = int(dataset_id)
+                    dataset = "{}-{}".format(dataset, dataset_id)
+                    del ad_param["data_dict"]
+                    print("using dataset from ad_param: ", dataset)
                 if 'saved_models_path' in ad_param:
                     del ad_param["saved_models_path"]
                 if FLAGS.compute_scores:
@@ -1249,7 +1268,7 @@ def main(arg):
                         n_dataset_workers=FLAGS.N_DATASET_WORKERS,
                         use_gpu=FLAGS.USE_GPU, nb_cpus=FLAGS.NB_CPUS,
                         saved_models_path=forecast_saved_models_path,
-                        dataset=forecast_param["dataset"],
+                        dataset=dataset,
                         **ad_param)
                 if FLAGS.evaluate_scores:
                     evaluate_scores(
@@ -1257,7 +1276,7 @@ def main(arg):
                         forecast_saved_models_path=forecast_saved_models_path,
                         forecast_model_id=forecast_model_ids[i],
                         saved_models_path=forecast_saved_models_path,
-                        dataset=forecast_param["dataset"],
+                        dataset=dataset,
                         **ad_param)
                 if FLAGS.compute_zscore_scaling_factors:
                     compute_zscore_scaling_factors(

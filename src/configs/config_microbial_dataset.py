@@ -565,9 +565,15 @@ config_synthetic_novel_alpha_faith_pd = {
     }
 }
 
+config_synthetic_novel_alpha_faith_pd_large = copy.deepcopy(
+    config_synthetic_novel_alpha_faith_pd)
+config_synthetic_novel_alpha_faith_pd_large['nb_paths'] = 20000
+
 config_synthetic_novel_alpha_faith_pd_test = copy.deepcopy(
     config_synthetic_novel_alpha_faith_pd)
 config_synthetic_novel_alpha_faith_pd_test['nb_paths_val'] = 10000
 config_synthetic_novel_alpha_faith_pd_test.pop('val_size')
 config_synthetic_novel_alpha_faith_pd_test['seed'] = 1
+
+
 

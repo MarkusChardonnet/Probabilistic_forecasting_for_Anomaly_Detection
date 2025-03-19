@@ -97,6 +97,7 @@ def train(
         dataset='microbial_genus', dataset_split="all",
         plot=True, paths_to_plot=(0,),
         saved_models_path=saved_models_path,
+        data_dict=None,
         **options
 ):
 
@@ -270,6 +271,12 @@ def train(
     else:
         device = torch.device("cpu")
         initial_print += '\nusing CPU'
+
+    if data_dict is not None:
+        dataset, dataset_id = data_utils._get_dataset_name_id_from_dict(
+            data_dict=data_dict)
+        dataset_id = int(dataset_id)
+        dataset = "{}-{}".format(dataset, dataset_id)
 
     train_idx = np.load(os.path.join(
         train_data_path, dataset, dataset_split, 'train_idx.npy'

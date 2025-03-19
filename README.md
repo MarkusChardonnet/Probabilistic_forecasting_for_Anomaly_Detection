@@ -127,6 +127,7 @@ python make_microbial_dataset.py --dataset_config=config_div_alpha_faith_pd_5
 
 novel alpha diversity metric datasets:
 ```shell
+# the following is the dataset which is used for the final evaluation
 python make_microbial_dataset.py --dataset_config=config_novel_alpha_faith_pd
 python make_microbial_dataset.py --dataset_config=config_novel_alpha_faith_pd_w_geo
 
@@ -139,6 +140,14 @@ python make_microbial_dataset.py --dataset_config=config_novel_alpha_faith_pd_en
 python make_microbial_dataset.py --dataset_config=config_novel_alpha_faith_pd_entero_genus
 python make_microbial_dataset.py --dataset_config=config_novel_alpha_faith_pd_entero_genus_scaled
 ```
+
+synthetic datasets:
+```shell
+python data_utils.py --dataset_name=Microbiome_OrnsteinUhlenbeck --dataset_params=config_synthetic_novel_alpha_faith_pd
+python data_utils.py --dataset_name=Microbiome_OrnsteinUhlenbeck --dataset_params=config_synthetic_novel_alpha_faith_pd_large
+python data_utils.py --dataset_name=Microbiome_OrnsteinUhlenbeck --dataset_params=config_synthetic_novel_alpha_faith_pd_test
+```
+
 
 #### Training PD-NJODE:
 on OTU dataset:
@@ -172,9 +181,17 @@ novel alpha diversity metric datasets:
 ```shell
 python run.py --params=param_list_microbial_novel_alpha_div --NB_JOBS=24 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_novel_alpha_div
 
+# the following is the model training which is used for the final evaluation
 python run.py --params=param_list_microbial_novel_alpha_div2 --NB_JOBS=24 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_novel_alpha_div2
 python run.py --plot_paths=plot_paths_novel_alpha_div2
 ```
+
+synthetic datasets:
+```shell
+python run.py --params=param_list_synthetic_microbial --NB_JOBS=24 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_synthetic_microbial
+python run.py --plot_paths=plot_paths_synthetic
+```
+
 
 Based on the training results, the model ids 55,56,57 (using RNN, no signature and increasing probability to only use dynamic features as inputs; with the 3 different validation horizons) are selected. Computing the outputs on the validation set shows that only 57 never predicts a cond variance <0. 
 Moreover, this model produces increasing confidence interval sizes and it has the best eval loss (i.e. train loss on val set) of the 3 models. Therefore, this model is selected for further evaluation.
@@ -273,7 +290,7 @@ With the same conda environment, a score time horizon reliability analysis can b
 - [x] rerun model training with fixed bug in dataset generation that caused dynamic features not to be used
 - [x] fix the synthetic dataset generation to have the same number of dynamic features as the real dataset
 - [x] fix the synthetic dataset generation to have same type of output as the real dataset
-- [] train model on synthetic dataset (of same size as real one) and evaluate it on a very large synthetic dataset to have better statistics
+- [] train model on synthetic dataset (of same size as real one) and evaluate it on a very large synthetic dataset to have better/more significant statistics
 - [] maybe: train model on larger synthetic dataset and see whether it performs better on the same evaluation dataset as above
 - [] maybe (as followup work?): train model first on large synthetic dataset and then on real dataset to see whether it can learn the real dataset better
 - [x] make synthetic data generation deterministic with the seed

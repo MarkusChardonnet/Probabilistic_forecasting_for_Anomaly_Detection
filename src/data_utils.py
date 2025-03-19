@@ -462,12 +462,12 @@ def create_Microbiome_dataset(
 
     os.makedirs(path)
     with open('{}data.npy'.format(path), 'wb') as f:
-        np.save(f, final_paths) # [nb_paths, dim, time_steps]
+        np.save(f, final_paths.astype(np.float32)) # [nb_paths, dim, time_steps]
         np.save(f, observed_dates) # [nb_paths, time_steps]
         np.save(f, nb_obs)  # [nb_paths]
-        np.save(f, signature) # [nb_paths, dim, time_steps]
-        np.save(f, dynamic) # [nb_paths, dim_dynamic, time_steps]
-        np.save(f, static) # [nb_paths, dim_static, time_steps]
+        np.save(f, signature.astype(np.float32)) # [nb_paths, dim, time_steps]
+        np.save(f, dynamic.astype(np.float32)) # [nb_paths, dim_dynamic, time_steps]
+        np.save(f, static.astype(np.float32)) # [nb_paths, dim_static, time_steps]
         np.save(f, abx_observed) # [nb_paths]
         np.save(f, hosts)  # [nb_paths]
         np.save(f, abx_exposure)  # [nb_paths, time_steps]

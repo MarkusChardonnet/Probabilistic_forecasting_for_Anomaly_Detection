@@ -1983,7 +1983,7 @@ param_list_microbial_novel_alpha_div2 += get_parameter_array(
 
 # best model also trained on dataset with geo location
 param_dict_microbial_sig_rnn_novel_alpha_div2 = {
-        'dataset': ['config_novel_alpha_faith_pd_w_geo',],
+        'dataset': ['microbial_novel_alpha_faith_pd_w_geo',],
         'dataset_split': ["no_abx",],
         'epochs': [6000],
         'batch_size': [batch_size],

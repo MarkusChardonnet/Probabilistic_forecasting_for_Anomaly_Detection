@@ -847,7 +847,7 @@ def train(
                         masked=masked)
                 del batch
             print('save model ...', end="")
-            print("mode id:", model_id)
+            print("model id:", model_id)
             df_m_app = pd.DataFrame(data=metric_app, columns=metr_columns)
             df_metric = pd.concat([df_metric, df_m_app], ignore_index=True)
             df_metric.to_csv(model_metric_file)

@@ -871,7 +871,7 @@ def compute_zscore_scaling_factors(
              df_out[scaling_factor_which+"_moving_avg_cummax"],
              label=f"moving averag ({moving_average}) cummax LB (1)")
     plt.title("scaling factors")
-    plt.xlabel("days since last observation (after cutoff)")
+    plt.xlabel("days since last observation (after cut-off)")
     plt.ylabel("std_z_scores")
     plt.legend()
     plt.tight_layout()

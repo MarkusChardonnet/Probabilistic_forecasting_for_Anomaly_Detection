@@ -304,11 +304,11 @@ With the same conda environment, a score time horizon reliability analysis can b
 - [x] fix the synthetic dataset generation to have same type of output as the real dataset
 - [1/2] train model on synthetic dataset (of same size as real one) and evaluate it on a very large synthetic dataset to have better/more significant statistics
 - [1/2] maybe: train model on larger synthetic dataset and see whether it performs better on the same evaluation dataset as above
-- [ ] maybe (as followup work?): train model first on large synthetic dataset and then on real dataset to see whether it can learn the real dataset better
+- [x] maybe (as followup work?): train model first on large synthetic dataset and then on real dataset to see whether it can learn the real dataset better -> first experiments did not show an improvement
 - [x] make synthetic data generation deterministic with the seed
 - [x] implement a way to retrain model
 - [x] implement a way to evaluate model on new dataset
-- [ ] implement a way to only retrain/finetune the last layer of a pretrained model
-
+- [ ] ? implement a way to only retrain/finetune the last layer of a pretrained model
+- [ ] implement sf for plotting of standardized distribution
 
 

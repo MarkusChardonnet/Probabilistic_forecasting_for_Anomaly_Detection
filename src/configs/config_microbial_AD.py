@@ -287,12 +287,10 @@ param_dict_AD_microbial_novel_alpha_div2sf = {
         'verbose': [True],
         'seed': [seed],
         'scoring_distribution': ['z_score'],
-        'plot_cond_standardized_dist': [None],
+        'plot_cond_standardized_dist': [['normal', ]],  # 'lognormal'
         'only_jump_before_abx_exposure': [False],
         'use_dyn_cov_after_abx': [True],
-        'reliability_eval_start_times': [list(range(0, 1162, 30))],
-        'interval_length': [30],
-        'shift_by': [1],
+        'reliability_eval_start_times': [list(range(51, 1051, 3))],  # first day of observation: 52, last day of 2nd-last observation: 1048 (add 3 to be sure we have a cutoff afterwards), min days between any obs of a sample: 3
         'aggregation_method': ['coord-0'],
         'use_scaling_factors': [False],
         'scaling_factor_which': [None],
@@ -300,7 +298,7 @@ param_dict_AD_microbial_novel_alpha_div2sf = {
 param_list_AD_microbial_novel_alpha_div2_scaling_factors = get_parameter_array(
         param_dict=param_dict_AD_microbial_novel_alpha_div2sf)
 
-# params for scaling factor plots
+# params for scaling factor computation and plots
 param_dict_AD_microbial_novel_alpha_div2sf2 = {
         'load_best': [True],
         'verbose': [True],
@@ -309,12 +307,12 @@ param_dict_AD_microbial_novel_alpha_div2sf2 = {
         'plot_cond_standardized_dist': [None],
         'only_jump_before_abx_exposure': [False],
         'use_dyn_cov_after_abx': [True],
-        'interval_length': [30],
+        'interval_length': [180],  # 30
         'shift_by': [1],
         'aggregation_method': ['coord-0'],
-        'moving_average': [10, 30],
-        'SF_remove_duplicates': [True, False],
-        'scaling_factor_which': ['std_z_scores', 'nc_std_z_scores'],  # 'nc_std_z_scores'
+        'moving_average': [10],  # 30
+        'SF_remove_duplicates': [True],  # False
+        'scaling_factor_which': ['nc_std_z_scores'],  # 'std_z_scores', 'nc_std_z_scores'
 }
 param_list_AD_microbial_novel_alpha_div2_scaling_factors2 = get_parameter_array(
         param_dict=param_dict_AD_microbial_novel_alpha_div2sf2)
@@ -327,7 +325,7 @@ param_dict_AD_microbial_novel_alpha_div2 = {
         'seed': [seed],
         'scoring_distribution': ['normal',],
         'scoring_metric': ['left-tail'],
-        'plot_cond_standardized_dist': [['normal', ]],  # 'lognormal'
+        'plot_cond_standardized_dist': [None],
         'only_jump_before_abx_exposure': [1,2,3],
         'use_dyn_cov_after_abx': [True],
         'aggregation_method': ['coord-0'],

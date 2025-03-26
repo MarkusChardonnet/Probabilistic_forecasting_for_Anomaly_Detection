@@ -132,6 +132,7 @@ def get_model_predictions(
             np.arange(true_abx_exposure.shape[1]) <
             np.round(use_obs_until_t/delta_t), (1, -1)).repeat(
             len(true_abx_exposure), axis=0)
+        odbc[:, 0] = 1  # always use the first observation
 
     neg_odbc = np.ones_like(odbc) - odbc  # 0 if observed before cutoff, else 1
     days_after_last_obs = np.zeros_like(true_abx_exposure)
@@ -242,7 +243,7 @@ def get_model_predictions(
 def _plot_conditionally_standardized_distribution(
         cond_moments, observed_dates, obs, output_vars, path_to_save,
         compare_to_dist="normal", replace_values=None, which_set='train',
-        which_coord=0, eps=1e-4,
+        which_coord=0, eps=1e-4, std_sf=None,
         **options):
     """
     Plot the conditionally standardized distribution
@@ -259,12 +260,19 @@ def _plot_conditionally_standardized_distribution(
             values for variance
         host_id: np.array, [nb_samples], host ids
         which_set: str, which set to plot, one of: 'train', 'val'
+        which_coord: int, which coordinate to plot
+        eps: float, small value to avoid division by zero
+        std_sf: None or np.array, [nb_steps, nb_samples], std scaling factors
     """
     # cond_exp : [nb_steps, nb_samples, dimension]
     # cond_var : [nb_steps, nb_samples, dimension]
     cond_exp, cond_var = AD_modules.get_cond_exp_var(cond_moments, output_vars)
     cond_var = AD_modules.get_corrected_var(
         cond_var, min_var_val=eps, replace_var=replace_values)
+    # use scaling factors to adjust the conditional std
+    if std_sf is not None:
+        std_sf = np.expand_dims(std_sf, axis=2).repeat(cond_var.shape[2], axis=2)
+        cond_var = cond_var * std_sf ** 2
     if compare_to_dist == "normal":
         cond_std = np.sqrt(cond_var)
         standardized_obs = (obs - cond_exp) / cond_std
@@ -636,6 +644,10 @@ def compute_scores(
         which_coord = 0
     if plot_cond_standardized_dist is not None:
         dist_path = f'{ad_path}dist/train-noabx/'
+        if use_scaling_factors:
+            dist_path += (f"using-SF_{scaling_factor_which}--"
+                          f"{preprocess_scaling_factors}--RD-"
+                          f"{SF_remove_duplicates}/")
         makedirs(dist_path)
         for dist in plot_cond_standardized_dist:
             filepaths += _plot_conditionally_standardized_distribution(
@@ -643,7 +655,8 @@ def compute_scores(
                 observed_dates[:, abx_labels == 0],
                 obs[:, abx_labels == 0], output_vars, path_to_save=dist_path,
                 compare_to_dist=dist, replace_values=replace_values,
-                which_set='train', which_coord=which_coord, eps=epsilon)
+                which_set='train', which_coord=which_coord, eps=epsilon,
+                std_sf=cutoff_adj_sf)
 
     # test data
     (cond_moments, observed_dates, true_X, abx_labels, host_id, cutoff_adj_sf,
@@ -683,13 +696,18 @@ def compute_scores(
     
     if plot_cond_standardized_dist is not None:
         dist_path = f'{ad_path}dist/val-noabx/'
+        if use_scaling_factors:
+            dist_path += (f"using-SF_{scaling_factor_which}--"
+                          f"{preprocess_scaling_factors}--RD-"
+                          f"{SF_remove_duplicates}/")
         makedirs(dist_path)
         for dist in plot_cond_standardized_dist:
             filepaths += _plot_conditionally_standardized_distribution(
                 cond_moments[:, abx_labels==0], observed_dates[:, abx_labels==0],
                 obs[:, abx_labels==0], output_vars, path_to_save=dist_path,
                 compare_to_dist=dist, replace_values=replace_values,
-                which_set='val', which_coord=which_coord, eps=epsilon)
+                which_set='val', which_coord=which_coord, eps=epsilon,
+                std_sf=cutoff_adj_sf)
 
     if reliability_eval_start_times is not None:
         reli_eval_path = f'{ad_path}reliability_eval-val-noabx_{which}_{scoring_distribution}/'
@@ -798,6 +816,28 @@ def compute_zscore_scaling_factors(
         scaling_factor_which='std_z_scores',
         SF_remove_duplicates=False,
         **kwargs):
+    """
+
+    Args:
+        forecast_saved_models_path:
+        forecast_model_id:
+        load_best:
+        aggregation_method:
+        scoring_distribution:
+        interval_length: int, length of the interval over which to compute the
+            scaling factors. the interval is centered around the
+            days_after_last_obs value for which the scaling factor is computed.
+        shift_by: int, shift the center of the interval by this value. should be
+            1 for other methods to work correctly.
+        send:
+        moving_average:
+        scaling_factor_which:
+        SF_remove_duplicates:
+        **kwargs:
+
+    Returns:
+
+    """
 
     assert scoring_distribution == "z_score", \
         "scoring_distribution must be z_score"
@@ -836,7 +876,7 @@ def compute_zscore_scaling_factors(
     data = []
     for dsc in range(0, max_dsc, shift_by):
         left = dsc - interval_length/2
-        if SF_remove_duplicates:
+        if SF_remove_duplicates and interval_length < 60:
             left = -np.infty
         right = min(dsc + interval_length/2, max_dsc)
         vals = df.loc[
@@ -858,8 +898,7 @@ def compute_zscore_scaling_factors(
     df_out[scaling_factor_which+"_cummax"] = df_out[scaling_factor_which].cummax()
     df_out[scaling_factor_which+"_moving_avg"] = df_out[scaling_factor_which].rolling(
         moving_average, min_periods=1).mean()
-    df_out[scaling_factor_which+"_moving_avg_cummax"] = np.maximum(1,
-        df_out[scaling_factor_which+"_moving_avg"].cummax())
+    df_out[scaling_factor_which+"_moving_avg_cummax"] = df_out[scaling_factor_which+"_moving_avg"].cummax()
     plt.plot(df_out["days_since_last_obs_ac"], df_out[scaling_factor_which],
              label="std_z_scores")
     plt.plot(df_out["days_since_last_obs_ac"],
@@ -869,7 +908,7 @@ def compute_zscore_scaling_factors(
              label=f"moving average ({moving_average})")
     plt.plot(df_out["days_since_last_obs_ac"],
              df_out[scaling_factor_which+"_moving_avg_cummax"],
-             label=f"moving averag ({moving_average}) cummax LB (1)")
+             label=f"moving averag ({moving_average}) cummax")
     plt.title("scaling factors")
     plt.xlabel("days since last observation (after cut-off)")
     plt.ylabel("std_z_scores")

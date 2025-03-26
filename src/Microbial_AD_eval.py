@@ -272,7 +272,7 @@ def _plot_conditionally_standardized_distribution(
     # use scaling factors to adjust the conditional std
     if std_sf is not None:
         std_sf = np.expand_dims(std_sf, axis=2).repeat(cond_var.shape[2], axis=2)
-        cond_var = cond_var * std_sf ** 2
+        cond_var = cond_var * (std_sf ** 2)
     if compare_to_dist == "normal":
         cond_std = np.sqrt(cond_var)
         standardized_obs = (obs - cond_exp) / cond_std
@@ -656,7 +656,7 @@ def compute_scores(
                 obs[:, abx_labels == 0], output_vars, path_to_save=dist_path,
                 compare_to_dist=dist, replace_values=replace_values,
                 which_set='train', which_coord=which_coord, eps=epsilon,
-                std_sf=cutoff_adj_sf)
+                std_sf=cutoff_adj_sf[:, abx_labels==0])
 
     # test data
     (cond_moments, observed_dates, true_X, abx_labels, host_id, cutoff_adj_sf,
@@ -707,7 +707,7 @@ def compute_scores(
                 obs[:, abx_labels==0], output_vars, path_to_save=dist_path,
                 compare_to_dist=dist, replace_values=replace_values,
                 which_set='val', which_coord=which_coord, eps=epsilon,
-                std_sf=cutoff_adj_sf)
+                std_sf=cutoff_adj_sf[:, abx_labels==0])
 
     if reliability_eval_start_times is not None:
         reli_eval_path = f'{ad_path}reliability_eval-val-noabx_{which}_{scoring_distribution}/'

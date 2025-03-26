@@ -431,6 +431,9 @@ def compute_scores(
     if n_dataset_workers is not None:
         N_DATASET_WORKERS = n_dataset_workers
 
+    # set number of CPUs
+    torch.set_num_threads(N_CPUS)
+
     if USE_GPU and torch.cuda.is_available():
         gpu_num = 0
         device = torch.device("cuda:{}".format(gpu_num))
@@ -1229,6 +1232,10 @@ def get_forecast_model_param_dict(
 
 
 def main(arg):
+
+    # set number of CPUs
+    print("Number of CPUs: ", FLAGS.NB_CPUS)
+    torch.set_num_threads(FLAGS.NB_CPUS)
 
     del arg
     forecast_params_list = None

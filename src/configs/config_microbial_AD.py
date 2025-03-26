@@ -363,7 +363,7 @@ param_dict_AD_microbial_novel_alpha_div2_re = {
         'scoring_distribution': ['normal',],
         'scoring_metric': ['left-tail'],
         'only_jump_before_abx_exposure': [False],
-        'plot_cond_standardized_dist': [None],
+        'plot_cond_standardized_dist': [['normal', ]],
         'use_dyn_cov_after_abx': [True],
         'reliability_eval_start_times': [list(range(0, 1162, 30))],  # TODO: should we change this as above?
         'use_scaling_factors': [True],
@@ -383,7 +383,7 @@ param_dict_AD_microbial_novel_alpha_div2_nsf = {
         'seed': [seed],
         'scoring_distribution': ['normal',],
         'scoring_metric': ['left-tail'],
-        'plot_cond_standardized_dist': [['normal', ]],  # 'lognormal'
+        'plot_cond_standardized_dist': [None],  # 'lognormal'
         'only_jump_before_abx_exposure': [1,2,3],
         'use_dyn_cov_after_abx': [True],
         'aggregation_method': ['coord-0'],

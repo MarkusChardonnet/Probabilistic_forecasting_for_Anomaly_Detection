@@ -307,7 +307,7 @@ param_dict_AD_microbial_novel_alpha_div2sf2 = {
         'plot_cond_standardized_dist': [None],
         'only_jump_before_abx_exposure': [False],
         'use_dyn_cov_after_abx': [True],
-        'interval_length': [180],  # 30
+        'interval_length': [120],  # 30
         'shift_by': [1],
         'aggregation_method': ['coord-0'],
         'moving_average': [10],  # 30
@@ -330,12 +330,10 @@ param_dict_AD_microbial_novel_alpha_div2 = {
         'use_dyn_cov_after_abx': [True],
         'aggregation_method': ['coord-0'],
         'use_scaling_factors': [True],
-        'SF_remove_duplicates': [True, False],
-        'scaling_factor_which': ['std_z_scores', 'nc_std_z_scores'],  # 'nc_std_z_scores'
+        'SF_remove_duplicates': [True,],
+        'scaling_factor_which': ['nc_std_z_scores'],  # 'std_z_scores'
         'preprocess_scaling_factors': [
-                # 'moving_avg-10-cummax-lower_bound-1',
-                # 'moving_avg-30-cummax-lower_bound-1',
-                'moving_avg-30-cummax', 'moving_avg-10-cummax'],
+                'moving_avg-10-cummax'],
 }
 param_list_AD_microbial_novel_alpha_div2 = get_parameter_array(
         param_dict=param_dict_AD_microbial_novel_alpha_div2)
@@ -349,10 +347,10 @@ param_dict_AD_microbial_novel_alpha_div2_ev = {
         'only_jump_before_abx_exposure': [1],
         'aggregation_method': ['coord-0'],
         'use_scaling_factors': [True],
-        'scaling_factor_which': ['std_z_scores'],  # 'nc_std_z_scores'
+        'SF_remove_duplicates': [True,],
+        'scaling_factor_which': ['nc_std_z_scores'],  # 'std_z_scores'
         'preprocess_scaling_factors': [
-                'moving_avg-10-cummax-lower_bound-1',
-                'moving_avg-30-cummax-lower_bound-1',],
+                'moving_avg-10-cummax'],
 }
 param_list_AD_microbial_novel_alpha_div2_ev = get_parameter_array(
         param_dict=param_dict_AD_microbial_novel_alpha_div2_ev)
@@ -367,14 +365,12 @@ param_dict_AD_microbial_novel_alpha_div2_re = {
         'only_jump_before_abx_exposure': [False],
         'plot_cond_standardized_dist': [None],
         'use_dyn_cov_after_abx': [True],
-        'reliability_eval_start_times': [list(range(0, 1162, 30))],
+        'reliability_eval_start_times': [list(range(0, 1162, 30))],  # TODO: should we change this as above?
         'use_scaling_factors': [True],
-        'SF_remove_duplicates': [True, False],
-        'scaling_factor_which': ['std_z_scores', 'nc_std_z_scores'],  # 'nc_std_z_scores'
+        'SF_remove_duplicates': [True,],
+        'scaling_factor_which': ['nc_std_z_scores'],  # 'std_z_scores'
         'preprocess_scaling_factors': [
-                # 'moving_avg-10-cummax-lower_bound-1',
-                # 'moving_avg-30-cummax-lower_bound-1',
-                'moving_avg-30-cummax', 'moving_avg-10-cummax'],
+                'moving_avg-10-cummax'],
 }
 param_list_AD_microbial_novel_alpha_div2_reliability_eval = get_parameter_array(
         param_dict=param_dict_AD_microbial_novel_alpha_div2_re)
@@ -406,7 +402,7 @@ param_dict_AD_microbial_novel_alpha_div2_re_nsf = {
         'only_jump_before_abx_exposure': [False],
         'plot_cond_standardized_dist': [None],
         'use_dyn_cov_after_abx': [True],
-        'reliability_eval_start_times': [list(range(0, 1162, 30))],
+        'reliability_eval_start_times': [list(range(0, 1162, 30))],  # TODO: should we change this as above?
         'use_scaling_factors': [False],
 }
 param_list_AD_microbial_novel_alpha_div2_reliability_eval_nsf = get_parameter_array(

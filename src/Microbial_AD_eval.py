@@ -835,7 +835,8 @@ def compute_zscore_scaling_factors(
         send:
         moving_average:
         scaling_factor_which:
-        SF_remove_duplicates:
+        SF_remove_duplicates: 'std_z_scores' or 'nc_std_z_scores' (non-centered
+            version of the std of the z-scores)
         **kwargs:
 
     Returns:
@@ -879,16 +880,24 @@ def compute_zscore_scaling_factors(
     data = []
     for dsc in range(0, max_dsc, shift_by):
         left = dsc - interval_length/2
-        if SF_remove_duplicates and interval_length < 60:
-            left = -np.infty
+        # if SF_remove_duplicates and interval_length < 60:
+        #     left = dsc - 30
         right = min(dsc + interval_length/2, max_dsc)
         vals = df.loc[
             (df["days_since_cutoff"] >= min(0, left)) &
             (df["days_after_last_obs"] >= left) &
             (df["days_after_last_obs"] <= right), "z_score"]
+        _std = vals.std()
+        _mean = vals.mean()
+        _nc_std = np.sqrt(_std**2 + _mean**2)
+        if dsc < interval_length/2:
+            left = 0
+            right = 0
+            _std = 1
+            _mean = 0
+            _nc_std = 1
         data.append(
-            [dsc, left, right, vals.std(), vals.mean(),
-             np.sqrt(vals.std()**2 + vals.mean()**2)])
+            [dsc, left, right, _std, _mean, _nc_std])
 
     cols = ["days_since_last_obs_ac", "days_since_last_obs_ac_std_int_left",
             "days_since_last_obs_ac_std_int_right",
@@ -936,7 +945,8 @@ def compute_zscore_scaling_factors(
              scaling_factor_which+"_moving_avg_cummax"]].values[0]
     hist_plots = []
     for _range in [
-        (0, np.infty, "all"), (0, 30, "0-30"), (0, 180, "0-180"),
+        (0, np.infty, "all"), (0, 30, "0-30"), (30, 60, "30-60"),
+        (60, 180, "60-180"), (0, 180, "0-180"),
         (180, 360, "180-360"), (360, 540, "360-540"), (540, 720, "540-720")]:
         df_ = df.loc[
             (df["days_after_last_obs"] >= _range[0]) &

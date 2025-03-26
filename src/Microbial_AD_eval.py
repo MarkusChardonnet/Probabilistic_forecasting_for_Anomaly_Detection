@@ -961,7 +961,7 @@ def compute_zscore_scaling_factors(
         ax[1, 1].plot(t, stats.norm.pdf(t, loc=0, scale=1), color="darkred",
                       linestyle="--")
         ax[1, 1].set_title(
-            f"scaled: std MA({moving_average}) cummax LB(1)")
+            f"scaled: std MA({moving_average}) cummax")
         fig.suptitle(f"z-scores - days_after_last_obs range: {_range[2]}, "
                      f"sf: {scaling_factor_which}")
         plt.tight_layout(rect=[0, 0.03, 1, 0.95])

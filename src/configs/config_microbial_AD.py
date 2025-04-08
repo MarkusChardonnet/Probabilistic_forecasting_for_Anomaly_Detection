@@ -413,7 +413,7 @@ param_list_AD_microbial_novel_alpha_div2_reliability_eval_nsf = get_parameter_ar
 # AD for synthetic dataset models
 # ------------------------------------------------------------------------------
 AD_synthetic_sm_path = "{}saved_models_synthetic_microbial/".format(data_path)
-AD_synthetic_ids = [1]
+AD_synthetic_ids = [1,3]
 
 # params for the AD score computation on the real dataset (w/o scaling factors)
 param_dict_AD_synthetic_on_real = {

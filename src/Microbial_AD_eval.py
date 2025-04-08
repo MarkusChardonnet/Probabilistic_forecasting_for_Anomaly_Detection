@@ -4,6 +4,7 @@ import os
 import sys
 import socket
 import tqdm
+import copy
 
 import data_utils
 import matplotlib  # plots
@@ -1289,7 +1290,8 @@ def main(arg):
             #   that this is overwritten with a new test dataset given in the
             #   ad_params
 
-            for ad_param in ad_params:
+            for _ad_param in ad_params:
+                ad_param = copy.deepcopy(_ad_param)
                 print("AD param: ", ad_param)
                 if 'dataset' in ad_param:
                     dataset = ad_param["dataset"]

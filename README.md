@@ -54,6 +54,7 @@ The probabilistic forecasting is based on the PD-NJODE framework. This framework
     cd src
     python data_utils.py --dataset_name=Microbiome_OrnsteinUhlenbeck --dataset_params=config_synthetic_novel_alpha_faith_pd
     python data_utils.py --dataset_name=Microbiome_OrnsteinUhlenbeck --dataset_params=config_synthetic_novel_alpha_faith_pd_test
+    python data_utils.py --dataset_name=Microbiome_OrnsteinUhlenbeck --dataset_params=config_synthetic_novel_alpha_faith_pd_val
     ```
 
 ## Training the probabilistic forecasting module
@@ -145,6 +146,7 @@ synthetic datasets:
 python data_utils.py --dataset_name=Microbiome_OrnsteinUhlenbeck --dataset_params=config_synthetic_novel_alpha_faith_pd
 python data_utils.py --dataset_name=Microbiome_OrnsteinUhlenbeck --dataset_params=config_synthetic_novel_alpha_faith_pd_large
 python data_utils.py --dataset_name=Microbiome_OrnsteinUhlenbeck --dataset_params=config_synthetic_novel_alpha_faith_pd_test
+python data_utils.py --dataset_name=Microbiome_OrnsteinUhlenbeck --dataset_params=config_synthetic_novel_alpha_faith_pd_val
 ```
 
 
@@ -268,8 +270,21 @@ python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_novel_
 
 synthetic datasets:
 ```shell
+# evalution on real data of the model trained on the synthetic dataset 
 python Microbial_AD_eval.py --forecast_model_ids=AD_synthetic_ids --ad_params=param_list_AD_synthetic_on_real --forecast_saved_models_path=AD_synthetic_sm_path --compute_scores=True --evaluate_scores=False
 ```
+```shell
+# first compute the z-scores and the scaling factors
+python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_synthetic_ids --ad_params=param_list_AD_microbial_synthetic_2_scaling_factors --forecast_saved_models_path=AD_synthetic_sm_path --compute_scores=True --evaluate_scores=False --compute_zscore_scaling_factors=False
+python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_synthetic_ids --ad_params=param_list_AD_microbial_synthetic_2_scaling_factors2 --forecast_saved_models_path=AD_synthetic_sm_path --compute_scores=False --evaluate_scores=False --compute_zscore_scaling_factors=True
+
+# then compute the AD scores using the scaling factors
+python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_synthetic_ids --ad_params=param_list_AD_synthetic --forecast_saved_models_path=AD_synthetic_sm_path --compute_scores=True --evaluate_scores=False --compute_zscore_scaling_factors=False
+
+# then compute scores for reliability evaluation using the scaling factors
+python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_synthetic_ids --ad_params=param_list_AD_synthetic_reliability_eval --forecast_saved_models_path=AD_synthetic_sm_path --compute_scores=True --evaluate_scores=False --compute_zscore_scaling_factors=False
+```
+
 
 
 

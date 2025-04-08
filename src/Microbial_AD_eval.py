@@ -1288,22 +1288,13 @@ def main(arg):
             #   that was used for training the model. Below there is the option
             #   that this is overwritten with a new test dataset given in the
             #   ad_params
-            if 'dataset' not in forecast_param:
-                if 'data_dict' not in forecast_param:
-                    raise KeyError('the "dataset" needs to be specified')
-                else:
-                    data_dict = forecast_param["data_dict"]
-                    dataset, dataset_id = data_utils._get_dataset_name_id_from_dict(
-                        data_dict=data_dict)
-                    dataset_id = int(dataset_id)
-                    dataset = "{}-{}".format(dataset, dataset_id)
-                    forecast_param["dataset"] = dataset
+
             for ad_param in ad_params:
                 print("AD param: ", ad_param)
-                dataset = forecast_param["dataset"]
                 if 'dataset' in ad_param:
                     dataset = ad_param["dataset"]
                     del ad_param["dataset"]
+                    forecast_param["dataset"] = dataset
                     print("using dataset from ad_param: ", dataset)
                 elif 'data_dict' in ad_param:
                     data_dict = ad_param["data_dict"]
@@ -1312,7 +1303,22 @@ def main(arg):
                     dataset_id = int(dataset_id)
                     dataset = "{}-{}".format(dataset, dataset_id)
                     del ad_param["data_dict"]
+                    forecast_param["dataset"] = dataset
                     print("using dataset from ad_param: ", dataset)
+                else:
+                    if 'dataset' not in forecast_param:
+                        if 'data_dict' not in forecast_param:
+                            raise KeyError(
+                                'the "dataset" needs to be specified')
+                        else:
+                            data_dict = forecast_param["data_dict"]
+                            dataset, dataset_id = data_utils._get_dataset_name_id_from_dict(
+                                data_dict=data_dict)
+                            dataset_id = int(dataset_id)
+                            dataset = "{}-{}".format(dataset, dataset_id)
+                            forecast_param["dataset"] = dataset
+                    dataset = forecast_param["dataset"]
+                    print("using dataset from forecast_param: ", dataset)
                 if 'saved_models_path' in ad_param:
                     del ad_param["saved_models_path"]
                 if FLAGS.compute_scores:

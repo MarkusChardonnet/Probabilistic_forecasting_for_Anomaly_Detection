@@ -413,7 +413,7 @@ param_list_AD_microbial_novel_alpha_div2_reliability_eval_nsf = get_parameter_ar
 # AD for synthetic dataset models
 # ------------------------------------------------------------------------------
 AD_synthetic_sm_path = "{}saved_models_synthetic_microbial/".format(data_path)
-AD_synthetic_ids = [1]
+AD_synthetic_ids = [1,3]
 
 # params for the AD score computation on the real dataset (w/o scaling factors)
 param_dict_AD_synthetic_on_real = {
@@ -431,3 +431,83 @@ param_dict_AD_synthetic_on_real = {
 }
 param_list_AD_synthetic_on_real = get_parameter_array(
         param_dict=param_dict_AD_synthetic_on_real)
+
+
+# -----
+# params for getting the scaling factors
+param_dict_AD_synthetic_2sf = {
+        'load_best': [True],
+        'verbose': [True],
+        'seed': [seed],
+        'data_dict': ['config_synthetic_novel_alpha_faith_pd_val'],
+        'scoring_distribution': ['z_score'],
+        'plot_cond_standardized_dist': [['normal', ]],  # 'lognormal'
+        'only_jump_before_abx_exposure': [False],
+        'use_dyn_cov_after_abx': [True],
+        'reliability_eval_start_times': [list(range(1, 1162, 3))],
+        'aggregation_method': ['coord-0'],
+        'use_scaling_factors': [False],
+        'scaling_factor_which': [None],
+}
+param_list_AD_microbial_synthetic_2_scaling_factors = get_parameter_array(
+        param_dict=param_dict_AD_synthetic_2sf)
+
+# params for scaling factor computation and plots
+param_dict_AD_synthetic_sf2 = {
+        'load_best': [True],
+        'verbose': [True],
+        'seed': [seed],
+        'data_dict': ['config_synthetic_novel_alpha_faith_pd_val'],
+        'scoring_distribution': ['z_score'],
+        'plot_cond_standardized_dist': [None],
+        'only_jump_before_abx_exposure': [False],
+        'use_dyn_cov_after_abx': [True],
+        'interval_length': [120],  # 30
+        'shift_by': [1],
+        'aggregation_method': ['coord-0'],
+        'moving_average': [10],  # 30
+        'SF_remove_duplicates': [True],  # False
+        'scaling_factor_which': ['nc_std_z_scores'],  # 'std_z_scores', 'nc_std_z_scores'
+}
+param_list_AD_microbial_synthetic_2_scaling_factors2 = get_parameter_array(
+        param_dict=param_dict_AD_synthetic_sf2)
+
+# params for the actual AD score computation using the scaling factors
+param_dict_AD_synthetic2 = {
+        'load_best': [True],
+        'verbose': [True],
+        'seed': [seed],
+        'scoring_distribution': ['normal',],
+        'scoring_metric': ['left-tail'],
+        'plot_cond_standardized_dist': [None],
+        'only_jump_before_abx_exposure': [1,2,3],
+        'use_dyn_cov_after_abx': [True],
+        'aggregation_method': ['coord-0'],
+        'use_scaling_factors': [True],
+        'SF_remove_duplicates': [True,],
+        'scaling_factor_which': ['nc_std_z_scores'],  # 'std_z_scores'
+        'preprocess_scaling_factors': [
+                'moving_avg-10-cummax'],
+}
+param_list_AD_synthetic = get_parameter_array(
+        param_dict=param_dict_AD_synthetic2)
+
+# params for the reliability evaluation using the scaling factors
+param_dict_AD_synthetic_re = {
+        'load_best': [True],
+        'verbose': [True],
+        'seed': [seed],
+        'scoring_distribution': ['normal',],
+        'scoring_metric': ['left-tail'],
+        'only_jump_before_abx_exposure': [False],
+        'plot_cond_standardized_dist': [['normal', ]],
+        'use_dyn_cov_after_abx': [True],
+        'reliability_eval_start_times': [list(range(0, 1162, 30))],  # TODO: should we change this as above?
+        'use_scaling_factors': [True],
+        'SF_remove_duplicates': [True,],
+        'scaling_factor_which': ['nc_std_z_scores'],  # 'std_z_scores'
+        'preprocess_scaling_factors': [
+                'moving_avg-10-cummax'],
+}
+param_list_AD_synthetic_reliability_eval = get_parameter_array(
+        param_dict=param_dict_AD_synthetic_re)

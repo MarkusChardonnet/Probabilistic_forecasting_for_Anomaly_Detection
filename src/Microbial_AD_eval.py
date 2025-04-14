@@ -983,6 +983,46 @@ def compute_zscore_scaling_factors(
         hist_plots.append(filename_hist_plot.format(_range[2]))
         plt.close()
 
+    # plot for paper
+    fig = plt.figure(constrained_layout=True, figsize=(3*2, 1.5*5))
+    fig.suptitle(f"z-scores - rescaled with: {scaling_factor_which}")
+    subfigs = fig.subfigures(nrows=5, ncols=1)
+    for i, _range in enumerate([
+        (0, 180, "0-180"), (180, 360, "180-360"), (360, 540, "360-540"),
+        (540, 720, "540-720"), (0, np.infty, "all"),]):
+        df_ = df.loc[
+            (df["days_after_last_obs"] >= _range[0]) &
+            (df["days_after_last_obs"] <= _range[1])]
+        t = np.linspace(-5, 5, 1000)
+        subfigs[i].suptitle(f"days_after_last_obs range: {_range[2]}")
+        ax = subfigs[i].subplots(nrows=1, ncols=2)
+        # unscaled
+        sns.histplot(x=df_["z_score"], bins=50, kde=True, ax=ax[0],
+                     stat="density", color="skyblue", )
+        ax[0].plot(t, stats.norm.pdf(t, loc=0, scale=1), color="darkred",
+                      linestyle="--")
+        # scaled
+        sns.histplot(x=df_["z_score"] / df_["std_z_scores_moving_avg_cummax"],
+                     bins=50, kde=True, ax=ax[1], stat="density",
+                     color="skyblue")
+        ax[1].plot(t, stats.norm.pdf(t, loc=0, scale=1), color="darkred",
+                      linestyle="--")
+        if i == 0:
+            ax[0].set_title("unscaled")
+            ax[1].set_title(f"scaled: std MA({moving_average}) cummax")
+        if i < 4:
+            ax[0].set_xlabel(None)
+            ax[1].set_xlabel(None)
+        else:
+            ax[0].set_xlabel("z-score")
+            ax[1].set_xlabel("z-score")
+        ax[1].set_ylabel(None)
+    # save
+    # plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    plt.savefig(filename_hist_plot.format("overview"))
+    hist_plots.append(filename_hist_plot.format("overview"))
+    plt.close()
+
     if send:
         caption = "z-scores scaling factors - {} - id={}".format(
             which, forecast_model_id)

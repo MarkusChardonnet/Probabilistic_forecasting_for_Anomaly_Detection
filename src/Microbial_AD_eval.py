@@ -912,19 +912,26 @@ def compute_zscore_scaling_factors(
     df_out[scaling_factor_which+"_moving_avg"] = df_out[scaling_factor_which].rolling(
         moving_average, min_periods=1).mean()
     df_out[scaling_factor_which+"_moving_avg_cummax"] = df_out[scaling_factor_which+"_moving_avg"].cummax()
+    if scaling_factor_which == "std_z_scores":
+        _prefix = "std"
+    else:
+        _prefix = "nc-std"
     plt.plot(df_out["days_since_last_obs_ac"], df_out[scaling_factor_which],
-             label="std_z_scores")
-    plt.plot(df_out["days_since_last_obs_ac"],
-             df_out[scaling_factor_which+"_cummax"], label="cummax")
+             label=f"{_prefix}")
+    # plt.plot(df_out["days_since_last_obs_ac"],
+    #          df_out[scaling_factor_which+"_cummax"], label="cummax")
     plt.plot(df_out["days_since_last_obs_ac"],
              df_out[scaling_factor_which+"_moving_avg"],
-             label=f"moving average ({moving_average})")
+             label=f"{_prefix} MA({moving_average})")
     plt.plot(df_out["days_since_last_obs_ac"],
              df_out[scaling_factor_which+"_moving_avg_cummax"],
-             label=f"moving averag ({moving_average}) cummax")
+             label=f"{_prefix} MA({moving_average}) cummax")
     plt.title("scaling factors")
-    plt.xlabel("days since last observation (after cut-off)")
-    plt.ylabel("std_z_scores")
+    plt.xlabel("$\Delta$: days since last observation")
+    if scaling_factor_which == "std_z_scores":
+        plt.ylabel("std of z-scores")
+    else:
+        plt.ylabel("nc-std of z-scores")
     plt.legend()
     plt.tight_layout()
     plt.savefig(filename_plot)
@@ -982,6 +989,50 @@ def compute_zscore_scaling_factors(
         plt.savefig(filename_hist_plot.format(_range[2]))
         hist_plots.append(filename_hist_plot.format(_range[2]))
         plt.close()
+
+    # plot for paper
+    fig = plt.figure(constrained_layout=True, figsize=(3*2, 1.5*5))
+    if scaling_factor_which == "std_z_scores":
+        _postfix = "std"
+    else:
+        _postfix = "nc-std"
+    # fig.suptitle("z-scores$")
+    subfigs = fig.subfigures(nrows=5, ncols=1)
+    for i, _range in enumerate([
+        (0, 180, "0, 180"), (180, 360, "180, 360"), (360, 540, "360, 540"),
+        (540, 720, "540, 720"), (0, np.infty, "0, \\infty"),]):
+        df_ = df.loc[
+            (df["days_after_last_obs"] >= _range[0]) &
+            (df["days_after_last_obs"] <= _range[1])]
+        t = np.linspace(-5, 5, 1000)
+        subfigs[i].suptitle(f"z-scores with $\\Delta \in [{_range[2]}]$")
+        ax = subfigs[i].subplots(nrows=1, ncols=2)
+        # unscaled
+        sns.histplot(x=df_["z_score"], bins=50, kde=True, ax=ax[0],
+                     stat="density", color="skyblue", )
+        ax[0].plot(t, stats.norm.pdf(t, loc=0, scale=1), color="darkred",
+                      linestyle="--")
+        # scaled
+        sns.histplot(x=df_["z_score"] / df_["std_z_scores_moving_avg_cummax"],
+                     bins=50, kde=True, ax=ax[1], stat="density",
+                     color="skyblue")
+        ax[1].plot(t, stats.norm.pdf(t, loc=0, scale=1), color="darkred",
+                      linestyle="--")
+        if i == 0:
+            ax[0].set_title("unscaled")
+            ax[1].set_title("rescaled with: $\\alpha_{{sf}}(\\Delta)$")
+        if i < 4:
+            ax[0].set_xlabel(None)
+            ax[1].set_xlabel(None)
+        else:
+            ax[0].set_xlabel("z-score")
+            ax[1].set_xlabel("z-score")
+        ax[1].set_ylabel(None)
+    # save
+    # plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    plt.savefig(filename_hist_plot.format("overview"))
+    hist_plots.append(filename_hist_plot.format("overview"))
+    plt.close()
 
     if send:
         caption = "z-scores scaling factors - {} - id={}".format(

@@ -333,5 +333,4 @@ and individual score trajectories can be explored in `evaluate_indiv_score_incre
 - [ ] change the loss to only use the approximation of the cond var (similar to the standard NJODE loss, but for var), delete the second moment prediction from the model
 - [ ] change the architecture s.t. model output corresponds to the cond std, so squaring it gives the variance (which automatically is positive)
 - [ ] also change this in the validation loss
-- [ ] some loss terms don't make sense for long-term predictions. e.g. the variance shouldn't be 0 after an incomplete observation
-- 
+- [ ] some loss terms don't make sense for long-term predictions. e.g. the variance shouldn't be 0 after an incomplete observation -> not used in variance_bis2

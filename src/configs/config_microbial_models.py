@@ -2176,11 +2176,15 @@ param_list_microbial_retrain = []
 
 
 param_dict_microbial_retrain = {
-        'load_pretrained_model': [os.path.join(
-            synthetic_microbial_models_path, "id-1", "best_checkpoint")],
+        'load_pretrained_model': [
+            os.path.join(
+                synthetic_microbial_models_path, "id-3", "best_checkpoint"),
+            os.path.join(
+                synthetic_microbial_models_path, "id-1", "best_checkpoint")
+        ],
         'dataset': ['microbial_novel_alpha_faith_pd',],
         'dataset_split': ["no_abx",],
-        'epochs': [6000],
+        'epochs': [3000],
         'batch_size': [batch_size],
         'save_every': [1],
         'learning_rate': [learning_rate],
@@ -2200,8 +2204,7 @@ param_dict_microbial_retrain = {
         'test': [test],
         'solver': [solver],
         'solver_delta_t_factor': [solver_delta_t_factor],
-        'weight': [0.],
-        'weight_evolve': [{'type': 'linear', 'target': 1, 'reach': None}],
+        'weight': [0.5],
         'plot': [True],
         'which_loss': ["variance_bis2"],
         'which_eval_loss': ['val_variance'],
@@ -2223,7 +2226,7 @@ param_dict_microbial_retrain = {
         'val_use_input_until_t': [[0.2, 0.4, 0.6, 0.8]],
         'val_predict_for_t': [366./1162],
         'use_only_dyn_ft_as_input': [
-            "lambda t,x: (torch.rand(x) < (min(t,5000)-2000)/6000)"
+            0.25
         ],
         'which_best_loss': ['val_loss_until_t_av'],
     }

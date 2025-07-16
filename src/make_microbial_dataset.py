@@ -255,7 +255,8 @@ def make_dataset(dataset,  # name of dataset file in data/original_data
         if len(times) > 1:
             min_dt_per_host[i] = np.min(times[1:] - times[:-1])
     # print(min_dt_per_host)
-    print(np.min(min_dt_per_host))
+    print(min_dt_per_host)
+    print("min over all hosts:", np.min(min_dt_per_host))
 
     ### PATHS ###
     dataset_path = os.path.join(train_data_path, dataset_name)

@@ -4,6 +4,7 @@ import os
 import sys
 import socket
 import tqdm
+import copy
 
 import data_utils
 import matplotlib  # plots
@@ -132,6 +133,7 @@ def get_model_predictions(
             np.arange(true_abx_exposure.shape[1]) <
             np.round(use_obs_until_t/delta_t), (1, -1)).repeat(
             len(true_abx_exposure), axis=0)
+        odbc[:, 0] = 1  # always use the first observation
 
     neg_odbc = np.ones_like(odbc) - odbc  # 0 if observed before cutoff, else 1
     days_after_last_obs = np.zeros_like(true_abx_exposure)
@@ -242,7 +244,7 @@ def get_model_predictions(
 def _plot_conditionally_standardized_distribution(
         cond_moments, observed_dates, obs, output_vars, path_to_save,
         compare_to_dist="normal", replace_values=None, which_set='train',
-        which_coord=0, eps=1e-4,
+        which_coord=0, eps=1e-4, std_sf=None,
         **options):
     """
     Plot the conditionally standardized distribution
@@ -259,12 +261,19 @@ def _plot_conditionally_standardized_distribution(
             values for variance
         host_id: np.array, [nb_samples], host ids
         which_set: str, which set to plot, one of: 'train', 'val'
+        which_coord: int, which coordinate to plot
+        eps: float, small value to avoid division by zero
+        std_sf: None or np.array, [nb_steps, nb_samples], std scaling factors
     """
     # cond_exp : [nb_steps, nb_samples, dimension]
     # cond_var : [nb_steps, nb_samples, dimension]
     cond_exp, cond_var = AD_modules.get_cond_exp_var(cond_moments, output_vars)
     cond_var = AD_modules.get_corrected_var(
         cond_var, min_var_val=eps, replace_var=replace_values)
+    # use scaling factors to adjust the conditional std
+    if std_sf is not None:
+        std_sf = np.expand_dims(std_sf, axis=2).repeat(cond_var.shape[2], axis=2)
+        cond_var = cond_var * (std_sf ** 2)
     if compare_to_dist == "normal":
         cond_std = np.sqrt(cond_var)
         standardized_obs = (obs - cond_exp) / cond_std
@@ -422,6 +431,9 @@ def compute_scores(
         N_CPUS = nb_cpus
     if n_dataset_workers is not None:
         N_DATASET_WORKERS = n_dataset_workers
+
+    # set number of CPUs
+    torch.set_num_threads(N_CPUS)
 
     if USE_GPU and torch.cuda.is_available():
         gpu_num = 0
@@ -636,6 +648,10 @@ def compute_scores(
         which_coord = 0
     if plot_cond_standardized_dist is not None:
         dist_path = f'{ad_path}dist/train-noabx/'
+        if use_scaling_factors:
+            dist_path += (f"using-SF_{scaling_factor_which}--"
+                          f"{preprocess_scaling_factors}--RD-"
+                          f"{SF_remove_duplicates}/")
         makedirs(dist_path)
         for dist in plot_cond_standardized_dist:
             filepaths += _plot_conditionally_standardized_distribution(
@@ -643,7 +659,8 @@ def compute_scores(
                 observed_dates[:, abx_labels == 0],
                 obs[:, abx_labels == 0], output_vars, path_to_save=dist_path,
                 compare_to_dist=dist, replace_values=replace_values,
-                which_set='train', which_coord=which_coord, eps=epsilon)
+                which_set='train', which_coord=which_coord, eps=epsilon,
+                std_sf=cutoff_adj_sf[:, abx_labels==0])
 
     # test data
     (cond_moments, observed_dates, true_X, abx_labels, host_id, cutoff_adj_sf,
@@ -683,13 +700,18 @@ def compute_scores(
     
     if plot_cond_standardized_dist is not None:
         dist_path = f'{ad_path}dist/val-noabx/'
+        if use_scaling_factors:
+            dist_path += (f"using-SF_{scaling_factor_which}--"
+                          f"{preprocess_scaling_factors}--RD-"
+                          f"{SF_remove_duplicates}/")
         makedirs(dist_path)
         for dist in plot_cond_standardized_dist:
             filepaths += _plot_conditionally_standardized_distribution(
                 cond_moments[:, abx_labels==0], observed_dates[:, abx_labels==0],
                 obs[:, abx_labels==0], output_vars, path_to_save=dist_path,
                 compare_to_dist=dist, replace_values=replace_values,
-                which_set='val', which_coord=which_coord, eps=epsilon)
+                which_set='val', which_coord=which_coord, eps=epsilon,
+                std_sf=cutoff_adj_sf[:, abx_labels==0])
 
     if reliability_eval_start_times is not None:
         reli_eval_path = f'{ad_path}reliability_eval-val-noabx_{which}_{scoring_distribution}/'
@@ -798,6 +820,29 @@ def compute_zscore_scaling_factors(
         scaling_factor_which='std_z_scores',
         SF_remove_duplicates=False,
         **kwargs):
+    """
+
+    Args:
+        forecast_saved_models_path:
+        forecast_model_id:
+        load_best:
+        aggregation_method:
+        scoring_distribution:
+        interval_length: int, length of the interval over which to compute the
+            scaling factors. the interval is centered around the
+            days_after_last_obs value for which the scaling factor is computed.
+        shift_by: int, shift the center of the interval by this value. should be
+            1 for other methods to work correctly.
+        send:
+        moving_average:
+        scaling_factor_which:
+        SF_remove_duplicates: 'std_z_scores' or 'nc_std_z_scores' (non-centered
+            version of the std of the z-scores)
+        **kwargs:
+
+    Returns:
+
+    """
 
     assert scoring_distribution == "z_score", \
         "scoring_distribution must be z_score"
@@ -836,16 +881,24 @@ def compute_zscore_scaling_factors(
     data = []
     for dsc in range(0, max_dsc, shift_by):
         left = dsc - interval_length/2
-        if SF_remove_duplicates:
-            left = -np.infty
+        # if SF_remove_duplicates and interval_length < 60:
+        #     left = dsc - 30
         right = min(dsc + interval_length/2, max_dsc)
         vals = df.loc[
             (df["days_since_cutoff"] >= min(0, left)) &
             (df["days_after_last_obs"] >= left) &
             (df["days_after_last_obs"] <= right), "z_score"]
+        _std = vals.std()
+        _mean = vals.mean()
+        _nc_std = np.sqrt(_std**2 + _mean**2)
+        if dsc < interval_length/2:
+            left = 0
+            right = 0
+            _std = 1
+            _mean = 0
+            _nc_std = 1
         data.append(
-            [dsc, left, right, vals.std(), vals.mean(),
-             np.sqrt(vals.std()**2 + vals.mean()**2)])
+            [dsc, left, right, _std, _mean, _nc_std])
 
     cols = ["days_since_last_obs_ac", "days_since_last_obs_ac_std_int_left",
             "days_since_last_obs_ac_std_int_right",
@@ -858,21 +911,27 @@ def compute_zscore_scaling_factors(
     df_out[scaling_factor_which+"_cummax"] = df_out[scaling_factor_which].cummax()
     df_out[scaling_factor_which+"_moving_avg"] = df_out[scaling_factor_which].rolling(
         moving_average, min_periods=1).mean()
-    df_out[scaling_factor_which+"_moving_avg_cummax"] = np.maximum(1,
-        df_out[scaling_factor_which+"_moving_avg"].cummax())
+    df_out[scaling_factor_which+"_moving_avg_cummax"] = df_out[scaling_factor_which+"_moving_avg"].cummax()
+    if scaling_factor_which == "std_z_scores":
+        _prefix = "std"
+    else:
+        _prefix = "nc-std"
     plt.plot(df_out["days_since_last_obs_ac"], df_out[scaling_factor_which],
-             label="std_z_scores")
-    plt.plot(df_out["days_since_last_obs_ac"],
-             df_out[scaling_factor_which+"_cummax"], label="cummax")
+             label=f"{_prefix}")
+    # plt.plot(df_out["days_since_last_obs_ac"],
+    #          df_out[scaling_factor_which+"_cummax"], label="cummax")
     plt.plot(df_out["days_since_last_obs_ac"],
              df_out[scaling_factor_which+"_moving_avg"],
-             label=f"moving average ({moving_average})")
+             label=f"{_prefix} MA({moving_average})")
     plt.plot(df_out["days_since_last_obs_ac"],
              df_out[scaling_factor_which+"_moving_avg_cummax"],
-             label=f"moving averag ({moving_average}) cummax LB (1)")
+             label=f"{_prefix} MA({moving_average}) cummax")
     plt.title("scaling factors")
-    plt.xlabel("days since last observation (after cutoff)")
-    plt.ylabel("std_z_scores")
+    plt.xlabel("$\Delta$: days since last observation")
+    if scaling_factor_which == "std_z_scores":
+        plt.ylabel("std of z-scores")
+    else:
+        plt.ylabel("nc-std of z-scores")
     plt.legend()
     plt.tight_layout()
     plt.savefig(filename_plot)
@@ -894,7 +953,8 @@ def compute_zscore_scaling_factors(
              scaling_factor_which+"_moving_avg_cummax"]].values[0]
     hist_plots = []
     for _range in [
-        (0, np.infty, "all"), (0, 30, "0-30"), (0, 180, "0-180"),
+        (0, np.infty, "all"), (0, 30, "0-30"), (30, 60, "30-60"),
+        (60, 180, "60-180"), (0, 180, "0-180"),
         (180, 360, "180-360"), (360, 540, "360-540"), (540, 720, "540-720")]:
         df_ = df.loc[
             (df["days_after_last_obs"] >= _range[0]) &
@@ -922,13 +982,57 @@ def compute_zscore_scaling_factors(
         ax[1, 1].plot(t, stats.norm.pdf(t, loc=0, scale=1), color="darkred",
                       linestyle="--")
         ax[1, 1].set_title(
-            f"scaled: std MA({moving_average}) cummax LB(1)")
+            f"scaled: std MA({moving_average}) cummax")
         fig.suptitle(f"z-scores - days_after_last_obs range: {_range[2]}, "
                      f"sf: {scaling_factor_which}")
         plt.tight_layout(rect=[0, 0.03, 1, 0.95])
         plt.savefig(filename_hist_plot.format(_range[2]))
         hist_plots.append(filename_hist_plot.format(_range[2]))
         plt.close()
+
+    # plot for paper
+    fig = plt.figure(constrained_layout=True, figsize=(3*2, 1.5*5))
+    if scaling_factor_which == "std_z_scores":
+        _postfix = "std"
+    else:
+        _postfix = "nc-std"
+    # fig.suptitle("z-scores$")
+    subfigs = fig.subfigures(nrows=5, ncols=1)
+    for i, _range in enumerate([
+        (0, 180, "0, 180"), (180, 360, "180, 360"), (360, 540, "360, 540"),
+        (540, 720, "540, 720"), (0, np.infty, "0, \\infty"),]):
+        df_ = df.loc[
+            (df["days_after_last_obs"] >= _range[0]) &
+            (df["days_after_last_obs"] <= _range[1])]
+        t = np.linspace(-5, 5, 1000)
+        subfigs[i].suptitle(f"z-scores with $\\Delta \in [{_range[2]}]$")
+        ax = subfigs[i].subplots(nrows=1, ncols=2)
+        # unscaled
+        sns.histplot(x=df_["z_score"], bins=50, kde=True, ax=ax[0],
+                     stat="density", color="skyblue", )
+        ax[0].plot(t, stats.norm.pdf(t, loc=0, scale=1), color="darkred",
+                      linestyle="--")
+        # scaled
+        sns.histplot(x=df_["z_score"] / df_["std_z_scores_moving_avg_cummax"],
+                     bins=50, kde=True, ax=ax[1], stat="density",
+                     color="skyblue")
+        ax[1].plot(t, stats.norm.pdf(t, loc=0, scale=1), color="darkred",
+                      linestyle="--")
+        if i == 0:
+            ax[0].set_title("unscaled")
+            ax[1].set_title("rescaled with: $\\alpha_{{sf}}(\\Delta)$")
+        if i < 4:
+            ax[0].set_xlabel(None)
+            ax[1].set_xlabel(None)
+        else:
+            ax[0].set_xlabel("z-score")
+            ax[1].set_xlabel("z-score")
+        ax[1].set_ylabel(None)
+    # save
+    # plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    plt.savefig(filename_hist_plot.format("overview"))
+    hist_plots.append(filename_hist_plot.format("overview"))
+    plt.close()
 
     if send:
         caption = "z-scores scaling factors - {} - id={}".format(
@@ -1191,6 +1295,10 @@ def get_forecast_model_param_dict(
 
 def main(arg):
 
+    # set number of CPUs
+    print("Number of CPUs: ", FLAGS.NB_CPUS)
+    torch.set_num_threads(FLAGS.NB_CPUS)
+
     del arg
     forecast_params_list = None
     forecast_model_ids = None
@@ -1232,22 +1340,14 @@ def main(arg):
             #   that was used for training the model. Below there is the option
             #   that this is overwritten with a new test dataset given in the
             #   ad_params
-            if 'dataset' not in forecast_param:
-                if 'data_dict' not in forecast_param:
-                    raise KeyError('the "dataset" needs to be specified')
-                else:
-                    data_dict = forecast_param["data_dict"]
-                    dataset, dataset_id = data_utils._get_dataset_name_id_from_dict(
-                        data_dict=data_dict)
-                    dataset_id = int(dataset_id)
-                    dataset = "{}-{}".format(dataset, dataset_id)
-                    forecast_param["dataset"] = dataset
-            for ad_param in ad_params:
+
+            for _ad_param in ad_params:
+                ad_param = copy.deepcopy(_ad_param)
                 print("AD param: ", ad_param)
-                dataset = forecast_param["dataset"]
                 if 'dataset' in ad_param:
                     dataset = ad_param["dataset"]
                     del ad_param["dataset"]
+                    forecast_param["dataset"] = dataset
                     print("using dataset from ad_param: ", dataset)
                 elif 'data_dict' in ad_param:
                     data_dict = ad_param["data_dict"]
@@ -1256,7 +1356,22 @@ def main(arg):
                     dataset_id = int(dataset_id)
                     dataset = "{}-{}".format(dataset, dataset_id)
                     del ad_param["data_dict"]
+                    forecast_param["dataset"] = dataset
                     print("using dataset from ad_param: ", dataset)
+                else:
+                    if 'dataset' not in forecast_param:
+                        if 'data_dict' not in forecast_param:
+                            raise KeyError(
+                                'the "dataset" needs to be specified')
+                        else:
+                            data_dict = forecast_param["data_dict"]
+                            dataset, dataset_id = data_utils._get_dataset_name_id_from_dict(
+                                data_dict=data_dict)
+                            dataset_id = int(dataset_id)
+                            dataset = "{}-{}".format(dataset, dataset_id)
+                            forecast_param["dataset"] = dataset
+                    dataset = forecast_param["dataset"]
+                    print("using dataset from forecast_param: ", dataset)
                 if 'saved_models_path' in ad_param:
                     del ad_param["saved_models_path"]
                 if FLAGS.compute_scores:

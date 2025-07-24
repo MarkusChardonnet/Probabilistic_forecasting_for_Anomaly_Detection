@@ -997,7 +997,7 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
             self.season_nn_input = season_params['nn_input']
             self.season_generator = [Season_NN(self.season_nn_layers, self.season_nn_input, 1, 
                                                self.season_nn_bias) for j in range(self.dimensions)]
-            if self.new_season:
+            if self.new_season or not os.path.exists(self.season_path + '_dim{}.pt'.format(0)):
                 for j in range(self.dimensions):
                     self.season_generator[j].gen_weigths()
                     self.season_generator[j].save(self.season_path + '_dim{}.pt'.format(j))

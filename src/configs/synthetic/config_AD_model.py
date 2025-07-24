@@ -166,7 +166,7 @@ param_dict_AD_OrnsteinUhlenbeckWithSeason_3 = {
         'plot': [True],
         'which_loss': ['ad_var'],
         'evaluate': [True],
-        'evaluate_vars': [['id','var']],
+        'eval_metrics': [['id','var']],
         'paths_to_plot': [(0,1,2,3,4,)],
         'plot_variance': [True],
         'std_factor': [1.96],

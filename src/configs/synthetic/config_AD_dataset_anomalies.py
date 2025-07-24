@@ -1,4 +1,3 @@
-from configs.config_AD_dataset import *
 
 # AD_OrnsteinUhlenbeckWithSeason_deformation_dict = AD_OrnsteinUhlenbeckWithSeason_3_dict
 

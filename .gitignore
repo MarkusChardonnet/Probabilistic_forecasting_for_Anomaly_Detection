@@ -16,7 +16,6 @@ plots/
 
 src/__pycache__/
 src/configs/models/
-src/configs/config_AD*.py
 src/wandb/
 
 test.py

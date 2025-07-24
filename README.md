@@ -43,8 +43,6 @@ The probabilistic forecasting is based on the PD-NJODE framework. This framework
     python data_utils.py --dataset_name=AD_OrnsteinUhlenbeckWithSeason --dataset_params=AD_OrnsteinUhlenbeckWithSeason_3_deformation_dict
     ```
 
-**TODO**: the dicts used above do not exist in the code! add them to some config file!!
-
 
 ## Training the probabilistic forecasting module
 
@@ -62,8 +60,6 @@ Important flags:
     python run.py --params=param_list_AD_OrnsteinUhlenbeckWithSeason_3 --NB_JOBS=1 --USE_GPU=True --get_overview=overview_dict_AD_OrnsteinUhlenbeckWithSeason_3
     ```
 
-**TODO**: the paramlist used above do not exist in the code! add them to some config file!!
-
 
 ## Training / Evaluating the Anomaly detection modules on data with ingested anomalies
 
@@ -76,7 +72,7 @@ Important flags:
 - Training and Evaluating the Anomaly Detection Module on synthetic data :
     ```bash
     cd src
-    python run.py --forecast_model_ids=[0] --forecast_saved_models_path=../data/saved_models_AD_OrnsteinUhlenbeckWithSeason/ --ad_params=param_dict_AD_modules
+    python evaluate_AD.py --forecast_model_ids=[0] --forecast_saved_models_path=../data/saved_models_AD_OrnsteinUhlenbeckWithSeason/ --ad_params=param_dict_AD_modules
     ```
 
 **TODO**: the dicts used above do not exist in the code! add them to some config file!!

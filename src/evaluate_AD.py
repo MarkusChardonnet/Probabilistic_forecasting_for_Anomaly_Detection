@@ -24,7 +24,7 @@ import math
 from sklearn import metrics
 
 from configs import config
-import models
+import models_synthetic as models
 import data_utils
 from AD_modules import AD_module
 import AD_modules

@@ -12,7 +12,7 @@ beautifulsoup4==4.12.2
 bleach==6.0.0
 cached-property==1.5.2
 cachetools==4.1.1
-certifi @ file:///private/var/folders/sy/f16zz6x50xz3113nwtb9bvq00000gp/T/abs_477u68wvzm/croot/certifi_1671487773341/work/certifi
+certifi
 cffi==1.14.2
 chardet==3.0.4
 comm==0.1.4
@@ -45,7 +45,7 @@ ipython-genutils==0.2.0
 ipywidgets==8.1.1
 jedi==0.19.1
 Jinja2==3.1.2
-joblib @ file:///tmp/build/80754af9/joblib_1601912903842/work
+joblib
 jsonschema==4.17.3
 jupyter==1.0.0
 jupyter-client==7.4.9

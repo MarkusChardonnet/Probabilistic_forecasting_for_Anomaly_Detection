@@ -20,8 +20,8 @@ The probabilistic forecasting is based on the PD-NJODE framework. This framework
     pip install numpy==1.18.5
     pip install -r requirements.txt
     ```
-
-
+---
+# Synthetic Data with injested anomalies
 ## Configurations 
 - The configurations can be accessed through the following folder :
     ```bash
@@ -43,19 +43,8 @@ The probabilistic forecasting is based on the PD-NJODE framework. This framework
     python data_utils.py --dataset_name=AD_OrnsteinUhlenbeckWithSeason --dataset_params=AD_OrnsteinUhlenbeckWithSeason_3_deformation_dict
     ```
 
-- Setting up the dataset from infant microbiome data :
-    ```bash
-    cd src
-    python make_microbial_dataset.py --dataset_config=config_genus
-    ```
+**TODO**: the dicts used above do not exist in the code! add them to some config file!!
 
-- Setting up the synthetic infant microbiome dataset :
-    ```bash
-    cd src
-    python data_utils.py --dataset_name=Microbiome_OrnsteinUhlenbeck --dataset_params=config_synthetic_novel_alpha_faith_pd
-    python data_utils.py --dataset_name=Microbiome_OrnsteinUhlenbeck --dataset_params=config_synthetic_novel_alpha_faith_pd_test
-    python data_utils.py --dataset_name=Microbiome_OrnsteinUhlenbeck --dataset_params=config_synthetic_novel_alpha_faith_pd_val
-    ```
 
 ## Training the probabilistic forecasting module
 
@@ -73,11 +62,8 @@ Important flags:
     python run.py --params=param_list_AD_OrnsteinUhlenbeckWithSeason_3 --NB_JOBS=1 --USE_GPU=True --get_overview=overview_dict_AD_OrnsteinUhlenbeckWithSeason_3
     ```
 
-- Training with PD-NJODE on infant microbiome data :
-    ```bash
-    cd src
-    python run.py --params=param_list_microbial_genus --NB_JOBS=1 --USE_GPU=True --GPU_NUM=0
-    ```
+**TODO**: the paramlist used above do not exist in the code! add them to some config file!!
+
 
 ## Training / Evaluating the Anomaly detection modules on data with ingested anomalies
 
@@ -93,16 +79,30 @@ Important flags:
     python run.py --forecast_model_ids=[0] --forecast_saved_models_path=../data/saved_models_AD_OrnsteinUhlenbeckWithSeason/ --ad_params=param_dict_AD_modules
     ```
 
-- Evaluating the Anomaly Detection Module on infant microbiome data :
-    ```bash
-    cd src
-    python run.py --forecast_model_ids=[0] --forecast_saved_models_path=../data/saved_models_microbial_genus_base/ --ad_params=param_dict_AD_microbial_genus
-    ```
+**TODO**: the dicts used above do not exist in the code! add them to some config file!!
 
 
 ---
-## Training commands (Florian)
+# Anomaly Detection in Microbiome Data
 ## Generate Dataset:
+
+novel alpha diversity metric datasets:
+```shell
+# the following is the dataset which is used for the final evaluation
+python make_microbial_dataset.py --dataset_config=config_novel_alpha_faith_pd
+python make_microbial_dataset.py --dataset_config=config_novel_alpha_faith_pd_w_geo
+
+python make_microbial_dataset.py --dataset_config=config_entero_family
+python make_microbial_dataset.py --dataset_config=config_entero_family_w_geo
+python make_microbial_dataset.py --dataset_config=config_entero_genus
+python make_microbial_dataset.py --dataset_config=config_entero_genus_w_geo
+
+python make_microbial_dataset.py --dataset_config=config_novel_alpha_faith_pd_entero_family
+python make_microbial_dataset.py --dataset_config=config_novel_alpha_faith_pd_entero_genus
+python make_microbial_dataset.py --dataset_config=config_novel_alpha_faith_pd_entero_genus_scaled
+```
+
+### Old/Unused datasets (for reference only):
 ```shell
 python make_microbial_dataset.py --dataset_config=config_otu_sig_highab
 python make_microbial_dataset.py --dataset_config=config_genus_sig_highab
@@ -125,32 +125,32 @@ python make_microbial_dataset.py --dataset_config=config_div_alpha_faith_pd_4
 python make_microbial_dataset.py --dataset_config=config_div_alpha_faith_pd_5
 ```
 
-novel alpha diversity metric datasets:
-```shell
-# the following is the dataset which is used for the final evaluation
-python make_microbial_dataset.py --dataset_config=config_novel_alpha_faith_pd
-python make_microbial_dataset.py --dataset_config=config_novel_alpha_faith_pd_w_geo
-
-python make_microbial_dataset.py --dataset_config=config_entero_family
-python make_microbial_dataset.py --dataset_config=config_entero_family_w_geo
-python make_microbial_dataset.py --dataset_config=config_entero_genus
-python make_microbial_dataset.py --dataset_config=config_entero_genus_w_geo
-
-python make_microbial_dataset.py --dataset_config=config_novel_alpha_faith_pd_entero_family
-python make_microbial_dataset.py --dataset_config=config_novel_alpha_faith_pd_entero_genus
-python make_microbial_dataset.py --dataset_config=config_novel_alpha_faith_pd_entero_genus_scaled
-```
 
 synthetic datasets:
 ```shell
-python data_utils.py --dataset_name=Microbiome_OrnsteinUhlenbeck --dataset_params=config_synthetic_novel_alpha_faith_pd
-python data_utils.py --dataset_name=Microbiome_OrnsteinUhlenbeck --dataset_params=config_synthetic_novel_alpha_faith_pd_large
-python data_utils.py --dataset_name=Microbiome_OrnsteinUhlenbeck --dataset_params=config_synthetic_novel_alpha_faith_pd_test
-python data_utils.py --dataset_name=Microbiome_OrnsteinUhlenbeck --dataset_params=config_synthetic_novel_alpha_faith_pd_val
+python data_utils.py --dataset_name=Microbiome_OrnsteinUhlenbeck --dataset_params=config_synthetic_novel_alpha_faith_pd --seed=0
+python data_utils.py --dataset_name=Microbiome_OrnsteinUhlenbeck --dataset_params=config_synthetic_novel_alpha_faith_pd_large --seed=0
+python data_utils.py --dataset_name=Microbiome_OrnsteinUhlenbeck --dataset_params=config_synthetic_novel_alpha_faith_pd_test --seed=1
+python data_utils.py --dataset_name=Microbiome_OrnsteinUhlenbeck --dataset_params=config_synthetic_novel_alpha_faith_pd_val --seed=2
 ```
 
 
+
 ## Training PD-NJODE:
+novel alpha diversity metric datasets:
+```shell
+python run.py --params=param_list_microbial_novel_alpha_div --NB_JOBS=24 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_novel_alpha_div
+
+# the following is the model training which is used for the final evaluation
+python run.py --params=param_list_microbial_novel_alpha_div2 --NB_JOBS=24 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_novel_alpha_div2
+python run.py --plot_paths=plot_paths_novel_alpha_div2
+```
+
+Based on the training results, the model ids 55,56,57 (using RNN, no signature and increasing probability to only use dynamic features as inputs; with the 3 different validation horizons) are selected. Computing the outputs on the validation set shows that only 57 never predicts a cond variance <0. 
+Moreover, this model produces increasing confidence interval sizes and it has the best eval loss (i.e. train loss on val set) of the 3 models. Therefore, this model is selected for further evaluation.
+
+### Old/Unused model trainings (for reference only):
+
 on OTU dataset:
 ```shell
 python run.py --params=param_list_microbial_otu2 --NB_JOBS=64 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_otu2
@@ -178,26 +178,13 @@ alpha diversity metric datasets:
 python run.py --params=param_list_microbial_alpha_div --NB_JOBS=64 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_alpha_div
 ```
 
-novel alpha diversity metric datasets:
-```shell
-python run.py --params=param_list_microbial_novel_alpha_div --NB_JOBS=24 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_novel_alpha_div
-
-# the following is the model training which is used for the final evaluation
-python run.py --params=param_list_microbial_novel_alpha_div2 --NB_JOBS=24 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_novel_alpha_div2
-python run.py --plot_paths=plot_paths_novel_alpha_div2
-```
-
-Based on the training results, the model ids 55,56,57 (using RNN, no signature and increasing probability to only use dynamic features as inputs; with the 3 different validation horizons) are selected. Computing the outputs on the validation set shows that only 57 never predicts a cond variance <0. 
-Moreover, this model produces increasing confidence interval sizes and it has the best eval loss (i.e. train loss on val set) of the 3 models. Therefore, this model is selected for further evaluation.
-
-
-### Synthetic datasets
+Synthetic datasets
 ```shell
 python run.py --params=param_list_synthetic_microbial --NB_JOBS=24 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_synthetic_microbial
 python run.py --plot_paths=plot_paths_synthetic
 ```
 
-### Retraining pretrained models
+Retraining pretrained models
 ```shell
 python run.py --params=param_list_microbial_retrain --NB_JOBS=24 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_retrain
 ```
@@ -205,6 +192,29 @@ python run.py --params=param_list_microbial_retrain --NB_JOBS=24 --NB_CPUS=1 --S
 
 
 ## Compute Anomaly Detection Scores:
+
+novel alpha diversity metric datasets with scaling factors:
+WARNING: the following things need to be run in the given order to work properly
+```shell
+# first compute the z-scores and the scaling factors
+python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_novel_alpha_div_ids2 --ad_params=param_list_AD_microbial_novel_alpha_div2_scaling_factors --forecast_saved_models_path=AD_microbial_novel_alpha_div2 --compute_scores=True --evaluate_scores=False --compute_zscore_scaling_factors=False
+python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_novel_alpha_div_ids2 --ad_params=param_list_AD_microbial_novel_alpha_div2_scaling_factors2 --forecast_saved_models_path=AD_microbial_novel_alpha_div2 --compute_scores=False --evaluate_scores=False --compute_zscore_scaling_factors=True
+
+# then compute the AD scores using the scaling factors
+python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_novel_alpha_div_ids2_1 --ad_params=param_list_AD_microbial_novel_alpha_div2 --forecast_saved_models_path=AD_microbial_novel_alpha_div2 --compute_scores=True --evaluate_scores=False --compute_zscore_scaling_factors=False
+
+# and do a preliminary evaluation of them (only works if AD scores have been computed for only_jump_before_abx_exposure=1,2,3 before)
+python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_novel_alpha_div_ids2_1 --ad_params=param_list_AD_microbial_novel_alpha_div2_ev --forecast_saved_models_path=AD_microbial_novel_alpha_div2 --compute_scores=False --evaluate_scores=True --compute_zscore_scaling_factors=False
+
+# then compute scores for reliability evaluation using the scaling factors
+python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_novel_alpha_div_ids2_1 --ad_params=param_list_AD_microbial_novel_alpha_div2_reliability_eval --forecast_saved_models_path=AD_microbial_novel_alpha_div2 --compute_scores=True --evaluate_scores=False --compute_zscore_scaling_factors=False
+
+# as reference, compute scores without scaling factors
+python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_novel_alpha_div_ids2_1 --ad_params=param_list_AD_microbial_novel_alpha_div2_nsf --forecast_saved_models_path=AD_microbial_novel_alpha_div2 --compute_scores=True --evaluate_scores=False --compute_zscore_scaling_factors=False
+python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_novel_alpha_div_ids2_1 --ad_params=param_list_AD_microbial_novel_alpha_div2_reliability_eval_nsf --forecast_saved_models_path=AD_microbial_novel_alpha_div2 --compute_scores=True --evaluate_scores=False --compute_zscore_scaling_factors=False
+```
+
+### Old/Unused anomaly detection scores computation (for reference only):
 on OTU dataset:
 ```shell
 python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_otu3_ids --ad_params=param_list_AD_microbial_otu --forecast_saved_models_path=AD_microbial_otu3 --compute_scores=True --evaluate_scores=True
@@ -245,28 +255,6 @@ python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_joint_
 python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_novel_alpha_div_ids_reliability_eval --ad_params=param_list_AD_microbial_novel_alpha_div_reliability_eval --forecast_saved_models_path=AD_microbial_novel_alpha_div --compute_scores=True --evaluate_scores=True
 python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_novel_alpha_div_ids_reliability_eval_2 --ad_params=param_list_AD_microbial_novel_alpha_div_reliability_eval_2 --forecast_saved_models_path=AD_microbial_novel_alpha_div --compute_scores=True --evaluate_scores=True
 ```
-
-novel alpha diversity metric datasets with scaling factors:
-WARNING: the following things need to be run in the given order to work properly
-```shell
-# first compute the z-scores and the scaling factors
-python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_novel_alpha_div_ids2 --ad_params=param_list_AD_microbial_novel_alpha_div2_scaling_factors --forecast_saved_models_path=AD_microbial_novel_alpha_div2 --compute_scores=True --evaluate_scores=False --compute_zscore_scaling_factors=False
-python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_novel_alpha_div_ids2 --ad_params=param_list_AD_microbial_novel_alpha_div2_scaling_factors2 --forecast_saved_models_path=AD_microbial_novel_alpha_div2 --compute_scores=False --evaluate_scores=False --compute_zscore_scaling_factors=True
-
-# then compute the AD scores using the scaling factors
-python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_novel_alpha_div_ids2_1 --ad_params=param_list_AD_microbial_novel_alpha_div2 --forecast_saved_models_path=AD_microbial_novel_alpha_div2 --compute_scores=True --evaluate_scores=False --compute_zscore_scaling_factors=False
-
-# and do a preliminary evaluation of them (only works if AD scores have been computed for only_jump_before_abx_exposure=1,2,3 before)
-python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_novel_alpha_div_ids2_1 --ad_params=param_list_AD_microbial_novel_alpha_div2_ev --forecast_saved_models_path=AD_microbial_novel_alpha_div2 --compute_scores=False --evaluate_scores=True --compute_zscore_scaling_factors=False
-
-# then compute scores for reliability evaluation using the scaling factors
-python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_novel_alpha_div_ids2_1 --ad_params=param_list_AD_microbial_novel_alpha_div2_reliability_eval --forecast_saved_models_path=AD_microbial_novel_alpha_div2 --compute_scores=True --evaluate_scores=False --compute_zscore_scaling_factors=False
-
-# as reference, compute scores without scaling factors
-python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_novel_alpha_div_ids2_1 --ad_params=param_list_AD_microbial_novel_alpha_div2_nsf --forecast_saved_models_path=AD_microbial_novel_alpha_div2 --compute_scores=True --evaluate_scores=False --compute_zscore_scaling_factors=False
-python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_novel_alpha_div_ids2_1 --ad_params=param_list_AD_microbial_novel_alpha_div2_reliability_eval_nsf --forecast_saved_models_path=AD_microbial_novel_alpha_div2 --compute_scores=True --evaluate_scores=False --compute_zscore_scaling_factors=False
-```
-
 
 synthetic datasets:
 ```shell

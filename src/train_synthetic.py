@@ -70,6 +70,7 @@ default_enc_nn = ((50, 'tanh'), (50, 'tanh'))
 ANOMALY_DETECTION = False
 N_DATASET_WORKERS = 0
 USE_GPU = False
+DEBUG = False
 
 # =====================================================================================================================
 # Functions
@@ -78,7 +79,7 @@ makedirs = config.makedirs
 
 def train(
         anomaly_detection=None, n_dataset_workers=None, use_gpu=None,
-        nb_cpus=None, send=None,
+        nb_cpus=None, send=None, debug=None,
         model_id=None, epochs=100, batch_size=100, save_every=1,
         learning_rate=0.001, test_size=0.2, seed=398,
         hidden_size=10, bias=True, dropout_rate=0.1,
@@ -238,7 +239,7 @@ def train(
             'which_eval_loss'
     """
 
-    global ANOMALY_DETECTION, USE_GPU, SEND, N_CPUS, N_DATASET_WORKERS
+    global ANOMALY_DETECTION, USE_GPU, SEND, N_CPUS, N_DATASET_WORKERS, DEBUG
     if anomaly_detection is not None:
         ANOMALY_DETECTION = anomaly_detection
     if use_gpu is not None:
@@ -249,6 +250,8 @@ def train(
         N_CPUS = nb_cpus
     if n_dataset_workers is not None:
         N_DATASET_WORKERS = n_dataset_workers
+    if debug:
+        DEBUG = True
 
     initial_print = "model-id: {}\n".format(model_id)
     use_cond_exp = False    # to be changed
@@ -678,7 +681,9 @@ def train(
             #scheduler.step()
             if ANOMALY_DETECTION:
                 print(r"current loss: {}".format(loss.detach().cpu().numpy()))
-
+            if DEBUG:
+                print("DEBUG MODE: stop training after first batch")
+                break
         if pre_train:
             optimizer.zero_grad()
             loss = model.forward_random_encoder_decoder(batch_size=batch_size, dimension=dimension)

@@ -789,8 +789,9 @@ class NJODE(torch.nn.Module):
     NJ-ODE model
     """
     def __init__(  # initialize the class by naming relevant features
-            self, input_size, hidden_size, output_size, sigf_size,
+            self, input_size, hidden_size, output_size,
             ode_nn, readout_nn, enc_nn, use_rnn,
+            sigf_size=None,
             bias=True, dropout_rate=0, solver="euler",
             weight=0.5, weight_evolve=None, t_period=1.,       ###
             input_vars=None, output_vars=None, 
@@ -891,6 +892,8 @@ class NJODE(torch.nn.Module):
         self.level = 2
         if 'level' in options1:
             self.level = options1['level']
+        if sigf_size is None:
+            sigf_size = input_size
         self.sig_depth = sig.siglength(sigf_size+1, self.level)
         self.masked = False
         if 'masked' in options1:
@@ -1384,8 +1387,9 @@ class NJODE(torch.nn.Module):
         loss = torch.sum(loss) / batch_size
         return loss
 
-    def forward(self, times, time_ptr, X, obs_idx, delta_t, T, start_X, S, start_S,
-                n_obs_ot, return_path=False, get_loss=True, until_T=False,
+    def forward(self, times, time_ptr, X, obs_idx, delta_t, T, start_X,
+                S=None, start_S=None,
+                n_obs_ot=None, return_path=False, get_loss=True, until_T=False,
                 M=None, start_M=None, M_S=None, start_M_S=None,
                 which_loss=None, dim_to=None,
                 predict_labels=None, return_classifier_out=False,
@@ -1455,6 +1459,13 @@ class NJODE(torch.nn.Module):
         :return: torch.tensor (hidden state at final time), torch.tensor (loss),
                     if wanted the paths of t (np.array) and h, y (torch.tensors)
         """
+        # the following is for backward compatibility
+        if self.input_sig and S is None:
+            S = X
+            M_S = M
+            start_S = start_X
+            start_M_S = start_M
+
         if which_loss is None:
             which_loss = self.which_loss
         

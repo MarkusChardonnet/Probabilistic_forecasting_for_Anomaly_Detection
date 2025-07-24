@@ -71,6 +71,7 @@ param_dict_AD_OrnsteinUhlenbeckWithSeason_1 = {
         'enc_nn': [enc_nn],
         'use_rnn': [True],
         'input_sig': [True],
+        'level': [2],
         'func_appl_X': [["power-2"]],              # [["power-2", "power-3", "power-4"]]
         'add_pred': [[]],
         'solver': ["euler"],
@@ -112,6 +113,7 @@ param_dict_AD_OrnsteinUhlenbeckWithSeason_2 = {
         'enc_nn': [enc_nn],
         'use_rnn': [True],
         'input_sig': [True],
+        'level': [2],
         'func_appl_X': [["power-2"]],              # [["power-2", "power-3", "power-4"]]
         'add_pred': [['var']],
         'solver': ["euler"],
@@ -152,6 +154,7 @@ param_dict_AD_OrnsteinUhlenbeckWithSeason_3 = {
         'enc_nn': [enc_nn],
         'use_rnn': [True],
         'input_sig': [True],
+        'level': [2],
         'func_appl_X': [["power-2"]],              # [["power-2", "power-3", "power-4"]]
         'add_pred': [['var']],
         'solver': ["euler"],
@@ -198,6 +201,7 @@ param_dict_AD_OrnsteinUhlenbeckWithSeason_4 = {
         'enc_nn': [enc_nn],
         'use_rnn': [True],
         'input_sig': [True],
+        'level': [2],
         'func_appl_X': [["power-2"]],              # [["power-2", "power-3", "power-4"]]
         'add_pred': [[]],
         'solver': ["euler"],
@@ -237,6 +241,7 @@ param_dict_AD_OrnsteinUhlenbeckWithSeason_5 = {
         'enc_nn': [enc_nn],
         'use_rnn': [True],
         'input_sig': [True],
+        'level': [2],
         'func_appl_X': [["power-2"]],              # [["power-2", "power-3", "power-4"]]
         'add_pred': [[]],
         'solver': ["euler"],

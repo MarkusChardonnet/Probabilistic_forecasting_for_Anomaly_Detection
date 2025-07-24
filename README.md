@@ -57,7 +57,7 @@ Important flags:
 - Training with PD-NJODE on the sythetic data :
     ```bash
     cd src
-    python run.py --params=param_list_AD_OrnsteinUhlenbeckWithSeason_3 --NB_JOBS=1 --USE_GPU=True --get_overview=overview_dict_AD_OrnsteinUhlenbeckWithSeason_3
+    python run.py --params=param_list_AD_OrnsteinUhlenbeckWithSeason_3 --NB_JOBS=1 --NB_CPUS=1 --USE_GPU=False --get_overview=overview_dict_AD_OrnsteinUhlenbeckWithSeason    
     ```
 
 

@@ -472,6 +472,8 @@ def create_Microbiome_dataset(
         np.save(f, hosts)  # [nb_paths]
         np.save(f, abx_exposure)  # [nb_paths, time_steps]
         np.save(f, exposure_steps)
+
+    print("paths:", final_paths)
         
     ### CREATE DATASET SUBDIVISION TRAIN/TEST/VAL ###
     if val_size is None:

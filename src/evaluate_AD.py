@@ -24,7 +24,7 @@ import math
 from sklearn import metrics
 
 from configs import config
-import models
+import models_synthetic as models
 import data_utils
 from AD_modules import AD_module
 import AD_modules
@@ -829,8 +829,8 @@ def plot_AD_module_params(ad_module, path, filename, steps_ahead = None, dt=0.00
         ax.set_yticklabels(steps_ahead)
         fig.colorbar(im, ax=ax, shrink=0.25)
         plt.title('Weights of scores smoothing on forecasting horizon and neighbouring timestamps', fontsize=15)
-        plt.xlabel('Neighbouring timestamps', fontsize=10)
-        plt.ylabel('Forecasting horizons', fontsize=10)
+        plt.xlabel('Neighbouring timestamps ($l$)', fontsize=10)
+        plt.ylabel('Forecasting horizons ($\delta k$)', fontsize=10)
         plt.savefig(path + filename + '_ad_module_weights.png')
         plt.close()
 

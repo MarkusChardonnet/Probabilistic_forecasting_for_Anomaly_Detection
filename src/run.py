@@ -209,7 +209,7 @@ def parallel_training(params=None, model_ids=None, nb_jobs=1, first_id=None,
 
     if FLAGS.DEBUG:
         results = Parallel(n_jobs=nb_jobs)(delayed(train_switcher)(
-            anomaly_detection=FLAGS.ANOMALY_DETECTION,
+            anomaly_detection=FLAGS.ANOMALY_DETECTION, debug=FLAGS.DEBUG,
             n_dataset_workers=FLAGS.N_DATASET_WORKERS, use_gpu=FLAGS.USE_GPU, gpu_num=FLAGS.GPU_NUM,
             nb_cpus=FLAGS.NB_CPUS, use_wandb=FLAGS.use_wandb, send=FLAGS.SEND, **param)
                                            for param in params)

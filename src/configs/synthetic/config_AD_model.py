@@ -298,6 +298,13 @@ param_dict_AD_modules_noise_1 = {
     'forecast_horizons_to_plot': [(10,)],
     'plot_variance': [True],
     'std_factor': [1.96],
+    'load_which': ['best'],
+    'quantitative_AD_eval': [
+      {
+        'anomaly_data_dict': 'AD_OrnsteinUhlenbeckWithSeason_noise_dict_eval',
+        'anomaly_free_data_dict': 'AD_OrnsteinUhlenbeckWithSeason_eval',
+      }
+    ],
 }
 param_dict_AD_modules_noise += get_parameter_array(param_dict=param_dict_AD_modules_noise_1)
 
@@ -321,6 +328,13 @@ param_dict_AD_modules_cutoff_1 = {
     'forecast_horizons_to_plot': [(10,)],
     'plot_variance': [True],
     'std_factor': [1.96],
+    'load_which': ['best'],
+        'quantitative_AD_eval': [
+          {
+            'anomaly_data_dict': 'AD_OrnsteinUhlenbeckWithSeason_cutoff_dict_eval',
+            'anomaly_free_data_dict': 'AD_OrnsteinUhlenbeckWithSeason_eval',
+          }
+        ],
 }
 param_dict_AD_modules_cutoff += get_parameter_array(param_dict=param_dict_AD_modules_cutoff_1)
 
@@ -343,6 +357,13 @@ param_dict_AD_modules_diffusion_1 = {
     'forecast_horizons_to_plot': [(10,)],
     'plot_variance': [True],
     'std_factor': [1.96],
+    'load_which': ['best'],
+        'quantitative_AD_eval': [
+          {
+            'anomaly_data_dict': 'AD_OrnsteinUhlenbeckWithSeason_diffusion_dict_eval',
+            'anomaly_free_data_dict': 'AD_OrnsteinUhlenbeckWithSeason_eval',
+          }
+        ],
 }
 param_dict_AD_modules_diffusion += get_parameter_array(param_dict=param_dict_AD_modules_diffusion_1)
 
@@ -365,6 +386,13 @@ param_dict_AD_modules_spike_1 = {
     'forecast_horizons_to_plot': [(10,)],
     'plot_variance': [True],
     'std_factor': [1.96],
+    'load_which': ['best'],
+            'quantitative_AD_eval': [
+              {
+                'anomaly_data_dict': 'AD_OrnsteinUhlenbeckWithSeason_spike_dict_eval',
+                'anomaly_free_data_dict': 'AD_OrnsteinUhlenbeckWithSeason_eval',
+              }
+            ],
 }
 param_dict_AD_modules_spike += get_parameter_array(param_dict=param_dict_AD_modules_spike_1)
 

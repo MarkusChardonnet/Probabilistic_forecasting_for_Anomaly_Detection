@@ -1,4 +1,5 @@
 import numpy as np
+import copy
 
 from configs.config_utils import get_parameter_array, get_dataset_overview, \
     makedirs, data_path, training_data_path
@@ -32,6 +33,9 @@ AD_OrnsteinUhlenbeckWithSeason_3_dict = {
         'type': None
     }
 }
+AD_OrnsteinUhlenbeckWithSeason_eval = copy.deepcopy(
+    AD_OrnsteinUhlenbeckWithSeason_3_dict)
+AD_OrnsteinUhlenbeckWithSeason_eval['nb_paths'] = 1500
 
 AD_OrnsteinUhlenbeckWithSeason_dim2_dict = {
     'model_name': "AD_OrnsteinUhlenbeckWithSeason",

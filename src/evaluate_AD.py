@@ -921,12 +921,11 @@ def plot_one_path_with_pred(
     mask_data_path_w_anomaly = np.ma.masked_where((ad_labels_plot == 0), true_X)
     mask_pred_scores = np.ma.masked_where((np.isnan(scores)), scores)
 
-
     for a in paths_to_plot:
-        fig, axs = plt.subplots(dimension,2,figsize=(20, 7))
+        fig, axs = plt.subplots(dimension, 1, figsize=(20, 7))
         if dimension == 1:
             axs = [axs]
-        
+
         for j in range(dimension):
             # get the true_X at observed dates
             path_t_obs = []
@@ -934,60 +933,146 @@ def plot_one_path_with_pred(
             for k, od in enumerate(observed_dates[a]):
                 if od == 1:
                     if true_M is None or (true_M is not None and
-                                        true_M[a, j, k]==1):
+                                          true_M[a, j, k] == 1):
                         path_t_obs.append(path_t_true_X[k])
                         path_X_obs.append(true_X[a, j, k])
             path_t_obs = np.array(path_t_obs)
             path_X_obs = np.array(path_X_obs)
 
-            axs[j][0].set_title("Ground_truth, dimension {}".format(j+1))
-            axs[j][0].plot(path_t_true_X, mask_data_path[a, j, :], label='true path, no anomaly',
-                        color=colors[0])
-            axs[j][0].plot(path_t_true_X, mask_data_path_w_anomaly[a, j, :], label='true path, anomaly',
-                        color=colors[1])
-            axs[j][1].set_title("Anomaly Detection, dimension {}".format(j+1))
-            axs[j][1].plot(path_t_true_X, mask_pred_path[a, j, :], label='true path, no predicted anomaly',
-                        color=colors[0])
-            axs[j][1].plot(path_t_true_X, mask_pred_path_w_anomaly[a, j, :], label='true path, predicted anomaly',
-                        color=colors[1])
-            axs[j][1].plot(path_t_true_X, mask_pred_scores[a, j, :], label='Predicted scores',
-                        color=colors[2])
+            title = "Anomaly Detection"
+            if dimension > 1:
+                title += ", dimension {}".format(j + 1)
+
+            axs[j][0].set_title(title)
+            axs[j][0].plot(path_t_true_X, true_X[a, j, :],
+                           label='true path, no anomaly',
+                           color=colors[0])
+            axs[j][0].plot(path_t_true_X, mask_data_path_w_anomaly[a, j, :],
+                           label='true path, anomaly',
+                           color=colors[1])
+            ax2 = axs[j][0].twinx()
+            ax2.plot(path_t_true_X, mask_pred_scores[a, j, :],
+                           label='Predicted scores',
+                           color=colors[2], alpha=0.5)
+            ax2.fill_between(
+                path_t_true_X, 0, 1,
+                where=predicted_ad_labels_plot==1, facecolor='red', alpha=.25,
+                label='Predicted anomaly')
+            ax2.axhline(
+                y=ad_module.threshold, color='r', linestyle='-', alpha=0.5,
+                label='Score threshold')
+            ax2.set_ylim(0,1)
+            ax2.legend() # loc='upper right'
 
             if plot_forecast_predictions:
-                for h,s in enumerate(forecast_horizons_to_plot):
+                for h, s in enumerate(forecast_horizons_to_plot):
                     step_idx = steps_ahead.index(s)
-                    exp_prediction = cond_moments[:,a,j,0,step_idx].detach().cpu().numpy()
-                    axs[j][1].plot(path_t_true_X, exp_prediction, label=model_name + " expectation prediction {} steps ahead".format(s), color=colors[h+2])
+                    exp_prediction = cond_moments[:, a, j, 0,
+                                     step_idx].detach().cpu().numpy()
+                    axs[j][0].plot(path_t_true_X, exp_prediction,
+                                   label=model_name + " expectation prediction {} steps ahead".format(
+                                       s), color=colors[h + 2])
                     if plot_variance:
-                        assert(('var' in output_vars) or ('power-2' in output_vars))
+                        assert (('var' in output_vars) or (
+                                'power-2' in output_vars))
                         if 'var' in output_vars:
                             which = np.argmax(np.array(output_vars) == 'var')
-                            var_prediction = cond_moments[:,a,j,which,step_idx].detach().cpu().numpy()
+                            var_prediction = cond_moments[:, a, j, which,
+                                             step_idx].detach().cpu().numpy()
                         elif 'power-2' in output_vars:
-                            which = np.argmax(np.array(output_vars) == 'power-2')
-                            exp_2_prediction = cond_moments[:,a,j,which,step_idx].detach().cpu().numpy()
-                            var_prediction = exp_2_prediction - exp_prediction ** 2 
-                        
+                            which = np.argmax(
+                                np.array(output_vars) == 'power-2')
+                            exp_2_prediction = cond_moments[:, a, j, which,
+                                               step_idx].detach().cpu().numpy()
+                            var_prediction = exp_2_prediction - exp_prediction ** 2
+
                         if np.any(var_prediction < 0):
                             # print('WARNING: some true cond. variances below 0 -> clip')
                             var_prediction = np.maximum(0, var_prediction)
                         std_prediction = np.sqrt(var_prediction)
-                        axs[j][1].fill_between(path_t_true_X,
-                            exp_prediction - std_factor * std_prediction,
-                            exp_prediction + std_factor * std_prediction,
-                            label="standart deviation ({} factor) prediction {} steps ahead".format(std_factor, s), color=std_color[h+2])
-            
+                        axs[j][0].fill_between(path_t_true_X,
+                                               exp_prediction - std_factor * std_prediction,
+                                               exp_prediction + std_factor * std_prediction,
+                                               label="standart deviation ({} factor) prediction {} steps ahead".format(
+                                                   std_factor, s),
+                                               color=std_color[h + 2])
+
             axs[j][0].legend()
-            axs[j][1].legend()
-            axs[j][0].set_ylim(0., 1.)
-            axs[j][1].set_ylim(0., 1.)
-            axs[j][1].axhline(y=ad_module.threshold, color='r', linestyle='-')
+            # axs[j][0].set_ylim(0., 1.)
 
         plt.xlabel('$t$')
         plt.suptitle("Anomaly detection on {} anomalies".format(anomaly_type))
         save = os.path.join(save_path, filename.format(a))
         plt.savefig(save, **save_extras)
         plt.close()
+
+    ## ----- OLD VERSION ------
+    # for a in paths_to_plot:
+    #     fig, axs = plt.subplots(dimension,2,figsize=(20, 7))
+    #     if dimension == 1:
+    #         axs = [axs]
+    #
+    #     for j in range(dimension):
+    #         # get the true_X at observed dates
+    #         path_t_obs = []
+    #         path_X_obs = []
+    #         for k, od in enumerate(observed_dates[a]):
+    #             if od == 1:
+    #                 if true_M is None or (true_M is not None and
+    #                                     true_M[a, j, k]==1):
+    #                     path_t_obs.append(path_t_true_X[k])
+    #                     path_X_obs.append(true_X[a, j, k])
+    #         path_t_obs = np.array(path_t_obs)
+    #         path_X_obs = np.array(path_X_obs)
+    #
+    #         axs[j][0].set_title("Ground_truth, dimension {}".format(j+1))
+    #         axs[j][0].plot(path_t_true_X, mask_data_path[a, j, :], label='true path, no anomaly',
+    #                     color=colors[0])
+    #         axs[j][0].plot(path_t_true_X, mask_data_path_w_anomaly[a, j, :], label='true path, anomaly',
+    #                     color=colors[1])
+    #         axs[j][1].set_title("Anomaly Detection, dimension {}".format(j+1))
+    #         axs[j][1].plot(path_t_true_X, mask_pred_path[a, j, :], label='true path, no predicted anomaly',
+    #                     color=colors[0])
+    #         axs[j][1].plot(path_t_true_X, mask_pred_path_w_anomaly[a, j, :], label='true path, predicted anomaly',
+    #                     color=colors[1])
+    #         axs[j][1].plot(path_t_true_X, mask_pred_scores[a, j, :], label='Predicted scores',
+    #                     color=colors[2])
+    #
+    #         if plot_forecast_predictions:
+    #             for h,s in enumerate(forecast_horizons_to_plot):
+    #                 step_idx = steps_ahead.index(s)
+    #                 exp_prediction = cond_moments[:,a,j,0,step_idx].detach().cpu().numpy()
+    #                 axs[j][1].plot(path_t_true_X, exp_prediction, label=model_name + " expectation prediction {} steps ahead".format(s), color=colors[h+2])
+    #                 if plot_variance:
+    #                     assert(('var' in output_vars) or ('power-2' in output_vars))
+    #                     if 'var' in output_vars:
+    #                         which = np.argmax(np.array(output_vars) == 'var')
+    #                         var_prediction = cond_moments[:,a,j,which,step_idx].detach().cpu().numpy()
+    #                     elif 'power-2' in output_vars:
+    #                         which = np.argmax(np.array(output_vars) == 'power-2')
+    #                         exp_2_prediction = cond_moments[:,a,j,which,step_idx].detach().cpu().numpy()
+    #                         var_prediction = exp_2_prediction - exp_prediction ** 2
+    #
+    #                     if np.any(var_prediction < 0):
+    #                         # print('WARNING: some true cond. variances below 0 -> clip')
+    #                         var_prediction = np.maximum(0, var_prediction)
+    #                     std_prediction = np.sqrt(var_prediction)
+    #                     axs[j][1].fill_between(path_t_true_X,
+    #                         exp_prediction - std_factor * std_prediction,
+    #                         exp_prediction + std_factor * std_prediction,
+    #                         label="standart deviation ({} factor) prediction {} steps ahead".format(std_factor, s), color=std_color[h+2])
+    #
+    #         axs[j][0].legend()
+    #         axs[j][1].legend()
+    #         axs[j][0].set_ylim(0., 1.)
+    #         axs[j][1].set_ylim(0., 1.)
+    #         axs[j][1].axhline(y=ad_module.threshold, color='r', linestyle='-')
+    #
+    #     plt.xlabel('$t$')
+    #     plt.suptitle("Anomaly detection on {} anomalies".format(anomaly_type))
+    #     save = os.path.join(save_path, filename.format(a))
+    #     plt.savefig(save, **save_extras)
+    #     plt.close()
     
 
 

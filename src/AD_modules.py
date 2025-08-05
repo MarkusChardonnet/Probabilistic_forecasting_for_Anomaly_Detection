@@ -13,7 +13,8 @@ def get_corrected_var(var, min_var_val=1e-4, replace_var=None):
         if replace_var is not None:
             condition = ~np.isnan(var)
             condition = np.logical_and(condition, var <= 0)
-            var[condition] = replace_var
+            for i in range(replace_var.shape[-1]):
+                (var[:,:,:,i])[condition[:,:,:,i]==1] = replace_var[0,i]
         else:
             var = np.maximum(min_var_val, var)
     return var
@@ -401,13 +402,14 @@ class AD_module(torch.nn.Module): # AD_module_1D, AD_module_ND
             cond_exp = cond_moments[:,:,:,which,:].cpu().numpy()
             if 'var' in self.output_vars:
                 which = np.argmax(np.array(self.output_vars) == 'var')
-                cond_exp_2 = cond_moments[:,:,:,which,:].cpu().numpy()
-                cond_var = cond_exp_2 - cond_exp ** 2
+                cond_var = cond_moments[:, :, :, which, :].cpu().numpy()
             elif 'power-2' in self.output_vars:
                 which = np.argmax(np.array(self.output_vars) == 'power-2')
-                cond_var = cond_moments[:,:,:,which,:].cpu().numpy()
-            scores_valid = gaussian_scoring(obs=obs.numpy(), cond_exp=cond_exp, cond_var=cond_var, 
-                                                      scoring_metric=self.scoring_metric, replace_var=self.replace_values['var'])
+                cond_exp_2 = cond_moments[:, :, :, which, :].cpu().numpy()
+                cond_var = cond_exp_2 - cond_exp ** 2
+            scores_valid = gaussian_scoring(
+                obs=obs.numpy(), cond_exp=cond_exp, cond_var=cond_var,
+                scoring_metric=self.scoring_metric, replace_var=self.replace_values['var'])
             scores_valid = torch.tensor(scores_valid, dtype=torch.float32)
 
         return scores_valid

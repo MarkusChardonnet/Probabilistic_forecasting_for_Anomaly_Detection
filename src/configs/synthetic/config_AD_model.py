@@ -279,7 +279,7 @@ plot_paths_AD_OrnsteinUhlenbeckWithSeason_dict = {
 }
 
 
-AD_module_path_noise = "{}saved_AD_module_noise/".format(data_path)
+AD_module_path_noise = "saved_AD_module_noise/"
 param_dict_AD_modules_noise = []
 param_dict_AD_modules_noise_1 = {
     'steps_ahead': [[1,3,5,7,10,12,15,18,20]],
@@ -309,7 +309,7 @@ param_dict_AD_modules_noise_1 = {
 param_dict_AD_modules_noise += get_parameter_array(param_dict=param_dict_AD_modules_noise_1)
 
 
-AD_module_path_cutoff = "{}saved_AD_module_cutoff/".format(data_path)
+AD_module_path_cutoff = "saved_AD_module_cutoff/"
 param_dict_AD_modules_cutoff = []
 param_dict_AD_modules_cutoff_1 = {
     'steps_ahead': [[1,3,5,7,10,12,15,18,20]],
@@ -338,7 +338,7 @@ param_dict_AD_modules_cutoff_1 = {
 }
 param_dict_AD_modules_cutoff += get_parameter_array(param_dict=param_dict_AD_modules_cutoff_1)
 
-AD_module_path_diffusion = "{}saved_AD_module_cutoff/".format(data_path)
+AD_module_path_diffusion = "saved_AD_module_diffusion/"
 param_dict_AD_modules_diffusion = []
 param_dict_AD_modules_diffusion_1 = {
     'steps_ahead': [[1,3,5,7,10,12,15,18,20]],
@@ -367,7 +367,7 @@ param_dict_AD_modules_diffusion_1 = {
 }
 param_dict_AD_modules_diffusion += get_parameter_array(param_dict=param_dict_AD_modules_diffusion_1)
 
-AD_module_path_spike = "{}saved_AD_module_spike/".format(data_path)
+AD_module_path_spike = "saved_AD_module_spike/"
 param_dict_AD_modules_spike = []
 param_dict_AD_modules_spike_1 = {
     'steps_ahead': [[1,3,5,7,10,12,15,18,20]],

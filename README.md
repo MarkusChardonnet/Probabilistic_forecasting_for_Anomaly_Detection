@@ -83,9 +83,6 @@ Important flags:
     python evaluate_AD.py --forecast_model_ids=[1] --forecast_saved_models_path=../data/saved_models_AD_OrnsteinUhlenbeckWithSeason/ --ad_params=param_dict_AD_modules
     ```
 
-**TODO**: the dicts used above do not exist in the code! add them to some config file!!
-
-
 ---
 # Anomaly Detection in Microbiome Data
 ## Generate Dataset:

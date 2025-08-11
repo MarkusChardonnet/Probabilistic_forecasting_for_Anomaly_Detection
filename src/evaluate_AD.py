@@ -277,7 +277,7 @@ def evaluate(
         #batch_size=10)
         batch_size=batch_size)
     dl_test = DataLoader(  # class to iterate over training data
-        dataset=data_test, collate_fn=collate_fn, shuffle=True, 
+        dataset=data_test, collate_fn=collate_fn, shuffle=False,
         #batch_size=10)
         batch_size=len(test_idx))
 
@@ -457,7 +457,7 @@ def evaluate(
             data_metrics.append([epoch, tot_score_val])
 
         if tot_score_val > best_score_val:
-            AD_module.save_checkpoint(ad_module, optimizer, model_path_save_best, ad_module, epoch)
+            AD_modules.save_checkpoint(ad_module, optimizer, model_path_save_best, epoch)
         AD_modules.save_checkpoint(ad_module, optimizer, model_path_save_last, epoch)
 
         if quantitative_eval:
@@ -754,35 +754,6 @@ def get_forecast_model_param_dict(
 
 
 def plot_AD_module_params(ad_module, path, filename, steps_ahead = None, dt=0.0025):
-    '''
-    if isinstance(ad_module, AD_module):
-
-        steps_weights = ad_module.state_dict()['steps_weighting.weight'].squeeze().clone().detach().numpy()
-        steps_ahead = [str(dt * s) for s in steps_ahead]
-        smoothing_weights = ad_module.state_dict()['smoothing_weights.weight'].squeeze().clone().detach().numpy()
-        neighbors = [str(i) for i in range(-ad_module.smoothing, ad_module.smoothing+1)]
-
-        fig, ax = plt.subplots(figsize=(10,5))
-        ax.bar(steps_ahead, steps_weights, width = 0.1)
-        plt.title('Importance of different forecasting horizons for Anomaly Detection', fontsize=15)
-        plt.xlabel('Forecasting Horizons', fontsize=10)
-        plt.ylabel('Horizon Weight', fontsize=10)
-        ax.grid(False)
-        ax.tick_params(bottom=False, left=True)
-        plt.savefig(path + '/forecasting_horizon_weighting.png')
-        plt.close()
-
-        fig, ax = plt.subplots(figsize=(10,5))
-        ax.bar(neighbors, smoothing_weights, width = 0.1)
-        plt.title('Importance of neighbouring anomaly scores', fontsize=15)
-        plt.xlabel('Time neighbours', fontsize=10)
-        plt.ylabel('Neighbour Weights', fontsize=10)
-        ax.grid(False)
-        ax.tick_params(bottom=False, left=True)
-        plt.savefig(path + '/smoothing_weighting.png')
-        plt.close()
-        '''
-
     if isinstance(ad_module, AD_module):
 
         weights = ad_module.get_weights().squeeze().clone().detach().numpy()
@@ -930,7 +901,8 @@ def plot_one_path_with_pred(
                 y=ad_module.threshold, color='r', linestyle='-', alpha=0.5,
                 label='Score threshold')
             ax2.set_ylim(0,1)
-            ax2.legend() # loc='upper right'
+            ax2.legend(loc='upper right')
+            ax2.set_ylabel('Score')
 
             if plot_forecast_predictions:
                 for h, s in enumerate(forecast_horizons_to_plot):
@@ -965,10 +937,11 @@ def plot_one_path_with_pred(
                                                    std_factor, s),
                                                color=std_color[h + 2])
 
-            axs[j].legend()
+            axs[j].legend(loc='upper left')
+            axs[j].set_xlabel('$t$')
             # axs[j][0].set_ylim(0., 1.)
 
-        plt.xlabel('$t$')
+        # plt.xlabel('$t$')
         plt.suptitle("Anomaly detection on {} anomalies".format(anomaly_type))
         save = os.path.join(save_path, filename.format(a))
         plt.savefig(save, **save_extras)

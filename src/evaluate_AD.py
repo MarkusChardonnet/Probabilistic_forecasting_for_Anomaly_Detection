@@ -48,6 +48,10 @@ flags.DEFINE_string("anomaly_data_dict", None,
 flags.DEFINE_string("ad_params", None,
                     "blabla")
 
+flags.DEFINE_bool("plot_only", False, "whether to use the plot only mode")
+flags.DEFINE_string("which_AD_model_load", None, "one of: {'best', 'last', None}")
+
+
 flags.DEFINE_bool("USE_GPU", False, "whether to use GPU for training")
 flags.DEFINE_bool("ANOMALY_DETECTION", False,
                   "whether to run in torch debug mode")
@@ -171,6 +175,7 @@ def evaluate(
         use_gpu=None,
         nb_cpus=None,
         n_dataset_workers=None,
+        plot_only=False,
         **options
 ):
 
@@ -222,6 +227,7 @@ def evaluate(
         else:
             forecast_horizons_to_plot = steps_ahead[-1]
     std_factor = 1  # factor with which the std is multiplied
+    plot_variance = True
     if 'plot_variance' in options:
         plot_variance = options['plot_variance']
     if 'std_factor' in options:
@@ -280,6 +286,10 @@ def evaluate(
         dataset=data_test, collate_fn=collate_fn, shuffle=False,
         #batch_size=10)
         batch_size=len(test_idx))
+    max_path_plotting = int(np.max(paths_to_plot))+1
+    dl_plot = DataLoader(
+        dataset=data_test, collate_fn=collate_fn, shuffle=False,
+        batch_size=max_path_plotting)
 
     quantitative_eval = False
     if 'quantitative_AD_eval' in options:
@@ -334,10 +344,9 @@ def evaluate(
 
     nb_steps_ahead = len(steps_ahead)
     max_steps_ahead = max(steps_ahead)
-    ad_module = AD_module(output_vars=output_vars, steps_ahead=steps_ahead, 
-                            smoothing=5, replace_values=replace_values, 
-                            class_thres=class_thres)
-
+    ad_module = AD_module(
+        output_vars=output_vars, steps_ahead=steps_ahead, smoothing=5,
+        replace_values=replace_values, class_thres=class_thres)
     if optim_method == 'adam':
         optimizer = torch.optim.Adam(ad_module.parameters(), lr=learning_rate, weight_decay=0.0005)
     elif optim_method == 'linear':
@@ -345,6 +354,47 @@ def evaluate(
     else:
         raise ValueError('Unknown optimizer')
     best_score_val = -np.inf
+
+    # load the AD module
+    which_AD_model_load = None
+    if optim_method == 'adam':
+        if 'which_AD_model_load' in options:
+            which_AD_model_load =options['which_AD_model_load']
+        load_path_AD = None
+        if which_AD_model_load == "last":
+            load_path_AD = model_path_save_last
+        elif which_AD_model_load == "best":
+            load_path_AD = model_path_save_best
+        if load_path_AD is not None:
+            AD_modules.get_ckpt_model(
+                load_path_AD, ad_module, optimizer, device)
+            print("loaded AD module from {}".format(load_path_AD))
+
+    # ----- plot only option ----
+    if plot_only:
+        plot_filename = 'plot_from-{}'.format(which_AD_model_load)
+        plot_AD_module_params(
+            ad_module, steps_ahead=steps_ahead, path=eval_weights_path,
+            filename=plot_filename)
+
+        batch = next(iter(dl_plot))
+        plot_filename = plot_filename + '_path-{}.pdf'
+        print("Plotting ..")
+        plot_one_path_with_pred(device, forecast_model, ad_module, batch,
+                                delta_t, T,
+                                paths_to_plot=paths_to_plot,
+                                save_path=eval_plot_path,
+                                filename=plot_filename,
+                                plot_variance=plot_variance,
+                                std_factor=std_factor,
+                                output_vars=output_vars,
+                                steps_ahead=steps_ahead,
+                                plot_forecast_predictions=plot_forecast_predictions,
+                                forecast_horizons_to_plot=forecast_horizons_to_plot,
+                                anomaly_type=anom_type)
+        torch.cuda.empty_cache()
+        return 0
+    # ---------------------------
 
     weights_filename = "epoch-{}".format(0)
     plot_AD_module_params(
@@ -506,7 +556,7 @@ def evaluate(
             df_quant_res.to_csv(fname, index=True)
 
         if plot:
-            batch = next(iter(dl_test))
+            batch = next(iter(dl_plot))
 
             plot_filename = 'epoch-{}'.format(epoch)
             plot_filename = plot_filename + '_path-{}.png'
@@ -768,7 +818,7 @@ def plot_AD_module_params(ad_module, path, filename, steps_ahead = None, dt=0.00
         plt.title('Weights of scores smoothing on forecasting horizon and neighbouring timestamps', fontsize=15)
         plt.xlabel('Neighbouring timestamps ($l$)', fontsize=10)
         plt.ylabel('Forecasting horizons ($\delta k$)', fontsize=10)
-        plt.savefig(path + filename + '_ad_module_weights.png')
+        plt.savefig(path + filename + '_ad_module_weights.pdf')
         plt.close()
 
 
@@ -1063,12 +1113,15 @@ def main(arg):
                     forecast_param["dataset"] = data_dict["model_name"]
             # evaluate(anomaly_data_dict=anomaly_data_dict, **forecast_param)
             for ad_param in ad_params:
+                if "which_AD_model_load" not in ad_param:
+                    ad_param["which_AD_model_load"] = FLAGS.which_AD_model_load
                 evaluate(
                     forecast_param=forecast_param,
                     forecast_model_id=forecast_model_ids[i],
                     forecast_saved_models_path=forecast_saved_models_path,
                     n_dataset_workers=FLAGS.N_DATASET_WORKERS,
                     use_gpu=FLAGS.USE_GPU, nb_cpus=FLAGS.NB_CPUS,
+                    plot_only=FLAGS.plot_only,
                     **ad_param)
 
 

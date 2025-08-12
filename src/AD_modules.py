@@ -316,6 +316,8 @@ def get_ckpt_model(ckpt_path, model, optimizer, device):
     :param optimizer: torch optimizer, which should be loaded
     :param device: the device to which the model should be loaded
     """
+    if not ckpt_path.endswith('tar'):
+        ckpt_path = os.path.join(ckpt_path, 'checkpt.tar')
     if not os.path.exists(ckpt_path):
         raise Exception("Checkpoint " + ckpt_path + " does not exist.")
     # Load checkpoint.

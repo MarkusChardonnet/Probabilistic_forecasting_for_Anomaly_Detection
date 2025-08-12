@@ -344,14 +344,12 @@ def evaluate(
         epochs = 1
     else:
         raise ValueError('Unknown optimizer')
-
-    # plot_AD_module_params(ad_module, eval_path)
-
-    best_score_val = np.inf
+    best_score_val = -np.inf
 
     weights_filename = "epoch-{}".format(0)
-    plot_AD_module_params(ad_module, steps_ahead=steps_ahead, 
-                                  path=eval_weights_path, filename=weights_filename)
+    plot_AD_module_params(
+        ad_module, steps_ahead=steps_ahead, path=eval_weights_path,
+        filename=weights_filename)
 
     def get_score_and_pred(b):
         """

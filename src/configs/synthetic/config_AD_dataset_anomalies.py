@@ -179,8 +179,8 @@ AD_OrnsteinUhlenbeckWithSeason_cutoff_dict = {
         'dim_occurence_prob': dim_occurence_prob,
         'dim_occurence_pos': dim_occurence_pos,
 
-        'cutoff_level_law': 'current_level',
-        'cutoff_level_range': (0.,1.),
+        'cutoff_level_law': 'uniform',  # 'current_level'
+        'cutoff_level_range': (0.,0.),
     }
 }
 AD_OrnsteinUhlenbeckWithSeason_cutoff_dict_eval = copy.deepcopy(

@@ -801,11 +801,13 @@ def get_forecast_model_param_dict(
     
 
 
-def plot_AD_module_params(ad_module, path, filename, steps_ahead = None, dt=0.0025):
+def plot_AD_module_params(
+    ad_module, path, filename, steps_ahead = None, dt=0.0025,
+    save_extras={'bbox_inches': 'tight', 'pad_inches': 0.01},):
     if isinstance(ad_module, AD_module):
 
         weights = ad_module.get_weights().squeeze().clone().detach().numpy()
-        steps_ahead = [str(dt * s) for s in steps_ahead]
+        steps_ahead = [str(s) for s in steps_ahead]
         neighbors = [str(i) for i in range(-ad_module.smoothing, ad_module.smoothing+1)]
 
         fig, ax = plt.subplots(figsize=(10,8))
@@ -815,10 +817,10 @@ def plot_AD_module_params(ad_module, path, filename, steps_ahead = None, dt=0.00
         ax.set_xticklabels(neighbors)
         ax.set_yticklabels(steps_ahead)
         fig.colorbar(im, ax=ax, shrink=0.25)
-        plt.title('Weights of scores smoothing on forecasting horizon and neighbouring timestamps', fontsize=15)
+        plt.title('Aggregation weights of scores', fontsize=15)
         plt.xlabel('Neighbouring timestamps ($l$)', fontsize=10)
-        plt.ylabel('Forecasting horizons ($\delta k$)', fontsize=10)
-        plt.savefig(path + filename + '_ad_module_weights.pdf')
+        plt.ylabel('Steps-ahead ($k$)', fontsize=10)
+        plt.savefig(path + filename + '_ad_module_weights.pdf', **save_extras)
         plt.close()
 
 

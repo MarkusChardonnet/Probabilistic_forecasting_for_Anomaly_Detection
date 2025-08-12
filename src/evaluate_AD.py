@@ -344,8 +344,11 @@ def evaluate(
 
     nb_steps_ahead = len(steps_ahead)
     max_steps_ahead = max(steps_ahead)
+    neighbouring_scores = 5
+    if 'neighbouring_scores' in options:
+        neighbouring_scores = options['neighbouring_scores']
     ad_module = AD_module(
-        output_vars=output_vars, steps_ahead=steps_ahead, smoothing=5,
+        output_vars=output_vars, steps_ahead=steps_ahead, smoothing=neighbouring_scores,
         replace_values=replace_values, class_thres=class_thres)
     if optim_method == 'adam':
         optimizer = torch.optim.Adam(ad_module.parameters(), lr=learning_rate, weight_decay=0.0005)

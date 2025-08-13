@@ -95,6 +95,9 @@ AD_OrnsteinUhlenbeckWithSeason_diffusion_dict = {
 AD_OrnsteinUhlenbeckWithSeason_diffusion_dict_eval = copy.deepcopy(
     AD_OrnsteinUhlenbeckWithSeason_diffusion_dict)
 AD_OrnsteinUhlenbeckWithSeason_diffusion_dict_eval['nb_paths'] = 1500
+AD_OrnsteinUhlenbeckWithSeason_diffusion_dict_plot = copy.deepcopy(
+    AD_OrnsteinUhlenbeckWithSeason_diffusion_dict)
+AD_OrnsteinUhlenbeckWithSeason_diffusion_dict_plot['nb_paths'] = 1
 
 
 AD_OrnsteinUhlenbeckWithSeason_noise_dict = {
@@ -141,6 +144,9 @@ AD_OrnsteinUhlenbeckWithSeason_noise_dict = {
 AD_OrnsteinUhlenbeckWithSeason_noise_dict_eval = copy.deepcopy(
     AD_OrnsteinUhlenbeckWithSeason_noise_dict)
 AD_OrnsteinUhlenbeckWithSeason_noise_dict_eval['nb_paths'] = 1500
+AD_OrnsteinUhlenbeckWithSeason_noise_dict_plot = copy.deepcopy(
+    AD_OrnsteinUhlenbeckWithSeason_noise_dict)
+AD_OrnsteinUhlenbeckWithSeason_noise_dict_plot['nb_paths'] = 1
 
 
 AD_OrnsteinUhlenbeckWithSeason_cutoff_dict = {
@@ -179,13 +185,16 @@ AD_OrnsteinUhlenbeckWithSeason_cutoff_dict = {
         'dim_occurence_prob': dim_occurence_prob,
         'dim_occurence_pos': dim_occurence_pos,
 
-        'cutoff_level_law': 'current_level',
-        'cutoff_level_range': (0.,1.),
+        'cutoff_level_law': 'uniform',  # 'current_level'
+        'cutoff_level_range': (0.,0.),
     }
 }
 AD_OrnsteinUhlenbeckWithSeason_cutoff_dict_eval = copy.deepcopy(
     AD_OrnsteinUhlenbeckWithSeason_cutoff_dict)
 AD_OrnsteinUhlenbeckWithSeason_cutoff_dict_eval['nb_paths'] = 1500
+AD_OrnsteinUhlenbeckWithSeason_cutoff_dict_plot = copy.deepcopy(
+    AD_OrnsteinUhlenbeckWithSeason_cutoff_dict)
+AD_OrnsteinUhlenbeckWithSeason_cutoff_dict_plot['nb_paths'] = 1
 
 
 AD_OrnsteinUhlenbeckWithSeason_scale_dict = {
@@ -309,6 +318,9 @@ AD_OrnsteinUhlenbeckWithSeason_spike_dict = {
 AD_OrnsteinUhlenbeckWithSeason_spike_dict_eval = copy.deepcopy(
     AD_OrnsteinUhlenbeckWithSeason_spike_dict)
 AD_OrnsteinUhlenbeckWithSeason_spike_dict_eval['nb_paths'] = 1500
+AD_OrnsteinUhlenbeckWithSeason_spike_dict_plot = copy.deepcopy(
+    AD_OrnsteinUhlenbeckWithSeason_spike_dict)
+AD_OrnsteinUhlenbeckWithSeason_spike_dict_plot['nb_paths'] = 1
 
 
 

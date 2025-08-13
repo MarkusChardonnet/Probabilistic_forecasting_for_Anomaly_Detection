@@ -2,7 +2,6 @@
 author: Florian Krach
 """
 
-import train
 import train_synthetic
 import KPI_train
 import Microbial_train
@@ -30,9 +29,6 @@ def train_switcher(**params):
         return Microbial_train.train(**params)
     elif "AD_OrnsteinUhlenbeckWithSeason" in params['dataset']:
         return train_synthetic.train(**params)
-    elif params['dataset'] in list(synthetic_datasets.DATASETS) or \
-            'combined' in params['dataset'] or 'FBM[' in params['dataset']:
-        return train.train(**params)
     elif params['dataset'] in ['Cloud_KPI']:
         return KPI_train.train(**params)
     elif 'microbial' in params['dataset']:

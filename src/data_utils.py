@@ -18,9 +18,15 @@ from absl import flags
 import wget
 from zipfile import ZipFile
 from sklearn.model_selection import train_test_split
+import socket
 
 from configs import config
 import synthetic_datasets
+
+try:
+    from telegram_notifications import send_bot_message as SBM
+except Exception:
+    from configs.config import SendBotMessage as SBM
 
 
 # =====================================================================================================================
@@ -40,6 +46,12 @@ _STOCK_MODELS = synthetic_datasets.DATASETS
 data_path = config.data_path
 training_data_path = config.training_data_path
 
+if 'ada-' not in socket.gethostname():
+    SERVER = False
+    flags.DEFINE_bool("SEND", False, "whether to send with telegram bot")
+else:
+    SERVER = True
+    flags.DEFINE_bool("SEND", True, "whether to send with telegram bot")
 
 # =====================================================================================================================
 def makedirs(dirname):
@@ -194,7 +206,7 @@ def create_dataset(
 def create_AD_dataset(
         generation_model_name="AD_GLISSM", 
         hyperparam_dict=hyperparam_default,
-        seed=0, plot_paths=None):
+        seed=0, plot_paths=None, send=False):
     """
     create a synthetic dataset using one of the stock-models
     :param stock_model_name: str, name of the stockmodel, see _STOCK_MODELS
@@ -263,6 +275,14 @@ def create_AD_dataset(
     # stock paths shape: [nb_paths, dim, time_steps]
     (final_paths, ad_labels, deter_paths, seasonal_function, dt,
      period) = generation_model.generate_paths(plot_paths=plot_paths, plot_save_path=path)
+    if send and plot_paths is not None:
+        files_to_send = []
+        for i in plot_paths:
+            files_to_send.append(f"{path}path-{i}.pdf")
+        SBM.send_notification(
+            text="plots from dataset: {}".format(hyperparam_dict['anomaly_params']['type']),
+            files=files_to_send, chat_id=config.CHAT_ID)
+
     size = final_paths.shape
     observed_dates = np.random.random(size=(size[0], size[2]))
     if "X_dependent_observation_prob" in hyperparam_dict:
@@ -1051,7 +1071,7 @@ def main(arg):
 
     if "AD" in dataset_name:
         create_AD_dataset(generation_model_name=dataset_name, hyperparam_dict=dataset_params,
-            seed=FLAGS.seed, plot_paths=plot_paths)
+            seed=FLAGS.seed, plot_paths=plot_paths, send=FLAGS.send)
     elif "Microbiome" in dataset_name:
         create_Microbiome_dataset(generation_model_name=dataset_name, hyperparam_dict=dataset_params,
             seed=FLAGS.seed)

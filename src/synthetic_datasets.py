@@ -1436,7 +1436,7 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
                 plt.plot(plot_t, deter_paths[i, 0, :], label="Deterministic path (without anomaly)", alpha=0.3)
                 plt.plot(plot_t, seasonal_function[i, 0, :], label="Drift function", alpha=0.3, color="olive")
                 plt.xlabel("$t$")
-                if not (drift, diffusion, noise, anomalies, spikes) == (None, None, None, None, None):
+                if self.get_anomaly_fcts()  == (None, None, None, None, None):
                     plt.legend(
                         bbox_to_anchor=(1.05, 0.5),
                         loc='center left', borderaxespad=0.)

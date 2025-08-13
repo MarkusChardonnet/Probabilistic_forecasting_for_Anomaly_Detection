@@ -31,25 +31,33 @@ The probabilistic forecasting is based on the PD-NJODE framework. This framework
 
 ## Generating the data
 
-- Here is an example for the generation of synthetic data from the modified Orstein-Uhlenbeck process : 
+  - Generation of synthetic data from the modified Orstein-Uhlenbeck process without anomalies (base model) for training and evaluation: 
     ```bash
     cd src
-    python data_utils.py --dataset_name=AD_OrnsteinUhlenbeckWithSeason --dataset_params=AD_OrnsteinUhlenbeckWithSeason_3_dict
-    python data_utils.py --dataset_name=AD_OrnsteinUhlenbeckWithSeason --dataset_params=AD_OrnsteinUhlenbeckWithSeason_eval
+    python data_utils.py --dataset_name=AD_OrnsteinUhlenbeckWithSeason --dataset_params=AD_OrnsteinUhlenbeckWithSeason_3_dict --seed=0
+    python data_utils.py --dataset_name=AD_OrnsteinUhlenbeckWithSeason --dataset_params=AD_OrnsteinUhlenbeckWithSeason_eval --seed=1
     ```
 
-  - Generating sythetic data with anomalies can be done equivalently by defining other configuration dictionaries :
+  - Generation of synthetic data with anomalies:
       ```bash
       cd src
-      python data_utils.py --dataset_name=AD_OrnsteinUhlenbeckWithSeason --dataset_params=AD_OrnsteinUhlenbeckWithSeason_diffusion_dict
-      python data_utils.py --dataset_name=AD_OrnsteinUhlenbeckWithSeason --dataset_params=AD_OrnsteinUhlenbeckWithSeason_diffusion_dict_eval
-      python data_utils.py --dataset_name=AD_OrnsteinUhlenbeckWithSeason --dataset_params=AD_OrnsteinUhlenbeckWithSeason_noise_dict
-      python data_utils.py --dataset_name=AD_OrnsteinUhlenbeckWithSeason --dataset_params=AD_OrnsteinUhlenbeckWithSeason_noise_dict_eval
-      python data_utils.py --dataset_name=AD_OrnsteinUhlenbeckWithSeason --dataset_params=AD_OrnsteinUhlenbeckWithSeason_cutoff_dict
-      python data_utils.py --dataset_name=AD_OrnsteinUhlenbeckWithSeason --dataset_params=AD_OrnsteinUhlenbeckWithSeason_cutoff_dict_eval
-      python data_utils.py --dataset_name=AD_OrnsteinUhlenbeckWithSeason --dataset_params=AD_OrnsteinUhlenbeckWithSeason_spike_dict
-      python data_utils.py --dataset_name=AD_OrnsteinUhlenbeckWithSeason --dataset_params=AD_OrnsteinUhlenbeckWithSeason_spike_dict_eval
+      python data_utils.py --dataset_name=AD_OrnsteinUhlenbeckWithSeason --dataset_params=AD_OrnsteinUhlenbeckWithSeason_diffusion_dict --seed=0
+      python data_utils.py --dataset_name=AD_OrnsteinUhlenbeckWithSeason --dataset_params=AD_OrnsteinUhlenbeckWithSeason_diffusion_dict_eval --seed=1
+      python data_utils.py --dataset_name=AD_OrnsteinUhlenbeckWithSeason --dataset_params=AD_OrnsteinUhlenbeckWithSeason_noise_dict --seed=0
+      python data_utils.py --dataset_name=AD_OrnsteinUhlenbeckWithSeason --dataset_params=AD_OrnsteinUhlenbeckWithSeason_noise_dict_eval --seed=1
+      python data_utils.py --dataset_name=AD_OrnsteinUhlenbeckWithSeason --dataset_params=AD_OrnsteinUhlenbeckWithSeason_cutoff_dict --seed=0
+      python data_utils.py --dataset_name=AD_OrnsteinUhlenbeckWithSeason --dataset_params=AD_OrnsteinUhlenbeckWithSeason_cutoff_dict_eval --seed=1
+      python data_utils.py --dataset_name=AD_OrnsteinUhlenbeckWithSeason --dataset_params=AD_OrnsteinUhlenbeckWithSeason_spike_dict --seed=0
+      python data_utils.py --dataset_name=AD_OrnsteinUhlenbeckWithSeason --dataset_params=AD_OrnsteinUhlenbeckWithSeason_spike_dict_eval --seed=1
       ```
+  - Generation of plots of base and anomaly datasets:
+    ```bash
+    python data_utils.py --dataset_name=AD_OrnsteinUhlenbeckWithSeason --dataset_params=AD_OrnsteinUhlenbeckWithSeason_plot --seed=0 --plot_paths=[0]
+    python data_utils.py --dataset_name=AD_OrnsteinUhlenbeckWithSeason --dataset_params=AD_OrnsteinUhlenbeckWithSeason_diffusion_dict_plot --seed=0 --plot_paths=[0]
+    python data_utils.py --dataset_name=AD_OrnsteinUhlenbeckWithSeason --dataset_params=AD_OrnsteinUhlenbeckWithSeason_noise_dict_plot --seed=0 --plot_paths=[0] 
+    python data_utils.py --dataset_name=AD_OrnsteinUhlenbeckWithSeason --dataset_params=AD_OrnsteinUhlenbeckWithSeason_cutoff_dict_plot --seed=0 --plot_paths=[0]
+    python data_utils.py --dataset_name=AD_OrnsteinUhlenbeckWithSeason --dataset_params=AD_OrnsteinUhlenbeckWithSeason_spike_dict_plot --seed=0 --plot_paths=[0]
+    ```
 
 
 ## Training the probabilistic forecasting module
@@ -81,6 +89,8 @@ Important flags:
     ```bash
     cd src
     python evaluate_AD.py --forecast_model_ids=[1] --forecast_saved_models_path=../data/saved_models_AD_OrnsteinUhlenbeckWithSeason/ --ad_params=param_dict_AD_modules
+    # plot from the last (or best) AD model
+    python evaluate_AD.py --plot_only=True --quant_eval_in_plot_only=True --which_AD_model_load="last" --forecast_model_ids=[1] --forecast_saved_models_path=../data/saved_models_AD_OrnsteinUhlenbeckWithSeason/ --ad_params=param_dict_AD_modules
     ```
 
 ---

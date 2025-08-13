@@ -31,6 +31,9 @@ flags.DEFINE_string("dataset_name", None,
                     "name of the dataset to generate")
 flags.DEFINE_integer("seed", 0,
                      "seed for making dataset generation reproducible")
+flags.DEFINE_string('plot_paths', None,
+                    "name of list of path ids (in config.py) to plot or list "
+                    "of path ids")
 
 hyperparam_default = config.hyperparam_default
 _STOCK_MODELS = synthetic_datasets.DATASETS
@@ -191,7 +194,7 @@ def create_dataset(
 def create_AD_dataset(
         generation_model_name="AD_GLISSM", 
         hyperparam_dict=hyperparam_default,
-        seed=0):
+        seed=0, plot_paths=None):
     """
     create a synthetic dataset using one of the stock-models
     :param stock_model_name: str, name of the stockmodel, see _STOCK_MODELS
@@ -245,9 +248,21 @@ def create_AD_dataset(
         if "timelag_shift1" in hyperparam_dict:
             timelag_shift1 = hyperparam_dict["timelag_shift1"]
 
+    # time_id = int(time.time())
+    time_id = 1
+    if len(df_overview) > 0:
+        time_id = np.max(df_overview["id"].values) + 1
+    file_name = '{}-{}'.format(generation_model_name, time_id)
+    path = '{}{}/'.format(training_data_path, file_name)
+    if os.path.exists(path):
+        print('Path already exists - abort')
+        raise ValueError
+    os.makedirs(path)
+
     generation_model = _STOCK_MODELS[generation_model_name](**hyperparam_dict)
     # stock paths shape: [nb_paths, dim, time_steps]
-    final_paths, ad_labels, deter_paths, seasonal_function, dt, period = generation_model.generate_paths()
+    (final_paths, ad_labels, deter_paths, seasonal_function, dt,
+     period) = generation_model.generate_paths(plot_paths=plot_paths, plot_save_path=path)
     size = final_paths.shape
     observed_dates = np.random.random(size=(size[0], size[2]))
     if "X_dependent_observation_prob" in hyperparam_dict:
@@ -288,18 +303,9 @@ def create_AD_dataset(
                 mask[:,1,:] = np.maximum(mask1, mask_shift)
         observed_dates = mask
 
-    # time_id = int(time.time())
-    time_id = 1
-    if len(df_overview) > 0:
-        time_id = np.max(df_overview["id"].values) + 1
-    file_name = '{}-{}'.format(generation_model_name, time_id)
-    path = '{}{}/'.format(training_data_path, file_name)
     hyperparam_dict['dt'] = dt
     hyperparam_dict['period'] = period
     desc = json.dumps(hyperparam_dict, sort_keys=True)
-    if os.path.exists(path):
-        print('Path already exists - abort')
-        raise ValueError
     df_app = pd.DataFrame(
         data=[[generation_model_name, time_id, original_desc]],
         columns=['name', 'id', 'description']
@@ -308,7 +314,6 @@ def create_AD_dataset(
                             ignore_index=True)
     df_overview.to_csv(data_overview)
 
-    os.makedirs(path)
     with open('{}data.npy'.format(path), 'wb') as f:
         np.save(f, final_paths)
         np.save(f, observed_dates) # [nb_paths, time_steps]
@@ -1037,9 +1042,16 @@ def main(arg):
         print('dataset_params: {}'.format(dataset_params))
     else:
         raise ValueError("Please provide --dataset_params")
+    plot_paths = None
+    if FLAGS.plot_paths is not None:
+        try:
+            plot_paths = eval("config."+FLAGS.plot_paths)
+        except Exception:
+            plot_paths = eval(FLAGS.plot_paths)
+
     if "AD" in dataset_name:
         create_AD_dataset(generation_model_name=dataset_name, hyperparam_dict=dataset_params,
-            seed=FLAGS.seed)
+            seed=FLAGS.seed, plot_paths=plot_paths)
     elif "Microbiome" in dataset_name:
         create_Microbiome_dataset(generation_model_name=dataset_name, hyperparam_dict=dataset_params,
             seed=FLAGS.seed)

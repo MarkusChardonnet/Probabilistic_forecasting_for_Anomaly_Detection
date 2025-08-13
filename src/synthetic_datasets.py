@@ -1367,7 +1367,8 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
             return None, None, None, None, spikes
 
 
-    def generate_paths(self, start_X=None, no_S0=True):
+    def generate_paths(
+        self, start_X=None, no_S0=True, plot_paths=None, plot_save_path=None):
         # Diffusion of the variance: dv = -k(v-season(t))*dt + vol*dW
         if no_S0:
             self.S0 = None
@@ -1417,7 +1418,31 @@ class AD_OrnsteinUhlenbeckWithSeason(StockModel):
             if self.spike:
                 final_paths[i] += spikes['values']
                 ad_labels[i] = spikes['labels']
-        
+            if plot_paths and i in plot_paths:
+                # only plots dim=0 path
+                plt.figure()
+                ad_labels_plot = ad_labels.copy()
+                ad_labels_plot[i, :, 1:][
+                    np.logical_and(ad_labels[i, :, 1:] == 0,
+                                   ad_labels[i, :, :-1] == 1)] = 1
+                ad_labels_plot[i, :, :-1][
+                    np.logical_and(ad_labels[i, :, 1:] == 1,
+                                   ad_labels[i, :, :-1] == 0)] = 1
+                plot_t = np.linspace(0, self.maturity, self.nb_steps+1)
+                mask_data_path_w_anomaly = np.ma.masked_where(
+                    (ad_labels_plot[i] == 0), final_paths[i])
+                plt.plot(plot_t, final_paths[i, 0, :], label="True path, no anomaly")
+                plt.plot(plot_t, mask_data_path_w_anomaly[0,:], label="True path, anomaly")
+                plt.plot(plot_t, deter_paths[i, 0, :], label="Deterministic path (without anomaly)", alpha=0.3)
+                plt.plot(plot_t, seasonal_function[i, 0, :], label="Drift function", alpha=0.3, color="olive")
+                plt.xlabel("$t$")
+                if not (drift, diffusion, noise, anomalies, spikes) == (None, None, None, None, None):
+                    plt.legend(
+                        bbox_to_anchor=(1.05, 0.5),
+                        loc='center left', borderaxespad=0.)
+                fname = "{}path-{}.pdf".format(plot_save_path, i)
+                plt.savefig(fname, bbox_inches='tight', pad_inches=0.01)
+
         # stock_path, final_paths, deter_paths, seasonal_function, ad_labels : [nb_paths, dimension, time_steps]
         # return season_pattern, ad_labels
         return final_paths, ad_labels, deter_paths, seasonal_function, dt, period

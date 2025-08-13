@@ -36,6 +36,9 @@ AD_OrnsteinUhlenbeckWithSeason_3_dict = {
 AD_OrnsteinUhlenbeckWithSeason_eval = copy.deepcopy(
     AD_OrnsteinUhlenbeckWithSeason_3_dict)
 AD_OrnsteinUhlenbeckWithSeason_eval['nb_paths'] = 1500
+AD_OrnsteinUhlenbeckWithSeason_plot = copy.deepcopy(
+    AD_OrnsteinUhlenbeckWithSeason_3_dict)
+AD_OrnsteinUhlenbeckWithSeason_plot['nb_paths'] = 1
 
 AD_OrnsteinUhlenbeckWithSeason_dim2_dict = {
     'model_name': "AD_OrnsteinUhlenbeckWithSeason",

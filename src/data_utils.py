@@ -1071,7 +1071,7 @@ def main(arg):
 
     if "AD" in dataset_name:
         create_AD_dataset(generation_model_name=dataset_name, hyperparam_dict=dataset_params,
-            seed=FLAGS.seed, plot_paths=plot_paths, send=FLAGS.send)
+            seed=FLAGS.seed, plot_paths=plot_paths, send=FLAGS.SEND)
     elif "Microbiome" in dataset_name:
         create_Microbiome_dataset(generation_model_name=dataset_name, hyperparam_dict=dataset_params,
             seed=FLAGS.seed)

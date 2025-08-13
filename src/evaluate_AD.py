@@ -49,6 +49,7 @@ flags.DEFINE_string("ad_params", None,
                     "blabla")
 
 flags.DEFINE_bool("plot_only", False, "whether to use the plot only mode")
+flags.DEFINE_bool("quant_eval_in_plot_only", False, "whether to do the quantitative evaluation of the model during together with plot-only")
 flags.DEFINE_string("which_AD_model_load", None, "one of: {'best', 'last', None}")
 
 
@@ -176,6 +177,7 @@ def evaluate(
         nb_cpus=None,
         n_dataset_workers=None,
         plot_only=False,
+        quant_eval_in_plot_only=False,
         **options
 ):
 
@@ -373,37 +375,8 @@ def evaluate(
                 load_path_AD, ad_module, optimizer, device)
             print("loaded AD module from {}".format(load_path_AD))
 
-    # ----- plot only option ----
-    if plot_only:
-        plot_filename = 'plot_from-{}'.format(which_AD_model_load)
-        plot_AD_module_params(
-            ad_module, steps_ahead=steps_ahead, path=eval_weights_path,
-            filename=plot_filename)
 
-        batch = next(iter(dl_plot))
-        plot_filename = plot_filename + '_path-{}.pdf'
-        print("Plotting ..")
-        plot_one_path_with_pred(device, forecast_model, ad_module, batch,
-                                delta_t, T,
-                                paths_to_plot=paths_to_plot,
-                                save_path=eval_plot_path,
-                                filename=plot_filename,
-                                plot_variance=plot_variance,
-                                std_factor=std_factor,
-                                output_vars=output_vars,
-                                steps_ahead=steps_ahead,
-                                plot_forecast_predictions=plot_forecast_predictions,
-                                forecast_horizons_to_plot=forecast_horizons_to_plot,
-                                anomaly_type=anom_type)
-        torch.cuda.empty_cache()
-        return 0
-    # ---------------------------
-
-    weights_filename = "epoch-{}".format(0)
-    plot_AD_module_params(
-        ad_module, steps_ahead=steps_ahead, path=eval_weights_path,
-        filename=weights_filename)
-
+    # ------ convenience functions ------
     def get_score_and_pred(b):
         """
         Args:
@@ -452,12 +425,97 @@ def evaluate(
             index_times = np.argwhere(index_times).reshape(-1)
             for m in range(nb_moments):
                 cond_moments[index_times, :, :, m, i] = path_y[i].detach(
-                    ).cpu().numpy()[:, :, m * dimension:(m + 1) * dimension]
+                ).cpu().numpy()[:, :, m * dimension:(m + 1) * dimension]
         obs = torch.tensor(true_X, dtype=torch.float32).permute(2, 0, 1)
         cond_moments = torch.tensor(cond_moments, dtype=torch.float32)
         ad_scores, mask = ad_module(obs, cond_moments)
         ad_labels = ad_labels.transpose((2, 0, 1))
         return ad_scores, mask, cond_moments, obs, path_t, path_y, ad_labels
+
+    def quant_eval(fname):
+        ad_scores, mask, cond_moments, obs, path_t, path_y, \
+            ad_labels_af = (get_score_and_pred(next(iter(dl_af_eval))))
+        ad_scores_af = ad_scores.detach().cpu().numpy()
+        ad_scores_af = ad_scores_af[mask].reshape(-1)
+        pred_labels_af = (ad_scores_af > ad_module.threshold) * 1
+        pred_labels_af = pred_labels_af.astype(int)
+        ad_labels_af = ad_labels_af[mask].reshape(-1).astype(int)
+        ad_scores, mask, cond_moments, obs, path_t, path_y, \
+            ad_labels_an = (get_score_and_pred(next(iter(dl_an_eval))))
+        ad_scores_an = ad_scores.detach().cpu().numpy()
+        ad_scores_an = ad_scores_an[mask].reshape(-1)
+        pred_labels_an = (ad_scores_an > ad_module.threshold) * 1
+        pred_labels_an = pred_labels_an.astype(int)
+        ad_labels_an = ad_labels_an[mask].reshape(-1).astype(int)
+
+        precision_af, recall_af, fscore_af, support_af = (
+            metrics.precision_recall_fscore_support(
+                ad_labels_af, pred_labels_af, labels=[0, 1]))
+        av_fscore_af = metrics.f1_score(
+            ad_labels_af, pred_labels_af, labels=[0, 1], average='micro')
+        cm_af = metrics.confusion_matrix(
+            ad_labels_af, pred_labels_af, labels=[0, 1]).flatten()
+        r_af = np.concatenate(
+            [precision_af, recall_af, fscore_af, support_af, cm_af,
+             np.array(av_fscore_af).reshape((1,))], axis=0)
+        precision_an, recall_an, fscore_an, support_an = (
+            metrics.precision_recall_fscore_support(
+                ad_labels_an, pred_labels_an, labels=[0, 1]))
+        av_fscore_an = metrics.f1_score(
+            ad_labels_an, pred_labels_an, labels=[0, 1], average='micro')
+        cm_an = metrics.confusion_matrix(
+            ad_labels_an, pred_labels_an, labels=[0, 1]).flatten()
+        r_an = np.concatenate(
+            [precision_an, recall_an, fscore_an, support_an, cm_an,
+             np.array(av_fscore_an).reshape((1,))], axis=0)
+        label_names = []
+        for l in ["precision", "recall", "fscore", "support"]:
+            for c in [0, 1]:
+                label_names.append("{}_{}".format(l, c))
+        label_names += ["TN", "FP", "FN", "TP", "f1score_micro"]
+        df_quant_res = pd.DataFrame(
+            np.stack([r_an, r_af], axis=0),
+            columns=label_names, index=["anomalous", "anomaly_free"])
+        df_quant_res.to_csv(fname, index=True)
+    # -----------------------------------
+
+    # -------- plot only option ---------
+    if plot_only:
+        plot_filename = 'plot_from-{}'.format(which_AD_model_load)
+        plot_AD_module_params(
+            ad_module, steps_ahead=steps_ahead, path=eval_weights_path,
+            filename=plot_filename)
+
+        batch = next(iter(dl_plot))
+        plot_filename = plot_filename + '_path-{}.pdf'
+        print("Plotting ..")
+        plot_one_path_with_pred(device, forecast_model, ad_module, batch,
+                                delta_t, T,
+                                paths_to_plot=paths_to_plot,
+                                save_path=eval_plot_path,
+                                filename=plot_filename,
+                                plot_variance=plot_variance,
+                                std_factor=std_factor,
+                                output_vars=output_vars,
+                                steps_ahead=steps_ahead,
+                                plot_forecast_predictions=plot_forecast_predictions,
+                                forecast_horizons_to_plot=forecast_horizons_to_plot,
+                                anomaly_type=anom_type)
+        torch.cuda.empty_cache()
+
+        if quant_eval_in_plot_only:
+            fname = "{}quant_eval_from-{}.csv".format(
+                eval_quantitative_path, which_AD_model_load)
+            quant_eval(fname=fname)
+
+        return 0
+    # -----------------------------------
+
+    # --- training & eval of AD module --
+    weights_filename = "epoch-{}".format(0)
+    plot_AD_module_params(
+        ad_module, steps_ahead=steps_ahead, path=eval_weights_path,
+        filename=weights_filename)
 
     print("Starting training ... ")
     data_metrics = []
@@ -512,51 +570,8 @@ def evaluate(
         AD_modules.save_checkpoint(ad_module, optimizer, model_path_save_last, epoch)
 
         if quantitative_eval:
-            ad_scores, mask, cond_moments, obs, path_t, path_y, \
-                ad_labels_af = (get_score_and_pred(next(iter(dl_af_eval))))
-            ad_scores_af = ad_scores.detach().cpu().numpy()
-            ad_scores_af = ad_scores_af[mask].reshape(-1)
-            pred_labels_af = (ad_scores_af > ad_module.threshold)*1
-            pred_labels_af = pred_labels_af.astype(int)
-            ad_labels_af = ad_labels_af[mask].reshape(-1).astype(int)
-            ad_scores, mask, cond_moments, obs, path_t, path_y, \
-                ad_labels_an = (get_score_and_pred(next(iter(dl_an_eval))))
-            ad_scores_an = ad_scores.detach().cpu().numpy()
-            ad_scores_an = ad_scores_an[mask].reshape(-1)
-            pred_labels_an = (ad_scores_an > ad_module.threshold)*1
-            pred_labels_an = pred_labels_an.astype(int)
-            ad_labels_an = ad_labels_an[mask].reshape(-1).astype(int)
-
-            precision_af, recall_af, fscore_af, support_af = (
-                metrics.precision_recall_fscore_support(
-                    ad_labels_af, pred_labels_af, labels=[0,1]))
-            av_fscore_af = metrics.f1_score(
-                ad_labels_af, pred_labels_af, labels=[0,1], average='micro')
-            cm_af = metrics.confusion_matrix(
-                ad_labels_af, pred_labels_af, labels=[0,1]).flatten()
-            r_af = np.concatenate(
-                [precision_af, recall_af, fscore_af, support_af, cm_af,
-                 np.array(av_fscore_af).reshape((1,))], axis=0)
-            precision_an, recall_an, fscore_an, support_an = (
-                metrics.precision_recall_fscore_support(
-                    ad_labels_an, pred_labels_an, labels=[0,1]))
-            av_fscore_an = metrics.f1_score(
-                ad_labels_an, pred_labels_an, labels=[0, 1], average='micro')
-            cm_an = metrics.confusion_matrix(
-                ad_labels_an, pred_labels_an, labels=[0,1]).flatten()
-            r_an = np.concatenate(
-                [precision_an, recall_an, fscore_an, support_an, cm_an,
-                 np.array(av_fscore_an).reshape((1,))], axis=0)
-            label_names = []
-            for l in ["precision", "recall", "fscore", "support"]:
-                for c in [0,1]:
-                    label_names.append("{}_{}".format(l, c))
-            label_names += ["TN", "FP", "FN", "TP", "f1score_micro"]
-            df_quant_res = pd.DataFrame(
-                np.stack([r_an, r_af], axis=0),
-                columns=label_names, index=["anomalous", "anomaly_free"])
             fname = "{}epoch-{}.csv".format(eval_quantitative_path, epoch)
-            df_quant_res.to_csv(fname, index=True)
+            quant_eval(fname=fname)
 
         if plot:
             batch = next(iter(dl_plot))
@@ -1127,6 +1142,7 @@ def main(arg):
                     n_dataset_workers=FLAGS.N_DATASET_WORKERS,
                     use_gpu=FLAGS.USE_GPU, nb_cpus=FLAGS.NB_CPUS,
                     plot_only=FLAGS.plot_only,
+                    quant_eval_in_plot_only=FLAGS.quant_eval_in_plot_only,
                     **ad_param)
 
 

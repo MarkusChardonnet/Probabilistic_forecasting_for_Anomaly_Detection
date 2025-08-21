@@ -1002,8 +1002,13 @@ def plot_one_path_with_pred(
                 y=ad_module.threshold, color='r', linestyle='-', alpha=0.5,
                 label='Score threshold')
             ax1.set_ylim(0,1)
-            ax1.legend(loc='upper right', fontsize=9)
+            ax2.legend(loc='upper right', fontsize=9)
             ax1.set_ylabel('Score', fontsize=9)
+            ax1.legend(loc='upper left', fontsize=9)
+            ax2.set_ylabel('process values', fontsize=9)
+            if anomaly_type == 'spike':
+                ax1.set_xlabel('$t$', fontsize=9)
+            # axs[j][0].set_ylim(0., 1.)
 
             if plot_forecast_predictions:
                 for h, s in enumerate(forecast_horizons_to_plot):
@@ -1037,12 +1042,6 @@ def plot_one_path_with_pred(
                                                label="standart deviation ({} factor) prediction {} steps ahead".format(
                                                    std_factor, s),
                                                color=std_color[h + 2])
-
-            ax2.legend(loc='upper left', fontsize=9)
-            ax2.set_ylabel('process values', fontsize=9)
-            if anomaly_type == 'spike':
-                ax1.set_xlabel('$t$', fontsize=9)
-            # axs[j][0].set_ylim(0., 1.)
 
         # plt.xlabel('$t$')
         # plt.suptitle("Anomaly detection on {} anomalies".format(anomaly_type))

@@ -60,6 +60,6 @@ def del_all_flags(FLAGS):
     flags_dict = FLAGS._flags()
     keys_list = [keys for keys in flags_dict]
     for keys in keys_list:
-        if keys not in ['verbosity']:
+        if keys not in ['verbosity', 'logger_levels']:
             FLAGS.__delattr__(keys)
 

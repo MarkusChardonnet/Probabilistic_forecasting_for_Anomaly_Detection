@@ -864,8 +864,7 @@ def plot_AD_module_params(
         fig.colorbar(im, ax=ax, shrink=0.25)
         # plt.title('Aggregation weights of scores', fontsize=12)
         plt.title(f'{anomaly_type}', fontsize=12)
-        if anomaly_type == 'spike':
-            plt.xlabel('Neighbouring timestamps ($l$)', fontsize=9)
+        plt.xlabel('Neighbouring timestamps ($l$)', fontsize=9)
         plt.ylabel('Steps-ahead ($k$)', fontsize=9)
         plt.savefig(path + filename + '_ad_module_weights.pdf', **save_extras, dpi=400)
         plt.close()
@@ -1006,8 +1005,7 @@ def plot_one_path_with_pred(
             ax1.set_ylabel('Score', fontsize=9)
             ax1.legend(loc='upper left', fontsize=9)
             ax2.set_ylabel('process values', fontsize=9)
-            if anomaly_type == 'spike':
-                ax1.set_xlabel('$t$', fontsize=9)
+            ax1.set_xlabel('$t$', fontsize=9)
             # axs[j][0].set_ylim(0., 1.)
 
             if plot_forecast_predictions:

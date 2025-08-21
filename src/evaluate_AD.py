@@ -863,7 +863,7 @@ def plot_AD_module_params(
         ax.set_yticklabels(steps_ahead)
         fig.colorbar(im, ax=ax, shrink=0.25)
         # plt.title('Aggregation weights of scores', fontsize=12)
-        plt.title(f'{anomaly_type}'.title(), fontsize=12)
+        plt.title(f'{anomaly_type}'.capitalize(), fontsize=12)
         plt.xlabel('neighbouring timestamps ($l$)', fontsize=9)
         plt.ylabel('steps-ahead ($k$)', fontsize=9)
         plt.savefig(path + filename + '_ad_module_weights.pdf', **save_extras, dpi=400)
@@ -982,7 +982,7 @@ def plot_one_path_with_pred(
 
             ax2 = axs[j].twinx()
             ax1 = axs[j]
-            ax1.set_title(title.title(), fontsize=12)
+            ax1.set_title(title.capitalize(), fontsize=12)
             ax2.plot(path_t_true_X, true_X[a, j, :],
                            label='true path, no anomaly',
                            color=colors[0])

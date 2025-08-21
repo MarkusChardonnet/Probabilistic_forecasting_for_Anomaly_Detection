@@ -992,7 +992,7 @@ def plot_one_path_with_pred(
 
             ax1.plot(path_t_true_X, mask_pred_scores[a, j, :],
                            label='Predicted scores',
-                           color=colors[2], alpha=0.75)
+                           color="green", alpha=0.75)
             ax1.fill_between(
                 path_t_true_X, 0, 1,
                 where=predicted_ad_labels_plot[a, j, :]==1, facecolor='red', alpha=.25,

@@ -35,6 +35,12 @@ import data_utils
 from AD_modules import AD_module
 import AD_modules
 
+try:
+    from telegram_notifications import send_bot_message as SBM
+except Exception:
+    from configs.config import SendBotMessage as SBM
+
+
 
 # =====================================================================================================================
 # FLAGS
@@ -489,15 +495,16 @@ def evaluate(
         plot_AD_module_params(
             ad_module, steps_ahead=steps_ahead, path=eval_weights_path,
             filename=plot_filename, anomaly_type=anom_type)
+        files_to_send = [eval_weights_path+plot_filename+'_ad_module_weights.pdf']
 
         batch = next(iter(dl_plot))
-        plot_filename = plot_filename + '_path-{}.pdf'
+        plot_filename1 = plot_filename + '_path-{}.pdf'
         print("Plotting ..")
         plot_one_path_with_pred(device, forecast_model, ad_module, batch,
                                 delta_t, T,
                                 paths_to_plot=paths_to_plot,
                                 save_path=eval_plot_path,
-                                filename=plot_filename,
+                                filename=plot_filename1,
                                 plot_variance=plot_variance,
                                 std_factor=std_factor,
                                 output_vars=output_vars,
@@ -511,6 +518,18 @@ def evaluate(
             fname = "{}quant_eval_from-{}.csv".format(
                 eval_quantitative_path, which_AD_model_load)
             quant_eval(fname=fname)
+            files_to_send.append(fname)
+
+        if FLAGS.SEND:
+            caption = f"{anom_type}"
+            for i in paths_to_plot:
+                files_to_send.append(
+                    os.path.join(eval_plot_path, plot_filename1.format(i)))
+            SBM.send_notification(
+                text=f'finished plot-only from AD module for anomaly: {anom_type}',
+                chat_id=config.CHAT_ID,
+                files=files_to_send,
+                text_for_files=caption)
 
         return 0
     # -----------------------------------

@@ -46,6 +46,13 @@ except Exception:
 # FLAGS
 FLAGS = flags.FLAGS
 
+def del_all_flags(FLAGS):
+    flags_dict = FLAGS._flags()
+    keys_list = [keys for keys in flags_dict]
+    for keys in keys_list:
+        FLAGS.__delattr__(keys)
+del_all_flags(FLAGS)
+
 flags.DEFINE_string("forecast_params", None, "name of the params list (in config.py) to "
                                     "use for parallel run")
 flags.DEFINE_string("forecast_model_ids", None,

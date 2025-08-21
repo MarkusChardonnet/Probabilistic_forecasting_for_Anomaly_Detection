@@ -849,7 +849,8 @@ def plot_AD_module_params(
     ad_module, path, filename, steps_ahead = None, dt=0.0025, anomaly_type="",
     save_extras={'bbox_inches': 'tight', 'pad_inches': 0.01}, ):
     if isinstance(ad_module, AD_module):
-
+        if anomaly_type == 'cutoff':
+            anomaly_type = 'drift'
         weights = ad_module.get_weights().squeeze().clone().detach().numpy()
         steps_ahead = [str(s) for s in steps_ahead]
         neighbors = [str(i) for i in range(-ad_module.smoothing, ad_module.smoothing+1)]
@@ -878,6 +879,8 @@ def plot_one_path_with_pred(
         output_vars=None, steps_ahead=[1], plot_forecast_predictions=False,
         forecast_horizons_to_plot=[1], anomaly_type='undefined',
 ):
+    if anomaly_type == 'cutoff':
+        anomaly_type = 'drift'
 
     prop_cycle = plt.rcParams['axes.prop_cycle']  # change style of plot?
     colors = prop_cycle.by_key()['color']

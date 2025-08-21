@@ -863,9 +863,9 @@ def plot_AD_module_params(
         ax.set_yticklabels(steps_ahead)
         fig.colorbar(im, ax=ax, shrink=0.25)
         # plt.title('Aggregation weights of scores', fontsize=12)
-        plt.title(f'{anomaly_type}', fontsize=12)
-        plt.xlabel('Neighbouring timestamps ($l$)', fontsize=9)
-        plt.ylabel('Steps-ahead ($k$)', fontsize=9)
+        plt.title(f'{anomaly_type}'.title(), fontsize=12)
+        plt.xlabel('neighbouring timestamps ($l$)', fontsize=9)
+        plt.ylabel('steps-ahead ($k$)', fontsize=9)
         plt.savefig(path + filename + '_ad_module_weights.pdf', **save_extras, dpi=400)
         plt.close()
 
@@ -982,7 +982,7 @@ def plot_one_path_with_pred(
 
             ax2 = axs[j].twinx()
             ax1 = axs[j]
-            ax1.set_title(title, fontsize=12)
+            ax1.set_title(title.title(), fontsize=12)
             ax2.plot(path_t_true_X, true_X[a, j, :],
                            label='true path, no anomaly',
                            color=colors[0])
@@ -991,18 +991,18 @@ def plot_one_path_with_pred(
                            color=colors[1])
 
             ax1.plot(path_t_true_X, mask_pred_scores[a, j, :],
-                           label='Predicted scores',
+                           label='predicted scores',
                            color="green", alpha=0.75)
             ax1.fill_between(
                 path_t_true_X, 0, 1,
                 where=predicted_ad_labels_plot[a, j, :]==1, facecolor='red', alpha=.25,
-                label='Predicted anomaly')
+                label='predicted anomaly')
             ax1.axhline(
                 y=ad_module.threshold, color='r', linestyle='-', alpha=0.5,
-                label='Score threshold')
+                label='score threshold')
             ax1.set_ylim(0,1)
             ax2.legend(loc='upper right', fontsize=9)
-            ax1.set_ylabel('Score', fontsize=9)
+            ax1.set_ylabel('score', fontsize=9)
             ax1.legend(loc='upper left', fontsize=9)
             ax2.set_ylabel('process values', fontsize=9)
             ax1.set_xlabel('$t$', fontsize=9)

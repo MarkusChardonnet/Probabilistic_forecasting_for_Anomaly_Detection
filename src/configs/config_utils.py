@@ -56,3 +56,10 @@ def makedirs(dirname):
         os.makedirs(dirname)
 
 
+def del_all_flags(FLAGS):
+    flags_dict = FLAGS._flags()
+    keys_list = [keys for keys in flags_dict]
+    for keys in keys_list:
+        if keys in ["SEND", "seed", 'plot_paths', "dataset_params", "dataset_name"]:
+            FLAGS.__delattr__(keys)
+

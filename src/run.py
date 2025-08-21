@@ -29,6 +29,8 @@ except Exception:
 # FLAGS
 FLAGS = flags.FLAGS
 
+config.del_all_flags(FLAGS)
+
 flags.DEFINE_string("params", None, "name of the params list (in config.py) to "
                                     "use for parallel run")
 flags.DEFINE_string("model_ids", None,

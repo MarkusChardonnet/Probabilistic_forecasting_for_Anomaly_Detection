@@ -20,6 +20,10 @@ import socket
 import matplotlib  # plots
 import matplotlib.colors
 import matplotlib.pyplot as plt
+
+plt.rcParams.update({"font.family": "DejaVu Sans"})
+plt.style.use("tableau-colorblind10")
+
 from torch.backends import cudnn
 import gc
 import math
@@ -31,10 +35,18 @@ import data_utils
 from AD_modules import AD_module
 import AD_modules
 
+try:
+    from telegram_notifications import send_bot_message as SBM
+except Exception:
+    from configs.config import SendBotMessage as SBM
+
+
 
 # =====================================================================================================================
 # FLAGS
 FLAGS = flags.FLAGS
+
+config.del_all_flags(FLAGS)
 
 flags.DEFINE_string("forecast_params", None, "name of the params list (in config.py) to "
                                     "use for parallel run")
@@ -484,16 +496,17 @@ def evaluate(
         plot_filename = 'plot_from-{}'.format(which_AD_model_load)
         plot_AD_module_params(
             ad_module, steps_ahead=steps_ahead, path=eval_weights_path,
-            filename=plot_filename)
+            filename=plot_filename, anomaly_type=anom_type)
+        files_to_send = [eval_weights_path+plot_filename+'_ad_module_weights.pdf']
 
         batch = next(iter(dl_plot))
-        plot_filename = plot_filename + '_path-{}.pdf'
+        plot_filename1 = plot_filename + '_path-{}.pdf'
         print("Plotting ..")
         plot_one_path_with_pred(device, forecast_model, ad_module, batch,
                                 delta_t, T,
                                 paths_to_plot=paths_to_plot,
                                 save_path=eval_plot_path,
-                                filename=plot_filename,
+                                filename=plot_filename1,
                                 plot_variance=plot_variance,
                                 std_factor=std_factor,
                                 output_vars=output_vars,
@@ -507,6 +520,18 @@ def evaluate(
             fname = "{}quant_eval_from-{}.csv".format(
                 eval_quantitative_path, which_AD_model_load)
             quant_eval(fname=fname)
+            files_to_send.append(fname)
+
+        if FLAGS.SEND:
+            caption = f"{anom_type}"
+            for i in paths_to_plot:
+                files_to_send.append(
+                    os.path.join(eval_plot_path, plot_filename1.format(i)))
+            SBM.send_notification(
+                text=f'finished plot-only from AD module for anomaly: {anom_type}',
+                chat_id=config.CHAT_ID,
+                files=files_to_send,
+                text_for_files=caption)
 
         return 0
     # -----------------------------------
@@ -515,7 +540,7 @@ def evaluate(
     weights_filename = "epoch-{}".format(0)
     plot_AD_module_params(
         ad_module, steps_ahead=steps_ahead, path=eval_weights_path,
-        filename=weights_filename)
+        filename=weights_filename, anomaly_type=anom_type)
 
     print("Starting training ... ")
     data_metrics = []
@@ -551,8 +576,9 @@ def evaluate(
                 predicted_ad_labels = predicted_ad_labels.detach().cpu().numpy()
 
                 weights_filename = "epoch-{}".format(epoch)
-                plot_AD_module_params(ad_module, steps_ahead=steps_ahead, 
-                                  path=eval_weights_path, filename=weights_filename)
+                plot_AD_module_params(
+                    ad_module, steps_ahead=steps_ahead, path=eval_weights_path,
+                    filename=weights_filename, anomaly_type=anom_type)
                 metrics_filename = "epoch-{}".format(epoch)
                 score_val, threshold = compute_metrics(
                     ad_labels, ad_scores, mask, autom_thres = autom_thres,
@@ -820,25 +846,27 @@ def get_forecast_model_param_dict(
 
 
 def plot_AD_module_params(
-    ad_module, path, filename, steps_ahead = None, dt=0.0025,
-    save_extras={'bbox_inches': 'tight', 'pad_inches': 0.01},):
+    ad_module, path, filename, steps_ahead = None, dt=0.0025, anomaly_type="",
+    save_extras={'bbox_inches': 'tight', 'pad_inches': 0.01}, ):
     if isinstance(ad_module, AD_module):
-
+        if anomaly_type == 'cutoff':
+            anomaly_type = 'drift'
         weights = ad_module.get_weights().squeeze().clone().detach().numpy()
         steps_ahead = [str(s) for s in steps_ahead]
         neighbors = [str(i) for i in range(-ad_module.smoothing, ad_module.smoothing+1)]
 
-        fig, ax = plt.subplots(figsize=(10,8))
+        fig, ax = plt.subplots(figsize=(5,5))
         im = ax.imshow(weights)
         ax.set_xticks(np.arange(weights.shape[1]))
         ax.set_yticks(np.arange(weights.shape[0]))
         ax.set_xticklabels(neighbors)
         ax.set_yticklabels(steps_ahead)
         fig.colorbar(im, ax=ax, shrink=0.25)
-        plt.title('Aggregation weights of scores', fontsize=15)
-        plt.xlabel('Neighbouring timestamps ($l$)', fontsize=10)
-        plt.ylabel('Steps-ahead ($k$)', fontsize=10)
-        plt.savefig(path + filename + '_ad_module_weights.pdf', **save_extras)
+        # plt.title('Aggregation weights of scores', fontsize=12)
+        plt.title(f'{anomaly_type}'.capitalize(), fontsize=12)
+        plt.xlabel('neighbouring timestamps ($l$)', fontsize=9)
+        plt.ylabel('steps-ahead ($k$)', fontsize=9)
+        plt.savefig(path + filename + '_ad_module_weights.pdf', **save_extras, dpi=400)
         plt.close()
 
 
@@ -850,6 +878,8 @@ def plot_one_path_with_pred(
         output_vars=None, steps_ahead=[1], plot_forecast_predictions=False,
         forecast_horizons_to_plot=[1], anomaly_type='undefined',
 ):
+    if anomaly_type == 'cutoff':
+        anomaly_type = 'drift'
 
     prop_cycle = plt.rcParams['axes.prop_cycle']  # change style of plot?
     colors = prop_cycle.by_key()['color']
@@ -929,7 +959,7 @@ def plot_one_path_with_pred(
     mask_pred_scores = np.ma.masked_where((np.isnan(scores)), scores)
 
     for a in paths_to_plot:
-        fig, axs = plt.subplots(dimension, 1, figsize=(20, 7))
+        fig, axs = plt.subplots(dimension, 1, figsize=(9,5))
         if dimension == 1:
             axs = [axs]
 
@@ -946,31 +976,37 @@ def plot_one_path_with_pred(
             path_t_obs = np.array(path_t_obs)
             path_X_obs = np.array(path_X_obs)
 
-            title = "Anomaly Detection"
+            title = f"{anomaly_type} anomaly"
             if dimension > 1:
                 title += ", dimension {}".format(j + 1)
 
-            axs[j].set_title(title)
-            axs[j].plot(path_t_true_X, true_X[a, j, :],
+            ax2 = axs[j].twinx()
+            ax1 = axs[j]
+            ax1.set_title(title.capitalize(), fontsize=12)
+            ax2.plot(path_t_true_X, true_X[a, j, :],
                            label='true path, no anomaly',
                            color=colors[0])
-            axs[j].plot(path_t_true_X, mask_data_path_w_anomaly[a, j, :],
+            ax2.plot(path_t_true_X, mask_data_path_w_anomaly[a, j, :],
                            label='true path, anomaly',
                            color=colors[1])
-            ax2 = axs[j].twinx()
-            ax2.plot(path_t_true_X, mask_pred_scores[a, j, :],
-                           label='Predicted scores',
-                           color=colors[2], alpha=0.75)
-            ax2.fill_between(
+
+            ax1.plot(path_t_true_X, mask_pred_scores[a, j, :],
+                           label='predicted scores',
+                           color="green", alpha=0.75)
+            ax1.fill_between(
                 path_t_true_X, 0, 1,
                 where=predicted_ad_labels_plot[a, j, :]==1, facecolor='red', alpha=.25,
-                label='Predicted anomaly')
-            ax2.axhline(
+                label='predicted anomaly')
+            ax1.axhline(
                 y=ad_module.threshold, color='r', linestyle='-', alpha=0.5,
-                label='Score threshold')
-            ax2.set_ylim(0,1)
-            ax2.legend(loc='upper right')
-            ax2.set_ylabel('Score')
+                label='score threshold')
+            ax1.set_ylim(0,1)
+            ax2.legend(loc='upper right', fontsize=9)
+            ax1.set_ylabel('score', fontsize=9)
+            ax1.legend(loc='upper left', fontsize=9)
+            ax2.set_ylabel('process values', fontsize=9)
+            ax1.set_xlabel('$t$', fontsize=9)
+            # axs[j][0].set_ylim(0., 1.)
 
             if plot_forecast_predictions:
                 for h, s in enumerate(forecast_horizons_to_plot):
@@ -1005,14 +1041,10 @@ def plot_one_path_with_pred(
                                                    std_factor, s),
                                                color=std_color[h + 2])
 
-            axs[j].legend(loc='upper left')
-            axs[j].set_xlabel('$t$')
-            # axs[j][0].set_ylim(0., 1.)
-
         # plt.xlabel('$t$')
-        plt.suptitle("Anomaly detection on {} anomalies".format(anomaly_type))
+        # plt.suptitle("Anomaly detection on {} anomalies".format(anomaly_type))
         save = os.path.join(save_path, filename.format(a))
-        plt.savefig(save, **save_extras)
+        plt.savefig(save, **save_extras, dpi=400)
         plt.close()
 
     ## ----- OLD VERSION ------

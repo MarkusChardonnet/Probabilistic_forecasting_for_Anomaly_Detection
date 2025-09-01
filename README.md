@@ -113,39 +113,6 @@ python make_microbial_dataset.py --dataset_config=config_novel_alpha_faith_pd_en
 python make_microbial_dataset.py --dataset_config=config_novel_alpha_faith_pd_entero_genus_scaled
 ```
 
-### Old/Unused datasets (for reference only):
-```shell
-python make_microbial_dataset.py --dataset_config=config_otu_sig_highab
-python make_microbial_dataset.py --dataset_config=config_genus_sig_highab
-```
-
-lower dim datasets, reducing the features with low variance:
-```shell
-python make_microbial_dataset.py --dataset_config=config_otu_sig_highab_lowvar5
-python make_microbial_dataset.py --dataset_config=config_genus_sig_highab_lowvar5
-python make_microbial_dataset.py --dataset_config=config_otu_sig_highab_lowvar94q
-python make_microbial_dataset.py --dataset_config=config_genus_sig_highab_lowvar94q
-```
-
-alpha diversity metric datasets:
-```shell
-python make_microbial_dataset.py --dataset_config=config_div_alpha_faith_pd_1
-python make_microbial_dataset.py --dataset_config=config_div_alpha_faith_pd_2
-python make_microbial_dataset.py --dataset_config=config_div_alpha_faith_pd_3
-python make_microbial_dataset.py --dataset_config=config_div_alpha_faith_pd_4
-python make_microbial_dataset.py --dataset_config=config_div_alpha_faith_pd_5
-```
-
-
-synthetic datasets:
-```shell
-python data_utils.py --dataset_name=Microbiome_OrnsteinUhlenbeck --dataset_params=config_synthetic_novel_alpha_faith_pd --seed=0
-python data_utils.py --dataset_name=Microbiome_OrnsteinUhlenbeck --dataset_params=config_synthetic_novel_alpha_faith_pd_large --seed=0
-python data_utils.py --dataset_name=Microbiome_OrnsteinUhlenbeck --dataset_params=config_synthetic_novel_alpha_faith_pd_test --seed=1
-python data_utils.py --dataset_name=Microbiome_OrnsteinUhlenbeck --dataset_params=config_synthetic_novel_alpha_faith_pd_val --seed=2
-```
-
-
 
 ## Training PD-NJODE:
 novel alpha diversity metric datasets:
@@ -159,47 +126,6 @@ python run.py --plot_paths=plot_paths_novel_alpha_div2
 
 Based on the training results, the model ids 55,56,57 (using RNN, no signature and increasing probability to only use dynamic features as inputs; with the 3 different validation horizons) are selected. Computing the outputs on the validation set shows that only 57 never predicts a cond variance <0. 
 Moreover, this model produces increasing confidence interval sizes and it has the best eval loss (i.e. train loss on val set) of the 3 models. Therefore, this model is selected for further evaluation.
-
-### Old/Unused model trainings (for reference only):
-
-on OTU dataset:
-```shell
-python run.py --params=param_list_microbial_otu2 --NB_JOBS=64 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_otu2
-python run.py --plot_paths=plot_paths_microbial_otu2
-```
-
-```shell
-python run.py --params=param_list_microbial_otu3 --NB_JOBS=64 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_otu3
-```
-
-on Genus dataset:
-```shell
-python run.py --params=param_list_microbial_genus3 --NB_JOBS=64 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_genus3
-```
-
-lower dim datasets, reducing the features with low variance:
-```shell
-python run.py --params=param_list_microbial_lowvar --NB_JOBS=64 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_lowvar
-python run.py --params=param_list_microbial_lowvar1 --NB_JOBS=64 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_lowvar1
-python run.py --params=param_list_microbial_lowvar2 --NB_JOBS=64 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_lowvar2
-```
-
-alpha diversity metric datasets:
-```shell
-python run.py --params=param_list_microbial_alpha_div --NB_JOBS=64 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_alpha_div
-```
-
-Synthetic datasets
-```shell
-python run.py --params=param_list_synthetic_microbial --NB_JOBS=24 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_synthetic_microbial
-python run.py --plot_paths=plot_paths_synthetic
-```
-
-Retraining pretrained models
-```shell
-python run.py --params=param_list_microbial_retrain --NB_JOBS=24 --NB_CPUS=1 --SEND=True --USE_GPU=False --first_id=1 --get_overview=overview_dict_microbial_retrain
-```
-
 
 
 ## Compute Anomaly Detection Scores:
@@ -225,67 +151,6 @@ python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_novel_
 python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_novel_alpha_div_ids2_1 --ad_params=param_list_AD_microbial_novel_alpha_div2_reliability_eval_nsf --forecast_saved_models_path=AD_microbial_novel_alpha_div2 --compute_scores=True --evaluate_scores=False --compute_zscore_scaling_factors=False
 ```
 
-### Old/Unused anomaly detection scores computation (for reference only):
-on OTU dataset:
-```shell
-python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_otu3_ids --ad_params=param_list_AD_microbial_otu --forecast_saved_models_path=AD_microbial_otu3 --compute_scores=True --evaluate_scores=True
-python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_otu3_ids --ad_params=param_list_AD_microbial_otu1 --forecast_saved_models_path=AD_microbial_otu3 --compute_scores=True --evaluate_scores=True
-```
-
-on Genus dataset:
-```shell
-python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_genus3_ids --ad_params=param_list_AD_microbial_genus --forecast_saved_models_path=AD_microbial_genus3 --compute_scores=True --evaluate_scores=True
-```
-
-lower dim datasets, reducing the features with low variance:
-```shell
-python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_lowvar_ids --ad_params=param_list_AD_microbial_lowvar --forecast_saved_models_path=AD_microbial_lowvar --compute_scores=True --evaluate_scores=True
-python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_lowvar1_ids --ad_params=param_list_AD_microbial_lowvar1 --forecast_saved_models_path=AD_microbial_lowvar1 --compute_scores=True --evaluate_scores=True
-python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_lowvar2_ids --ad_params=param_list_AD_microbial_lowvar2 --forecast_saved_models_path=AD_microbial_lowvar2 --compute_scores=True --evaluate_scores=True
-
-# beta distribution based scoring
-python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_lowvar2_ids_2 --ad_params=param_list_AD_microbial_lowvar2_2 --forecast_saved_models_path=AD_microbial_lowvar2 --compute_scores=True --evaluate_scores=True
-```
-
-alpha diversity metric datasets:
-```shell
-python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_alpha_div_ids --ad_params=param_list_AD_microbial_alpha_div --forecast_saved_models_path=AD_microbial_alpha_div --compute_scores=True --evaluate_scores=True
-python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_alpha_div_ids_1 --ad_params=param_list_AD_microbial_alpha_div --forecast_saved_models_path=AD_microbial_alpha_div --compute_scores=True --evaluate_scores=True
-python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_alpha_div_ids_2 --ad_params=param_list_AD_microbial_alpha_div_2 --forecast_saved_models_path=AD_microbial_alpha_div --compute_scores=True --evaluate_scores=True
-python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_alpha_div_ids_3 --ad_params=param_list_AD_microbial_alpha_div_3 --forecast_saved_models_path=AD_microbial_alpha_div --compute_scores=True --evaluate_scores=True
-python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_alpha_div_ids_3 --ad_params=param_list_AD_microbial_alpha_div_4 --forecast_saved_models_path=AD_microbial_alpha_div --compute_scores=True --evaluate_scores=True
-```
-
-novel alpha diversity metric datasets:
-```shell
-python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_novel_alpha_div_ids --ad_params=param_list_AD_microbial_novel_alpha_div --forecast_saved_models_path=AD_microbial_novel_alpha_div --compute_scores=True --evaluate_scores=True
-python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_rel_abund_ids --ad_params=param_list_AD_microbial_rel_abund --forecast_saved_models_path=AD_microbial_novel_alpha_div --compute_scores=True --evaluate_scores=True
-python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_joint_ids --ad_params=param_list_AD_microbial_joint --forecast_saved_models_path=AD_microbial_novel_alpha_div --compute_scores=True --evaluate_scores=True
-
-# reliability evaluation
-python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_novel_alpha_div_ids_reliability_eval --ad_params=param_list_AD_microbial_novel_alpha_div_reliability_eval --forecast_saved_models_path=AD_microbial_novel_alpha_div --compute_scores=True --evaluate_scores=True
-python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_novel_alpha_div_ids_reliability_eval_2 --ad_params=param_list_AD_microbial_novel_alpha_div_reliability_eval_2 --forecast_saved_models_path=AD_microbial_novel_alpha_div --compute_scores=True --evaluate_scores=True
-```
-
-synthetic datasets:
-```shell
-# evalution on real data of the model trained on the synthetic dataset 
-python Microbial_AD_eval.py --forecast_model_ids=AD_synthetic_ids --ad_params=param_list_AD_synthetic_on_real --forecast_saved_models_path=AD_synthetic_sm_path --compute_scores=True --evaluate_scores=False
-```
-```shell
-# first compute the z-scores and the scaling factors
-python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_synthetic_ids --ad_params=param_list_AD_microbial_synthetic_2_scaling_factors --forecast_saved_models_path=AD_synthetic_sm_path --compute_scores=True --evaluate_scores=False --compute_zscore_scaling_factors=False
-python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_synthetic_ids --ad_params=param_list_AD_microbial_synthetic_2_scaling_factors2 --forecast_saved_models_path=AD_synthetic_sm_path --compute_scores=False --evaluate_scores=False --compute_zscore_scaling_factors=True
-
-# then compute the AD scores using the scaling factors
-python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_synthetic_ids --ad_params=param_list_AD_synthetic --forecast_saved_models_path=AD_synthetic_sm_path --compute_scores=True --evaluate_scores=False --compute_zscore_scaling_factors=False
-
-# then compute scores for reliability evaluation using the scaling factors
-python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_synthetic_ids --ad_params=param_list_AD_synthetic_reliability_eval --forecast_saved_models_path=AD_synthetic_sm_path --compute_scores=True --evaluate_scores=False --compute_zscore_scaling_factors=False
-```
-
-
-
 
 ## Score evaluation
 Once you trained a microbiome-based model, you can evaluate the resulting scores in the notebook `results/evaluate_scores.ipynb`. To run the notebook, create and activate this conda environment:
@@ -299,37 +164,4 @@ and the predictive performance of the inferred anomaly scores can be compared to
 Also, resulting anomaly scores can be compared to matched alpha diversity values in notebook `evaluate_matched_alpha.ipynb` 
 and individual score trajectories can be explored in `evaluate_indiv_score_increase.ipynb`.
 
-# TODOs and Possible Improvements
-- [x] different AD scoring method: using coordinate wise p-values based on beta distribution 
-- [x] weighting of coordinates in the loss s.t. they have approx. same sizes
-- [x] reducing learning rate during training as @Jakob_Heiss suggested
-- [ ] using a different projection approach for NJODE
-- [x] or no projection at all
-- [x] model the alpha diversity metric -> this leads to best results
 
-- [x] implement scaling of coords
-- [x] implement t dist for scoring and plotting
-- [x] implement coordinate wise scoring
-- [x] implement plotting of selected (instead of all) dists
-- [x] run
-- [ ] maybe try a dataset with static instead of dynamic features
-
-**14.03.2025**:
-- [x] fix the bug in the real dataset generation that caused the dynamic features not to be used
-- [x] rerun model training with fixed bug in dataset generation that caused dynamic features not to be used
-- [x] fix the synthetic dataset generation to have the same number of dynamic features as the real dataset
-- [x] fix the synthetic dataset generation to have same type of output as the real dataset
-- [1/2] train model on synthetic dataset (of same size as real one) and evaluate it on a very large synthetic dataset to have better/more significant statistics
-- [1/2] maybe: train model on larger synthetic dataset and see whether it performs better on the same evaluation dataset as above
-- [x] maybe (as followup work?): train model first on large synthetic dataset and then on real dataset to see whether it can learn the real dataset better -> first experiments did not show an improvement
-- [x] make synthetic data generation deterministic with the seed
-- [x] implement a way to retrain model
-- [x] implement a way to evaluate model on new dataset
-- [ ] ? implement a way to only retrain/finetune the last layer of a pretrained model
-- [x] implement sf for plotting of standardized distribution
-
-**08.04.2025** potential improvements:
-- [ ] change the loss to only use the approximation of the cond var (similar to the standard NJODE loss, but for var), delete the second moment prediction from the model
-- [ ] change the architecture s.t. model output corresponds to the cond std, so squaring it gives the variance (which automatically is positive)
-- [ ] also change this in the validation loss
-- [ ] some loss terms don't make sense for long-term predictions. e.g. the variance shouldn't be 0 after an incomplete observation -> not used in variance_bis2

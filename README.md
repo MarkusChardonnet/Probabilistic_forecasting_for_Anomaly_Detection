@@ -21,7 +21,7 @@ The probabilistic forecasting is based on the PD-NJODE framework. This framework
     pip install -r requirements.txt
     ```
 ---
-# Synthetic Data with injested anomalies
+# Synthetic Data with ingested anomalies
 ## Configurations 
 - The configurations can be accessed through the following folder :
     ```bash

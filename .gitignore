@@ -25,3 +25,5 @@ test.ipynb
 .installed.cfg
 *.egg
 x_*
+
+README-private.md

@@ -157,7 +157,7 @@ def _create_subplot(
         axs[0].set_ylim(y_min, 1.2 * y_max)
     else:
         axs[0].set_ylim(y_min, 1.1 * y_max)
-    if boxplot_color == "purple" or "exposure age" in title:
+    if boxplot_color == "purple" or "exposure age" in title or "exposure duration" in title:
         axs[0].set_ylim(y_min, 1.5 * y_max)
     if n is not None:
         zero_index = np.where(np.array(range_x) == 0.0)[0][0]
@@ -182,7 +182,7 @@ def _create_subplot(
         # Add a star above the boxplots if the p-value < 0.10
         unpaired_color = "sandybrown"
         paired_color = "darkgreen"
-        if boxplot_color == "purple" or "exposure age" in title:
+        if boxplot_color == "purple" or "exposure age" in title or "exposure duration" in title:
             dic_tests = {"unpaired": [1.2, unpaired_color], "paired": [1.03, paired_color]}
 
         else:
@@ -224,6 +224,8 @@ def _create_subplot(
                 facecolor=v[0],
                 edgecolor=v[1],
             )
+        if "1st abx exposure duration: < 7 days" in title:
+            axs[1].set_ylim(0, 1.6 * grouped_counts.counts.max())
         axs[1].axvline(zero_index - 0.5, color="darkred")
 
         # Create a custom legend

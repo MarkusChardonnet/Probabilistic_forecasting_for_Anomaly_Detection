@@ -112,6 +112,10 @@ def _create_subplot(
     boxplot_color="skyblue",
 ):
     """Creates boxplot and barplot"""
+    # enforce uniform font size across the figure
+    base_fontsize = 15
+    plt.rcParams.update({"font.size": base_fontsize})
+
     # don't change original data
     data_c = data.copy()
 
@@ -142,7 +146,7 @@ def _create_subplot(
         x=f"{x_axis}_cat", y=y_axis, data=data_c, ax=axs[0], color=boxplot_color
     )
 
-    axs[0].set_title(title, fontsize=12)
+    axs[0].set_title(title, fontsize=base_fontsize)
     y_max = data_c[y_axis].max()
     y_min = data_c[y_axis].min()
     if y_min > -1:
@@ -150,9 +154,11 @@ def _create_subplot(
     else:
         y_min = y_min * 1.1
     if result_df is not None:
-        axs[0].set_ylim(y_min, 1.7 * y_max)
+        axs[0].set_ylim(y_min, 1.2 * y_max)
     else:
         axs[0].set_ylim(y_min, 1.1 * y_max)
+    if boxplot_color == "purple" or "exposure age" in title:
+        axs[0].set_ylim(y_min, 1.5 * y_max)
     if n is not None:
         zero_index = np.where(np.array(range_x) == 0.0)[0][0]
         axs[0].axvline(zero_index - 0.5, color="darkred")
@@ -160,7 +166,7 @@ def _create_subplot(
     # add horizontal line at zero if boxplot color is purple
     if boxplot_color == "purple":
         axs[0].axhline(0, color="grey")
-        axs[0].set_ylabel(axs[0].get_ylabel(), fontsize=8)
+        axs[0].set_ylabel(axs[0].get_ylabel(), fontsize=base_fontsize)
 
     # axs[1] is the barplot
     grouped_counts = (
@@ -176,7 +182,11 @@ def _create_subplot(
         # Add a star above the boxplots if the p-value < 0.10
         unpaired_color = "sandybrown"
         paired_color = "darkgreen"
-        dic_tests = {"unpaired": [1.2, unpaired_color], "paired": [1.1, paired_color]}
+        if boxplot_color == "purple" or "exposure age" in title:
+            dic_tests = {"unpaired": [1.2, unpaired_color], "paired": [1.03, paired_color]}
+
+        else:
+            dic_tests = {"unpaired": [1.0, unpaired_color], "paired": [0.9, paired_color]}
 
         for test, (y_shift, color) in dic_tests.items():
             for t1, p_val in zip(result_df.index, result_df[f"P-value {test}"]):
@@ -184,20 +194,20 @@ def _create_subplot(
                     sign = "**"
                 elif p_val < 0.1:
                     sign = "*"
+                else:
+                    continue
 
-                if p_val < 0.1:
-                    max_y = data_c[y_axis].max()
-                    # correct scaling of x star location with regards to step
-                    # size
-                    x_star_loc = t1 * (1 / step_size) + zero_index
-                    axs[0].text(
-                        x_star_loc,
-                        y_shift * max_y,
-                        sign,
-                        color=color,
-                        ha="center",
-                        fontsize=22 + step_size * 2,
-                    )
+                max_y = data_c[y_axis].max()
+                # correct scaling of x star location with regards to step size
+                x_star_loc = t1 * (1 / step_size) + zero_index
+                axs[0].text(
+                    x_star_loc,
+                    y_shift * max_y,
+                    sign,
+                    color=color,
+                    ha="center",
+                    fontsize=22+step_size*2,
+                )
 
         # add a count barplot in ax[1] for paired and unpaired
         result_df.reset_index(inplace=True)
@@ -215,7 +225,6 @@ def _create_subplot(
                 edgecolor=v[1],
             )
         axs[1].axvline(zero_index - 0.5, color="darkred")
-        axs[1].tick_params(axis="x", labelsize=min(10 * 22 / len(range_x), 10))
 
         # Create a custom legend
         custom_lines = [
@@ -242,14 +251,20 @@ def _create_subplot(
         ]
         legend_txt = ["unpaired to -1.0", "paired to -1.0"]
 
-        axs[0].legend(custom_cross, legend_txt, loc="upper right")
-        axs[1].legend(custom_lines, legend_txt)
+        axs[0].legend(custom_cross, legend_txt, loc="upper right", fontsize=base_fontsize)
+        axs[1].legend(custom_lines, legend_txt, fontsize=base_fontsize)
 
     if n is not None:
         axs[1].axvline(zero_index - 0.5, color="darkred")
 
-    axs[1].set_ylabel(ylabel, fontsize=10)
-    axs[1].set_xlabel(xlabel, fontsize=10)
+    axs[1].set_ylabel(ylabel, fontsize=base_fontsize)
+    axs[1].set_xlabel(xlabel, fontsize=base_fontsize)
+
+    # enforce tick label font sizes on all axes
+    axes_iter = axs if isinstance(axs, (list, np.ndarray)) else [axs]
+    for ax in axes_iter:
+        ax.tick_params(axis="both", labelsize=base_fontsize)
+
     if "matched cut-offs" in title:
         axs[1].set_ylim(0, 1.6 * grouped_counts.counts.max())
     plt.tight_layout()
@@ -838,9 +853,12 @@ def plot_trajectory(
     path_to_output=None,
     flag="",
 ):
+    fonts = 15
+    plt.rcParams.update({"font.size": fonts})
+
     host_data = df[df["host_id"] == host_id]
 
-    plt.figure(figsize=(10, 6), dpi=600)
+    plt.figure(figsize=(9, 6))
     for score_col in score_cols:
         if jitter:
             jitter_amount = 0.11
@@ -872,15 +890,13 @@ def plot_trajectory(
             plt.axvline(
                 x=event["abx_start_age_months"],
                 color="darkred",
-                # linestyle="-",
                 label="abx event" if idx == 0 else None,
             )
 
-    plt.title(f"Trajectory Over Time for Host ID: {host_id}", fontsize=10)
-    plt.xlabel("Age [months]", fontsize=10)
-    plt.ylabel("Score", fontsize=10)
-    plt.tick_params(axis="x", labelsize=9)
-    plt.tick_params(axis="y", labelsize=9)
+    plt.title(f"Trajectory Over Time for Host ID: {host_id}", fontsize=fonts)
+    plt.xlabel("Age [months]", fontsize=fonts)
+    plt.ylabel("Score", fontsize=fonts)
+    plt.tick_params(axis="both", labelsize=fonts)
     plt.grid(True)
 
     # Add legend manually
@@ -888,7 +904,7 @@ def plot_trajectory(
     if "abx event" not in labels:
         handles.append(plt.Line2D([0], [0], color="darkred"))
         labels.append("abx event")
-    plt.legend(handles=handles, labels=labels, fontsize=9)
+    plt.legend(handles=handles, labels=labels, fontsize=fonts)
 
     if path_to_output is not None:
         filename = os.path.join(

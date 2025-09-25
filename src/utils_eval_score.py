@@ -855,7 +855,7 @@ def plot_trajectory(
     path_to_output=None,
     flag="",
 ):
-    fonts = 15
+    fonts = 17
     plt.rcParams.update({"font.size": fonts})
 
     host_data = df[df["host_id"] == host_id]

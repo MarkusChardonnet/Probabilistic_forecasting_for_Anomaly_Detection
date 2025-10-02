@@ -1,9 +1,10 @@
 # Probabilistic Forecasting for Anomaly Detection
 
-In this project, we propose methods for Anomaly Detection in Time Series.
-The general approach is Based on Probabilistic Forecasting. The principle is to infer an approximation the conditional distribution of future values knowing the past values of the time series. Then, we exploit the conditional distribution to score individual obsevations of the time series, by computing the p-value. We assume that lower p-values with respect to the approximated conditional distribution are more likely to correspond to anomalies. Finally, scores are weighted and aggregated for different forecasting horizons and neighbouring observations. The aggregated scores are thresholded to raise anomalies.
+In this project, we propose a new framework for anomaly detection in irregularly sampled multi-variate time-series and apply it to synthetic data and infant gut microbiome trajectories. The method is based on neural jump ordinary differential equations (NJODEs) and infers conditional mean and variance trajectories in a fully path dependent way to compute anomaly scores. Read more about this study in our preprint [here](https://arxiv.org/abs/2510.00087):
 
-The probabilistic forecasting is based on the PD-NJODE framework. This framework is described in the paper [Optimal Estimation of Generic Dynamics by Path-Dependent Neural Jump ODEs](https://arxiv.org/abs/2206.14284) and the code is available at [PD-NJODE](https://github.com/FlorianKrach/PD-NJODE).
+Adamov, A., Chardonnet, M., Krach, F., Heiss, J., Teichmann, J., Bokulich, N. A. Revealing the Temporal Dynamics of Antibiotic Anomalies in the Infant Gut Microbiome with Neural Jump ODEs. 2025. doi: 
+https://doi.org/10.48550/arXiv.2510.00087
+
 
 ## Dependencies
 - Python 3.7 and Conda
@@ -165,3 +166,10 @@ Also, resulting anomaly scores can be compared to matched alpha diversity values
 and individual score trajectories can be explored in `evaluate_indiv_score_increase.ipynb`.
 
 
+## Contact
+In case of questions or comments feel free to raise an issue in this repository.
+
+## License
+If you use this work, please cite it using the metadata from `CITATION.cff`.
+
+This repository is released under a BSD-3-Clause license. See `LICENSE` for more details.

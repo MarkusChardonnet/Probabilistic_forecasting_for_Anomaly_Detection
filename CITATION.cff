@@ -1,0 +1,42 @@
+cff-version: 1.2.0
+message: "If you use this work, please cite the preprint below."
+# Title here can describe the repository or the associated study; keeping study title
+title: "Revealing the temporal dynamics of antibiotic anomalies in the infant gut microbiome with neural jump ODEs"
+authors:
+  - family-names: Adamov
+    given-names: Anja
+  - family-names: Chardonnet
+    given-names: Markus
+  - family-names: Krach
+    given-names: Florian
+  - family-names: Heiss
+    given-names: Jakob
+  - family-names: Teichmann
+    given-names: Josef
+  - family-names: Bokulich
+    given-names: Nicholas A.
+date-released: 2025-09-30
+url: "https://arxiv.org/abs/2510.00087"
+
+preferred-citation:
+  type: article
+  title: "Revealing the temporal dynamics of antibiotic anomalies in the infant gut microbiome with neural jump ODEs"
+  authors:
+    - family-names: Adamov
+      given-names: Anja
+    - family-names: Chardonnet
+      given-names: Markus
+    - family-names: Krach
+      given-names: Florian
+    - family-names: Heiss
+      given-names: Jakob
+    - family-names: Teichmann
+      given-names: Josef
+    - family-names: Bokulich
+      given-names: Nicholas A.
+  year: 2025
+  month: 9
+  identifiers:
+    - type: arXiv
+      value: 2510.00087
+  url: "https://arxiv.org/abs/2510.00087"

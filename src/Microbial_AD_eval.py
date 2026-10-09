@@ -47,6 +47,8 @@ except Exception:
 # FLAGS
 FLAGS = flags.FLAGS
 
+config.del_all_flags(FLAGS)
+
 flags.DEFINE_string("forecast_params", None, "name of the params list (in config.py) to "
                                     "use for parallel run")
 flags.DEFINE_string("forecast_model_ids", None,

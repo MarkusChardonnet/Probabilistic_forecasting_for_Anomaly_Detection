@@ -13,6 +13,8 @@ from configs.config_microbial_AD import *
 
 import numpy as np
 import socket
+from functools import partial
+from pathlib import Path
 
 from configs.config_utils import get_parameter_array, makedirs, \
     SendBotMessage, data_path, training_data_path, original_data_path, \
@@ -27,6 +29,18 @@ else:
 # Global variables
 CHAT_ID = "-1002245921777"
 ERROR_CHAT_ID = "-4104495192"
+_TOKEN_FILE = Path(__file__).resolve().parents[2] / ".telegram-token"
+TOKEN = _TOKEN_FILE.read_text(encoding="utf-8").strip() if _TOKEN_FILE.exists() else None
+
+# All scripts import this shared module, so every notification gets the local token.
+try:
+    from telegram_notifications import send_bot_message as _telegram_notifications
+except ImportError:
+    pass  # Keep the existing print-only fallback when the package is unavailable.
+else:
+    _telegram_notifications.send_notification = partial(
+        _telegram_notifications.send_notification, token=TOKEN,
+    )
 
 SendBotMessage = SendBotMessage
 makedirs = makedirs

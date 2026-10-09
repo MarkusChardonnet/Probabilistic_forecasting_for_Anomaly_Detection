@@ -27,3 +27,6 @@ test.ipynb
 x_*
 
 README-private.md
+
+# Local Telegram bot credentials.
+/.telegram-token

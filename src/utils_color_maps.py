@@ -1,7 +1,7 @@
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.cm import get_cmap
+from matplotlib import colormaps
 
 plt.rcParams.update({"font.family": "DejaVu Sans"})
 PLT_STYLE = "tableau-colorblind10"
@@ -31,7 +31,7 @@ def extract_color(style_name: str, color_index: int) -> str:
 def assign_cmap_colors(map_dic, cmap_to_use, reverse=False):
     if reverse:
         cmap_to_use += "_r"
-    cmap = get_cmap(cmap_to_use)
+    cmap = colormaps.get_cmap(cmap_to_use)
     keys = list(map_dic.keys())
     for i, key in enumerate(keys):
         map_dic[key] = cmap(i)

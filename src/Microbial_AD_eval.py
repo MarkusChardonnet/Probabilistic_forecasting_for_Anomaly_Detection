@@ -955,7 +955,7 @@ def compute_zscore_scaling_factors(
              scaling_factor_which+"_moving_avg_cummax"]].values[0]
     hist_plots = []
     for _range in [
-        (0, np.infty, "all"), (0, 30, "0-30"), (30, 60, "30-60"),
+        (0, np.inf, "all"), (0, 30, "0-30"), (30, 60, "30-60"),
         (60, 180, "60-180"), (0, 180, "0-180"),
         (180, 360, "180-360"), (360, 540, "360-540"), (540, 720, "540-720")]:
         df_ = df.loc[
@@ -1002,7 +1002,7 @@ def compute_zscore_scaling_factors(
     subfigs = fig.subfigures(nrows=5, ncols=1)
     for i, _range in enumerate([
         (0, 180, "0, 180"), (180, 360, "180, 360"), (360, 540, "360, 540"),
-        (540, 720, "540, 720"), (0, np.infty, "0, \\infty"),]):
+        (540, 720, "540, 720"), (0, np.inf, "0, \\infty"),]):
         df_ = df.loc[
             (df["days_after_last_obs"] >= _range[0]) &
             (df["days_after_last_obs"] <= _range[1])]

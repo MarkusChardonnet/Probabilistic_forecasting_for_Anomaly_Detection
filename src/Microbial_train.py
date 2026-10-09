@@ -540,7 +540,7 @@ def train(
             load_pretrained_model))
 
     # load saved model if wanted/possible
-    best_val_loss = np.infty
+    best_val_loss = np.inf
     which_best_loss = 'val_loss'
     if 'which_best_loss' in options:
         which_best_loss = options['which_best_loss']

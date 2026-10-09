@@ -123,7 +123,7 @@ dependencies = [
     "tensorflow>=2.20.0",
     # Estimator ended with TensorFlow 2.15, before Python 3.12 support.
     "tensorflow-estimator; python_version < '3.12'",
-    "telegram-bot>=2.1.0",
+    "telegram-bot>=2.2.1",
     "termcolor>=3.3.0",
     "terminado>=0.18.1",
     "threadpoolctl>=3.7.0",

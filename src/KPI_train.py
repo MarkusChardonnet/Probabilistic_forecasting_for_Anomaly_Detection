@@ -499,7 +499,7 @@ def train(
         gradient_clip = options["gradient_clip"]
 
     # load saved model if wanted/possible
-    best_eval_loss = np.infty
+    best_eval_loss = np.inf
     metr_columns = METR_COLUMNS
     if which_eval_loss == 'eval_variance':
         eval_loss_names = ['eval_loss_{}'.format(i+1) for i in range(4)]

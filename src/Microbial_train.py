@@ -1115,7 +1115,8 @@ def plot_one_path_with_pred(
             path_t_obs = []
             path_X_obs = []
             for k, od in enumerate(observed_dates[i]):
-                if od == 1:
+                # Time zero contains a filled initial value, not an observation.
+                if k > 0 and od == 1:
                     if true_M is None or (true_M is not None and
                                           true_M[i, j, k]==1):
                         path_t_obs.append(path_t_true_X[k])
@@ -1189,7 +1190,7 @@ def plot_one_path_with_pred(
                         path_t_obs = []
                         path_X_m_obs = []
                         for k, od in enumerate(observed_dates[i]):
-                            if od == 1:
+                            if k > 0 and od == 1:
                                 if true_M is None or (true_M is not None and
                                                     true_M[i, j, k]==1):
                                     path_t_obs.append(path_t_true_X[k])

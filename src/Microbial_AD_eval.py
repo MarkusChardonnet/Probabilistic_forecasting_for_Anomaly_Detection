@@ -62,6 +62,8 @@ flags.DEFINE_string("ad_params", None,
                     "blabla")
 flags.DEFINE_bool("evaluate", False, "whether to evaluate the model")
 flags.DEFINE_bool("compute_scores", False, "whether to compute the scores")
+flags.DEFINE_bool("plot_trajectories", False,
+                  "plot exposed trajectories and matching scores while computing scores")
 flags.DEFINE_bool("evaluate_scores", False, "whether to evaluate the scores")
 flags.DEFINE_bool("compute_zscore_scaling_factors", False, "whether to compute the z-score scaling factors")
 
@@ -118,7 +120,13 @@ def get_model_predictions(
         add_dynamic_cov=False, use_dyn_cov_after_abx=True,
         use_obs_until_t=None, sf=None):
     """
-    Get the NJODE model predictions for the given dataset
+    Get conditional moments and observation masks for AD scoring.
+
+    Microbial inputs are masked at observations whose cumulative exposure count
+    reaches only_jump_before_abx_exposure. For models supporting masked dynamic
+    inputs, use_dyn_cov_after_abx=True retains dynamic covariate updates after
+    that threshold. Returns moments sampled on the dataset grid before each
+    observation jump, along with variance scaling factors and original host IDs.
     """
     b = next(iter(dl))
     true_abx_exposure = b["true_abx_exposure"]
@@ -332,6 +340,98 @@ def _plot_conditionally_standardized_distribution(
     return [figpath, filepath]
 
 
+def plot_trajectories_with_scores(
+        dataset, original_indices, cond_moments, observed_dates, ad_scores,
+        cutoff_adj_sf, output_vars, save_path, only_jump_before_abx_exposure,
+        aggregation_method='coord-0', scoring_metric='left-tail', epsilon=1e-4,
+        replace_values=None, split='val', std_factor=1.96):
+    """Save aligned conditional-mean and anomaly-score panels for exposed infants.
+
+    Consume the exact pre-observation moments and scores from compute_scores;
+    no model inference or alternative conditioning is performed here. Apply
+    the same variance correction and standard-deviation scaling as normal
+    scoring to the displayed band. Mark real observations with increased
+    exposure counts red and omit the filled time-zero observation. A vertical
+    line marks the first observed count reaching the selected threshold, not
+    the exact administration time. Dynamic inputs may still update thereafter.
+
+    :param dataset: MicrobialDataset in the same order as prediction arrays.
+    :param original_indices: Original zero-based dataset rows for filenames.
+    :param cond_moments: Array [time, infant, coordinate, moment].
+    :param observed_dates: Boolean observation mask [time, infant], excluding t=0.
+    :param ad_scores: Normal-distribution scores [infant, time], S=-ln(p).
+    :param cutoff_adj_sf: Standard-deviation multipliers [time, infant].
+    :param output_vars: Names identifying the conditional moments.
+    :param save_path: Directory for PDFs named using original row and host ID.
+    :param only_jump_before_abx_exposure: Positive exposure cutoff, or False for
+            unrestricted microbial observation updates.
+    :param aggregation_method: coord-n identifying the displayed coordinate.
+    :param scoring_metric: Tail convention used by the supplied scores.
+    :param epsilon: Minimum variance used in normal scoring.
+    :param replace_values: Optional variance replacements from normal scoring.
+    :param split: AD split name, shown in the title for provenance.
+    :param std_factor: Standard-deviation band multiplier, default 1.96.
+    :return: None; writes one two-panel PDF per exposed infant.
+    """
+    from Microbial_train import new_abx_observation_mask
+
+    coordinate = int(aggregation_method.split('-')[1])
+    mean, variance = AD_modules.get_cond_exp_var(cond_moments, output_vars)
+    # Match gaussian_scoring's correction, including its replacement shape.
+    replacement = (np.expand_dims(replace_values, 1)
+                   if replace_values is not None else None)
+    variance = AD_modules.get_corrected_var(
+        np.expand_dims(variance.copy(), 3), epsilon, replacement).squeeze(3)
+    std = np.sqrt(variance[:, :, coordinate]) * cutoff_adj_sf
+    days = np.arange(cond_moments.shape[0]) + dataset.metadata['starting_date']
+    exposed = (dataset.abx_observed.astype(bool) |
+               np.any(dataset.abx_exposure > 0, axis=1))
+    makedirs(save_path)
+    for i in np.flatnonzero(exposed):
+        observed = observed_dates[:, i].astype(bool).copy()
+        observed[0] = False
+        new_abx = new_abx_observation_mask(observed, dataset.abx_exposure[i])
+        ordinary = observed & ~new_abx
+        fig, (trajectory_ax, score_ax) = plt.subplots(
+            2, 1, sharex=True, figsize=(10, 7),
+            gridspec_kw={'height_ratios': [2, 1]}, constrained_layout=True)
+        mu = mean[:, i, coordinate]
+        trajectory_ax.plot(days, mu, color='tab:orange', label=r'Conditional mean $\mu_t$')
+        trajectory_ax.fill_between(
+            days, mu - std_factor * std[:, i], mu + std_factor * std[:, i],
+            color='tab:orange', alpha=0.25,
+            label=f'Mean ± {std_factor} × scoring std')
+        values = dataset.stock_paths[i, coordinate]
+        trajectory_ax.scatter(days[ordinary], values[ordinary],
+                              color='tab:blue', label='Observed')
+        trajectory_ax.scatter(days[new_abx], values[new_abx], color='red',
+                              label='Observed after new antibiotic exposure')
+        for mask, color in ((ordinary, 'tab:blue'), (new_abx, 'red')):
+            finite = mask & np.isfinite(ad_scores[i])
+            score_ax.scatter(days[finite], ad_scores[i, finite], color=color, s=22)
+        if only_jump_before_abx_exposure:
+            cutoff = np.flatnonzero(
+                observed & (dataset.abx_exposure[i] >= only_jump_before_abx_exposure))
+            if len(cutoff):
+                for ax in (trajectory_ax, score_ax):
+                    ax.axvline(days[cutoff[0]], color='gray', linestyle='--',
+                               label='First observation at/after exposure cutoff')
+        features = dataset.metadata.get('microbial_features', [])
+        feature = features[coordinate] if coordinate < len(features) else 'Observed value'
+        trajectory_ax.set_ylabel('Faith PD' if feature == 'div_alpha_faith_pd' else feature)
+        score_ax.set_ylabel(r'Anomaly score $S=-\ln(p)$')
+        score_ax.set_xlabel('Age (days)')
+        trajectory_ax.set_title(
+            f'Infant {dataset.host_id[i]} · sample {int(original_indices[i])} · AD {split}\n'
+            f'Exposure cutoff: {only_jump_before_abx_exposure} · {scoring_metric} normal score')
+        trajectory_ax.legend(fontsize='small', loc='best')
+        for ax in (trajectory_ax, score_ax):
+            ax.grid(alpha=0.2)
+        filename = f'sample-{int(original_indices[i])}_host-{dataset.host_id[i]}.pdf'
+        fig.savefig(os.path.join(save_path, filename))
+        plt.close(fig)
+
+
 def compute_scores(
         forecast_saved_models_path,
         forecast_model_id=None,
@@ -359,6 +459,7 @@ def compute_scores(
         scaling_factor_which="std_z_scores",
         preprocess_scaling_factors=False,
         SF_remove_duplicates=False,
+        plot_trajectories=False,
         **options
 ):
     """
@@ -424,9 +525,20 @@ def compute_scores(
             iii) 'moving_avg-window': take the moving average with window size
         SF_remove_duplicates: bool, whether to remove duplicates from the scaling
             factors
+        plot_trajectories: bool, also save two-panel plots for exposed infants
+            from both AD splits, using these exact conditional moments, variance
+            corrections, scaling factors, and scores. Requires normal scoring
+            with coord-n aggregation. Output is placed under the model's
+            plots/abx_trajectories/only_jump_before_abx_exposure-<value>/,
+            separated further by scoring settings. Original row and host IDs
+            identify each file. All-observation trajectory plotting remains
+            available separately through run.py.
     """
 
     global USE_GPU, N_CPUS, N_DATASET_WORKERS
+    if plot_trajectories and (scoring_distribution != 'normal' or
+                              not aggregation_method.startswith('coord-')):
+        raise ValueError('Trajectory-score plots require normal scoring and coord-n aggregation')
     if use_gpu is not None:
         USE_GPU = use_gpu
     if nb_cpus is not None:
@@ -532,6 +644,12 @@ def compute_scores(
     if use_scaling_factors:
         scores_path += f"using-SF_{scaling_factor_which}--{preprocess_scaling_factors}--RD-{SF_remove_duplicates}/"
     makedirs(scores_path)
+    trajectory_path = os.path.join(
+        forecast_model_path, 'plots', 'abx_trajectories',
+        f'only_jump_before_abx_exposure-{only_jump_before_abx_exposure}',
+        f'{which}_{scoring_distribution}_{scoring_metric}_{aggregation_method}',
+        (f'SF_{scaling_factor_which}--{preprocess_scaling_factors}--RD-{SF_remove_duplicates}'
+         if use_scaling_factors else 'unscaled'))
 
     # get params_dict
     (forecast_params_dict, collate_fn,
@@ -618,6 +736,12 @@ def compute_scores(
     # train data
     obs = true_X.transpose(2, 0, 1)
     ad_scores = ad_module(obs, cond_moments, observed_dates, cutoff_adj_sf)
+    if plot_trajectories:
+        plot_trajectories_with_scores(
+            data_train, train_idx, cond_moments, observed_dates, ad_scores,
+            cutoff_adj_sf, output_vars, trajectory_path,
+            only_jump_before_abx_exposure, aggregation_method, scoring_metric,
+            epsilon=epsilon, replace_values=replace_values, split='train')
     with open('{}train_ad_scores_{}_{}.npy'.format(
             scores_path, only_jump_before_abx_exposure,
             aggregation_method), 'wb') as f:
@@ -674,6 +798,12 @@ def compute_scores(
         use_dyn_cov_after_abx=use_dyn_cov_after_abx, sf=sf)
     obs = true_X.transpose(2, 0, 1)
     ad_scores = ad_module(obs, cond_moments, observed_dates, cutoff_adj_sf)
+    if plot_trajectories:
+        plot_trajectories_with_scores(
+            data_val, val_idx, cond_moments, observed_dates, ad_scores,
+            cutoff_adj_sf, output_vars, trajectory_path,
+            only_jump_before_abx_exposure, aggregation_method, scoring_metric,
+            epsilon=epsilon, replace_values=replace_values, split='val')
     with open('{}val_ad_scores_{}_{}.npy'.format(
             scores_path, only_jump_before_abx_exposure,
             aggregation_method), 'wb') as f:
@@ -1376,7 +1506,8 @@ def main(arg):
                     print("using dataset from forecast_param: ", dataset)
                 if 'saved_models_path' in ad_param:
                     del ad_param["saved_models_path"]
-                if FLAGS.compute_scores:
+                if FLAGS.compute_scores or FLAGS.plot_trajectories:
+                    ad_param['plot_trajectories'] = FLAGS.plot_trajectories
                     compute_scores(
                         send=FLAGS.SEND,
                         forecast_saved_models_path=forecast_saved_models_path,

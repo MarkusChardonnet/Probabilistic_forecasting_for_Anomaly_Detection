@@ -103,9 +103,15 @@ def train(
 
 
     """
-    training function for NJODE model (models.NJODE),
-    the model is automatically saved in the model-save-path with the given
-    model id, also all evaluations of the model are saved there
+    Train, resume, or plot a microbial NJODE model using saved dataset splits.
+
+    With plot_only=True and plot_abx_all=True, load the saved checkpoint and
+    plot all exposed infants from the union of the AD all/train and all/val
+    indices. The checkpoint's training split must contain no recorded exposure
+    flags or positive exposure counts and must not overlap the selected rows.
+    Plots go into the model's plots/abx_trajectories/ directory, with original
+    dataset row and host IDs in filenames. These are trajectories updated using
+    available observations, not forecasts frozen before antibiotic exposure.
 
     :param anomaly_detection: used to pass on FLAG from parallel_train
     :param n_dataset_workers: used to pass on FLAG from parallel_train
@@ -137,19 +143,18 @@ def train(
     :param solver: see models.NJODE
     :param weight: see models.NJODE
     :param weight_decay: see models.NJODE
-    :param dataset: str, which dataset to use, supported: {'BlackScholes',
-            'Heston', 'OrnsteinUhlenbeck'}. The corresponding dataset already
-            needs to exist (create it first using data_utils.create_dataset)
-    :param dataset_id: int or None, the id of the dataset to be used, if None,
-            the latest generated dataset of the given name will be used
+    :param dataset: str, name of an existing microbial dataset directory.
+    :param dataset_split: str, saved training and validation split to load,
+            such as 'no_abx' or 'all'. plot_abx_all changes the plotted population
+            but retains this training split for the exposure audit.
     :param data_dict: None, str or dict, if not None, the inputs dataset and
             dataset_id are overwritten. if str, the dict from config.py with the
             given name is loaded.
             from the dataset_overview.csv file, the
             dataset with a matching description is loaded.
     :param plot: bool, whether to plot
-    :param paths_to_plot: list of ints, which paths of the test-set should be
-            plotted
+    :param paths_to_plot: list of ints, positions in the validation batch to
+            plot. Ignored when plot_abx_all=True, which selects all exposed rows.
     :param saved_models_path: str, where to save the models
     :param options: kwargs, used keywords:
             'test_data_dict'    None, str or dict, if no None, this data_dict is
@@ -167,6 +172,11 @@ def train(
             'plot_only'     bool, whether the model is used only to plot after
                             initiating or loading (i.e. no training) and exit
                             afterwards (used by demo)
+            'plot_abx_all'  bool, default False. Requires plot_only=True and a
+                            successfully loaded checkpoint. Plot all exposed
+                            infants from the AD train and validation splits,
+                            marking exposure-count increases in red. Exposure
+                            means abx_observed is true or any abx_exposure > 0.
             'ylabels'       list of str, see plot_one_path_with_pred()
             'plot_same_yaxis'   bool, whether to plot the same range on y axis
                             for all dimensions
@@ -296,6 +306,15 @@ def train(
     val_idx = np.load(os.path.join(
         train_data_path, dataset, dataset_split, 'val_idx.npy'
         ), allow_pickle=True)
+    plot_abx_all = options.get('plot_abx_all', False)
+    if plot_abx_all:
+        if not options.get('plot_only', False):
+            raise ValueError('plot_abx_all requires plot_only=True')
+        # Match AD scoring's population while keeping the checkpoint's own
+        # training split for the exposure and overlap checks below.
+        val_idx = np.unique(np.concatenate([
+            np.load(os.path.join(train_data_path, dataset, 'all', f'{split}_idx.npy'))
+            for split in ('train', 'val')]))
     if 'test' in options and options['test'] == True:
         test_idx = np.load(os.path.join(
             train_data_path, dataset, dataset_split, 'test_idx.npy'
@@ -305,6 +324,21 @@ def train(
         dataset_name=dataset, idx=train_idx)
     data_val = data_utils.MicrobialDataset(
         dataset_name=dataset, idx=val_idx)
+    if plot_abx_all:
+        train_exposed = (data_train.abx_observed.astype(bool) |
+                         np.any(data_train.abx_exposure > 0, axis=1))
+        if np.any(train_exposed):
+            raise ValueError('Exposure trajectories found in checkpoint training split')
+        exposed = (data_val.abx_observed.astype(bool) |
+                   np.any(data_val.abx_exposure > 0, axis=1))
+        val_idx = val_idx[exposed]
+        if not len(val_idx):
+            raise ValueError('No exposed trajectories found')
+        if np.intersect1d(train_idx, val_idx).size:
+            raise ValueError('Exposed trajectories overlap checkpoint training split')
+        data_val = data_utils.MicrobialDataset(dataset_name=dataset, idx=val_idx)
+        print(f'Exposure audit: {len(train_idx)} training trajectories, '
+              f'0 exposed; plotting {len(val_idx)} exposed trajectories from AD train + val')
 
     dataset_metadata = data_train.get_metadata()
     input_size = dataset_metadata['dimension']
@@ -579,6 +613,8 @@ def train(
             initial_print += '\nepoch: {}, weight: {}'.format(
                 model.epoch, model.weight)
         except Exception as e:
+            if plot_abx_all:
+                raise RuntimeError('Cannot plot exposed trajectories without the saved checkpoint') from e
             initial_print += '\nloading model failed -> initiate new model'
             initial_print += '\nException:\n{}'.format(e)
             resume_training = False
@@ -595,7 +631,15 @@ def train(
         initial_print += '\nplotting ...'
         plot_filename = 'demo-plot_epoch-{}'.format(model.epoch)
         plot_filename = plot_filename + '_path-{}.pdf'
-        plot_one_path_with_pred(
+        plot_function = plot_one_path_with_pred
+        plot_options = {}
+        if plot_abx_all:
+            plot_function = plot_abx_trajectories
+            plot_save_path = os.path.join(plot_save_path, 'abx_trajectories')
+            paths_to_plot = list(range(len(data_val)))
+            plot_filename = 'abx-plot_epoch-{}'.format(model.epoch) + '_sample-{}.pdf'
+            plot_options['original_indices'] = val_idx
+        plot_function(
             device, model, batch, delta_t, T,
             path_to_plot=paths_to_plot, save_path=plot_save_path,
             filename=plot_filename, plot_variance=plot_variance,
@@ -605,14 +649,16 @@ def train(
             same_yaxis=plot_same_yaxis, plot_obs_prob=plot_obs_prob,
             dataset_metadata=dataset_metadata,
             add_dynamic_cov=('add_dynamic_cov' in options and options['add_dynamic_cov']),
-            masked=masked)
+            masked=masked, **plot_options)
         if SEND:
             files_to_send = []
             caption = "{} - id={}".format(model_name, model_id)
             for i in paths_to_plot:
+                file_id = (f'{int(val_idx[i])}_host-{batch["host_id"][i]}'
+                           if plot_abx_all else i)
                 files_to_send.append(sorted(glob.glob(
                     os.path.join(plot_save_path, plot_filename.format(
-                        "{}*".format(i)))))[0])
+                        "{}*".format(file_id)))))[0])
             SBM.send_notification(
                 text='finished plot-only: {}, id={}\n\n{}'.format(
                     model_name, model_id, desc),
@@ -968,6 +1014,57 @@ def compute_validation_loss(
         return loss_vals
 
 
+def new_abx_observation_mask(observed_dates, exposure_counts):
+    """Identify observations showing a new cumulative antibiotic exposure.
+
+    Compare counts only at real observation times after time zero. Compare the
+    first such observation with zero, so an initially positive count is marked.
+    Ignore zeros at missing observation times and the filled initial value.
+    A marked observation indicates a new exposure since the previous measured
+    point; it does not identify the exact antibiotic administration time.
+
+    :param observed_dates: 1D array of observation indicators on the time grid.
+    :param exposure_counts: 1D array of cumulative exposure counts on that grid.
+    :return: Boolean array of the same length, true at exposure-count increases.
+    """
+    indices = np.flatnonzero(observed_dates)
+    indices = indices[indices > 0]
+    counts = np.asarray(exposure_counts)[indices]
+    result = np.zeros(len(observed_dates), dtype=bool)
+    if len(counts):
+        result[indices] = counts > np.concatenate(([0], counts[:-1]))
+    return result
+
+
+def plot_abx_trajectories(device, model, batch, delta_t, T,
+                          original_indices, **kwargs):
+    """Plot selected exposed trajectories with exposure markers and original IDs.
+
+    The caller supplies the exposed batch; this function does not select or
+    split samples. Observation points showing a new exposure count are red.
+    Filenames use '<original_dataset_row>_host-<infant_id>' as the sample ID.
+    Conditional means and optional uncertainty bands use the supplied model
+    and continue to condition on available observations in the batch.
+
+    :param device: torch.device used for model computations.
+    :param model: Loaded models.NJODE instance.
+    :param batch: Collated microbial batch, including host_id and
+            true_abx_exposure aligned with observed_dates.
+    :param delta_t: Dataset time-grid spacing.
+    :param T: Dataset time horizon in model time units.
+    :param original_indices: Original zero-based dataset rows, in batch order.
+    :param kwargs: Remaining plot_one_path_with_pred arguments, including
+            path_to_plot, save_path, filename, and uncertainty-band options.
+            highlight_abx and sample_ids are supplied by this wrapper.
+    :return: None; writes plot files into save_path.
+    """
+    sample_ids = [f'{int(idx)}_host-{host}' for idx, host in
+                  zip(original_indices, batch['host_id'])]
+    return plot_one_path_with_pred(
+        device, model, batch, delta_t, T, highlight_abx=True,
+        sample_ids=sample_ids, **kwargs)
+
+
 def plot_one_path_with_pred(
         device, model, batch, delta_t, T,
         path_to_plot=(0,), save_path='', filename='plot_{}.png',
@@ -977,40 +1074,51 @@ def plot_one_path_with_pred(
         same_yaxis=False,
         plot_obs_prob=False, dataset_metadata=None,
         output_vars=None, max_dim_per_plot=5,
-        add_dynamic_cov=False, masked=False,
+        add_dynamic_cov=False, masked=False, highlight_abx=False, sample_ids=None,
 ):
     """
-    plot one path of the stockmodel together with optimal cond. exp. and its
-    prediction by the model
+    Plot microbial observations and model conditional mean trajectories.
+
+    Omit the filled time-zero value from observation markers, while retaining
+    it as model input. Predictions update using available observations.
+    Optional bands show mean +/- std_factor times predicted standard deviation.
     :param device: torch.device, to use for computations
     :param model: models.NJODE instance
     :param batch: the batch from where to take the paths
-    :param stockmodel: stock_model.StockModel instance, used to compute true
-            cond. exp.
     :param delta_t: float
     :param T: float
     :param path_to_plot: list of ints, which paths to plot (i.e. which elements
-            oof the batch)
+            of the batch)
     :param save_path: str, the path where to save the plot
     :param filename: str, the filename for the plot, should have one insertion
-            possibility to put the path number
-    :param plot_variance: bool, whether to plot the variance, if supported by
-            functions (i.e. square has to be applied)
+            placeholder for the sample ID (or batch position by default).
+    :param plot_variance: bool, whether to plot standard-deviation bands from
+            the 'var' output or from the second moment minus the squared mean.
     :param functions: list of functions (as str), the functions applied to X
     :param std_factor: float, the factor by which std is multiplied
     :param model_name: str or None, name used for model in plots
     :param ylabels: None or list of str of same length as dimension of X
     :param save_extras: dict with extra options for saving plot
-    :param use_cond_exp: bool, whether to plot the conditional expectation
     :param same_yaxis: bool, whether to plot all coordinates with same range on
         y-axis
     :param plot_obs_prob: bool, whether to plot the probability of an
         observation for all times
     :param dataset_metadata: needed if plot_obs_prob=true, the metadata of the
         used dataset to extract the observation probability
-    :return: optimal loss
-
     :param output_vars: list of str, the output variables of the model that depend on X
+    :param plot_moments: bool, whether to save additional predicted moment plots.
+    :param max_dim_per_plot: int, maximum coordinates in each plot.
+    :param add_dynamic_cov: bool, whether to concatenate dynamic covariates
+            with the model input.
+    :param masked: bool, whether to supply observation masks to the model.
+    :param highlight_abx: bool, whether to color observation markers red when
+            true_abx_exposure increases since the previous real observation.
+            The first real observation is compared with zero. Applies to the
+            conditional mean plots; requires batch['true_abx_exposure'].
+    :param sample_ids: Optional sequence of filename identifiers aligned with
+            batch rows. Defaults to batch positions; dimension and moment
+            suffixes are appended when needed.
+    :return: None; saves and closes the generated figures.
     """
     if model_name is None or model_name == "NJODE":
         model_name = 'our model'
@@ -1097,6 +1205,10 @@ def plot_one_path_with_pred(
         plot_variance = False
 
     for i in path_to_plot:
+        sample_id = sample_ids[i] if sample_ids is not None else i
+        new_abx = (new_abx_observation_mask(
+            observed_dates[i], batch['true_abx_exposure'][i])
+            if highlight_abx else np.zeros(len(observed_dates[i]), dtype=bool))
         if dim < max_dim_per_plot:
             fig, axs = plt.subplots(dim)
         if dim == 1:
@@ -1114,6 +1226,7 @@ def plot_one_path_with_pred(
             # get the true_X at observed dates
             path_t_obs = []
             path_X_obs = []
+            path_abx_obs = []
             for k, od in enumerate(observed_dates[i]):
                 # Time zero contains a filled initial value, not an observation.
                 if k > 0 and od == 1:
@@ -1121,13 +1234,22 @@ def plot_one_path_with_pred(
                                           true_M[i, j, k]==1):
                         path_t_obs.append(path_t_true_X[k])
                         path_X_obs.append(true_X[i, j, k])
+                        path_abx_obs.append(new_abx[k])
             path_t_obs = np.array(path_t_obs)
             path_X_obs = np.array(path_X_obs)
 
             # axs[j % max_dim_per_plot].plot(path_t_true_X, true_X[i, j, :], label='true path',
             #            color=colors[0])
-            axs[j % max_dim_per_plot].scatter(path_t_obs, path_X_obs, label='observed',
-                           color=colors[0])
+            ax = axs[j % max_dim_per_plot]
+            if highlight_abx:
+                new_exposure = np.asarray(path_abx_obs, dtype=bool)
+                ax.scatter(path_t_obs[~new_exposure], path_X_obs[~new_exposure],
+                           label='observed', color=colors[0])
+                ax.scatter(path_t_obs[new_exposure], path_X_obs[new_exposure],
+                           label='observed after new antibiotic exposure', color='red')
+                ax.set_title(f'Infant {batch["host_id"][i]} (sample {sample_id})')
+            else:
+                ax.scatter(path_t_obs, path_X_obs, label='observed', color=colors[0])
             axs[j % max_dim_per_plot].plot(path_t_pred, path_y_pred[:, i, j],
                         label=model_name + " predicted \n conditional expectation", color=colors[1])
             if plot_variance and path_std_pred is not None:
@@ -1165,10 +1287,10 @@ def plot_one_path_with_pred(
                 plt.xlabel('$t$')
                 if dim < max_dim_per_plot:
                     plt.legend(bbox_to_anchor=(1.02, dim/2.+0.1), loc="center left")
-                    save = os.path.join(save_path, filename.format(i))
+                    save = os.path.join(save_path, filename.format(sample_id))
                 else:
                     plt.legend(bbox_to_anchor=(1.02, counter/2.+0.1), loc="center left")
-                    save = os.path.join(save_path, filename.format("{}_dim-{}-{}".format(i,j-counter+1,j)))
+                    save = os.path.join(save_path, filename.format("{}_dim-{}-{}".format(sample_id,j-counter+1,j)))
                 plt.savefig(save, **save_extras)
                 plt.close()
     
@@ -1233,9 +1355,9 @@ def plot_one_path_with_pred(
                             plt.xlabel('$t$')
                             if dim < max_dim_per_plot:
                                 plt.legend(bbox_to_anchor=(1.02, dim/2.+0.1), loc="center left")
-                                save = os.path.join(save_path, filename.format('{}_moment-{}'.format(i,m)))
+                                save = os.path.join(save_path, filename.format('{}_moment-{}'.format(sample_id,m)))
                             else:
                                 plt.legend(bbox_to_anchor=(1.02, counter/2.+0.1), loc="center left")
-                                save = os.path.join(save_path, filename.format("{}_moment-{}_dim-{}-{}".format(i,m,j-counter+1,j)))
+                                save = os.path.join(save_path, filename.format("{}_moment-{}_dim-{}-{}".format(sample_id,m,j-counter+1,j)))
                             plt.savefig(save, **save_extras)
                             plt.close()

@@ -125,6 +125,72 @@ python run.py --params=param_list_microbial_novel_alpha_div2 --NB_JOBS=24 --NB_C
 python run.py --plot_paths=plot_paths_novel_alpha_div2
 ```
 
+Plot the conditional mean and uncertainty bands for **all antibiotic-exposed
+infants from the AD train and validation splits** using model 57's best
+checkpoint and the uv environment:
+
+```shell
+cd src
+uv run python run.py --plot_paths=plot_paths_novel_alpha_div2_abx
+```
+
+This selects exposed trajectories from the union of `all/train_idx.npy` and
+`all/val_idx.npy`, retaining the
+checkpoint's `no_abx` training split. It verifies that training has no observed
+exposure flags or positive exposure counts, and that selected exposed rows
+do not overlap training. In the current `microbial_novel_alpha_faith_pd` dataset,
+model 57 has 112 training trajectories with no recorded post-exposure
+observations, and all 141 exposed trajectories (112 from AD train and 29 from
+AD validation) are plotted. These exposed infants were excluded from model 57's
+forecasting training. Other training
+splits, including `all`, contain exposed infants. These checks concern recorded
+exposures; they do not establish that an infant never received antibiotics
+outside the observed history.
+
+Points are red when their cumulative `abx_exposure` count exceeds the count at
+the previous real observation. The first real observation is compared with
+zero; missing observation times and the filled time-zero value are skipped.
+Red marks the first measurement showing a new exposure, rather than its exact
+administration time. Other observations use the usual color. Predictions
+condition on available observations throughout the trajectory; these are
+updated trajectories, not forecasts frozen before exposure or estimates of a
+causal antibiotic effect.
+
+PDFs are saved in
+`data/saved_models_microbial_novel_alpha_div2/id-57/plots/abx_trajectories/`
+as `abx-plot_epoch-<epoch>_sample-<original_dataset_row>_host-<infant_id>.pdf`.
+The sample identifier is the original zero-based dataset row, not its position
+within the validation batch; the host identifier identifies the infant.
+
+To add a matching anomaly-score panel and stop microbial observation updates
+at the selected antibiotic exposure, run the AD plotting option from `src`:
+
+```shell
+uv run python Microbial_AD_eval.py --forecast_model_ids=AD_microbial_novel_alpha_div_ids2_1 --forecast_saved_models_path=AD_microbial_novel_alpha_div2 --ad_params=param_list_AD_microbial_novel_alpha_div2 --plot_trajectories=True
+```
+
+This computes and saves the usual AD scores and produces 141 two-panel plots
+for each `only_jump_before_abx_exposure` value in the AD configuration (currently
+1, 2, and 3). Microbial observations with cumulative exposure counts at or above
+the threshold no longer update the model. Dynamic covariates continue to update
+when `use_dyn_cov_after_abx=True`, matching the standard AD settings. Infants
+who never reach a particular threshold retain all their observation updates.
+
+The upper panel shows the conditional mean and mean ± 1.96 times the scoring
+standard deviation, using the same variance corrections and scaling factors as
+the normal left-tail score in the lower panel. Scores appear at actual
+observation times, with new exposures colored red in both panels. Dashed lines
+mark the first observation reaching the exposure threshold, not the exact
+administration date. The horizontal axis is infant age in days.
+
+Outputs are grouped under
+`data/saved_models_microbial_novel_alpha_div2/id-57/plots/abx_trajectories/only_jump_before_abx_exposure-<value>/`,
+then by checkpoint, distribution, tail, coordinate, and scaling settings.
+Filenames preserve original dataset row and infant IDs. The scaling-factor CSVs
+must already exist for the standard scaled AD configuration; see the score
+computation instructions below. The earlier `run.py` command remains available
+for unrestricted updated trajectories without a score panel.
+
 Based on the training results, the model ids 55,56,57 (using RNN, no signature and increasing probability to only use dynamic features as inputs; with the 3 different validation horizons) are selected. Computing the outputs on the validation set shows that only 57 never predicts a cond variance <0. 
 Moreover, this model produces increasing confidence interval sizes and it has the best eval loss (i.e. train loss on val set) of the 3 models. Therefore, this model is selected for further evaluation.
 

@@ -2067,6 +2067,12 @@ plot_paths_novel_alpha_div2 = {
     'which': 'best', 'paths_to_plot': [0,1,2,3,4,5], 'wait_time': 0,
     'save_extras': {'bbox_inches': 'tight', 'pad_inches': 0.01},}
 
+plot_paths_novel_alpha_div2_abx = {
+    'model_ids': [57], 'saved_models_path': microbial_models_path_novel_alpha_div2,
+    'which': 'best', 'wait_time': 0, 'plot_abx_all': True,
+    'save_extras': {'bbox_inches': 'tight', 'pad_inches': 0.01},
+}
+
 
 # ------------------------------------------------------------------------------
 # training on synthetic datasets
@@ -2257,4 +2263,3 @@ overview_dict_microbial_retrain = dict(
     ),
     sortby=["dataset", 'val_predict_for_t', "val_loss_until_t_av_min"],
 )
-

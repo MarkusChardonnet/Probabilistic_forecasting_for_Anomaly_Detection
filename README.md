@@ -39,6 +39,20 @@ interpreter. To add or change dependencies, use `uv add <package>` or
 `uv remove <package>` from the repository root and commit both
 `pyproject.toml` and `uv.lock`.
 
+### Automatic activation with direnv
+
+With [direnv](https://direnv.net/) installed and hooked into your shell, the
+`.envrc` in the repository root activates `.venv` whenever you enter the
+repository, so `python` resolves to the project environment without `uv run`.
+Approve it once after cloning:
+
+```bash
+direnv allow
+```
+
+Machine-specific settings belong in `.envrc.local`, which `.envrc` sources if
+present and Git ignores.
+
 ### Telegram notifications
 
 For commands with `--SEND=True`, put the bot token on a single line in

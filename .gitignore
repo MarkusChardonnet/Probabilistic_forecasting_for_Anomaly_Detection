@@ -30,3 +30,7 @@ README-private.md
 
 # Local Telegram bot credentials.
 /.telegram-token
+
+# Local uv environment and per-user direnv overrides.
+/.venv/
+/.envrc.local

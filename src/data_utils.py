@@ -913,7 +913,7 @@ def MicrobialCollateFnGen(func_names=None, use_only_dyn_ft_as_input=None,
     elif use_only_dyn_ft_as_input == "after_nth_abx_exposure":
         if (only_jump_before_abx_exposure in [None, False]
                 or only_jump_before_abx_exposure <= 0):
-            only_jump_before_abx_exposure = np.infty
+            only_jump_before_abx_exposure = np.inf
         else:
             only_jump_before_abx_exposure = int(only_jump_before_abx_exposure)
         use_only_dyn_ft_as_input_func = \

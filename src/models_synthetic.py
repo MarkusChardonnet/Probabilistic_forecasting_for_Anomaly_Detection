@@ -826,7 +826,7 @@ class NJODE(torch.nn.Module):
         self.loss_weight = 1.
         if 'classifier_loss_weight' in options1:
             class_loss_weight = options1['classifier_loss_weight']
-            if class_loss_weight == np.infty:
+            if class_loss_weight == np.inf:
                 self.class_loss_weight = 1.
                 self.loss_weight = 0.
             else:

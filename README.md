@@ -248,6 +248,10 @@ uv run python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial
 # then compute the AD scores using the scaling factors
 uv run python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_novel_alpha_div_ids2_1 --ad_params=param_list_AD_microbial_novel_alpha_div2 --forecast_saved_models_path=AD_microbial_novel_alpha_div2 --compute_scores=True --evaluate_scores=False --compute_zscore_scaling_factors=False
 
+# optionally add --save_cond_moments=True to the previous command to also store, per AD split, the observation,
+# conditional mean, corrected conditional std, scaling factor, cumulative exposure count and score of every
+# observed (infant, day) as <split>_cond_moments_<only_jump_before_abx_exposure>_coord-0.csv next to the scores
+
 # and do a preliminary evaluation of them (only works if AD scores have been computed for only_jump_before_abx_exposure=1,2,3 before)
 uv run python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_novel_alpha_div_ids2_1 --ad_params=param_list_AD_microbial_novel_alpha_div2_ev --forecast_saved_models_path=AD_microbial_novel_alpha_div2 --compute_scores=False --evaluate_scores=True --compute_zscore_scaling_factors=False
 
@@ -271,6 +275,7 @@ With the same conda environment, a score time horizon reliability analysis can b
 and the predictive performance of the inferred anomaly scores can be compared to baseline predictions in notebook `results/evaluate_predictions.ipynb`. 
 Also, resulting anomaly scores can be compared to matched alpha diversity values in notebook `evaluate_matched_alpha.ipynb` 
 and individual score trajectories can be explored in `evaluate_indiv_score_increase.ipynb`.
+The notebook `results/evaluate_cond_mean.ipynb` compares the observed Faith PD of exposed infants with the NJODE conditional mean after the 1st, 2nd and 3rd antibiotic exposure on a continuous time axis; it requires the `*_cond_moments_*` tables written with `--save_cond_moments=True`.
 
 
 ## Contact

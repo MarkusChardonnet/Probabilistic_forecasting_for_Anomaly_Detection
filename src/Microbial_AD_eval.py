@@ -16,6 +16,7 @@ import pandas as pd
 import torch  # machine learning
 from absl import app, flags
 import AD_modules
+from utils_cond_moments import cond_moments_long_table
 from AD_modules import AD_module, DimAcc_AD_module, Simple_AD_module
 from configs import config
 from sklearn import metrics
@@ -64,6 +65,8 @@ flags.DEFINE_bool("evaluate", False, "whether to evaluate the model")
 flags.DEFINE_bool("compute_scores", False, "whether to compute the scores")
 flags.DEFINE_bool("plot_trajectories", False,
                   "plot exposed trajectories and matching scores while computing scores")
+flags.DEFINE_bool("save_cond_moments", False,
+                  "save the conditional mean and std behind every observed score while computing scores")
 flags.DEFINE_bool("evaluate_scores", False, "whether to evaluate the scores")
 flags.DEFINE_bool("compute_zscore_scaling_factors", False, "whether to compute the z-score scaling factors")
 
@@ -432,6 +435,24 @@ def plot_trajectories_with_scores(
         plt.close(fig)
 
 
+def save_cond_moments_table(
+        dataset, host_id, abx_labels, cond_moments, observed_dates, obs,
+        cutoff_adj_sf, ad_scores, output_vars, aggregation_method,
+        starting_date, epsilon, replace_values, scores_path, split,
+        only_jump_before_abx_exposure):
+    """Write the conditional moments behind the scores of one AD split to CSV."""
+    table = cond_moments_long_table(
+        host_id=host_id, abx_labels=abx_labels, cond_moments=cond_moments,
+        observed_dates=observed_dates, obs=obs, cutoff_adj_sf=cutoff_adj_sf,
+        abx_exposure=dataset.abx_exposure, output_vars=output_vars,
+        coordinate=int(aggregation_method.split('-')[1]),
+        starting_date=starting_date, epsilon=epsilon,
+        replace_values=replace_values, scores=ad_scores)
+    table.to_csv('{}{}_cond_moments_{}_{}.csv'.format(
+        scores_path, split, only_jump_before_abx_exposure, aggregation_method),
+        index=False)
+
+
 def compute_scores(
         forecast_saved_models_path,
         forecast_model_id=None,
@@ -460,6 +481,7 @@ def compute_scores(
         preprocess_scaling_factors=False,
         SF_remove_duplicates=False,
         plot_trajectories=False,
+        save_cond_moments=False,
         **options
 ):
     """
@@ -533,12 +555,19 @@ def compute_scores(
             separated further by scoring settings. Original row and host IDs
             identify each file. All-observation trajectory plotting remains
             available separately through run.py.
+        save_cond_moments: bool, also save one CSV per AD split with the
+            observation, conditional mean, corrected conditional std, scaling
+            factor, cumulative exposure count and score for every observed
+            (infant, day), next to the score CSVs. Requires normal scoring with
+            coord-n aggregation.
     """
 
     global USE_GPU, N_CPUS, N_DATASET_WORKERS
-    if plot_trajectories and (scoring_distribution != 'normal' or
-                              not aggregation_method.startswith('coord-')):
-        raise ValueError('Trajectory-score plots require normal scoring and coord-n aggregation')
+    if (plot_trajectories or save_cond_moments) and (
+            scoring_distribution != 'normal' or
+            not aggregation_method.startswith('coord-')):
+        raise ValueError('Trajectory-score plots and conditional-moment tables '
+                         'require normal scoring and coord-n aggregation')
     if use_gpu is not None:
         USE_GPU = use_gpu
     if nb_cpus is not None:
@@ -742,6 +771,12 @@ def compute_scores(
             cutoff_adj_sf, output_vars, trajectory_path,
             only_jump_before_abx_exposure, aggregation_method, scoring_metric,
             epsilon=epsilon, replace_values=replace_values, split='train')
+    if save_cond_moments:
+        save_cond_moments_table(
+            data_train, host_id, abx_labels, cond_moments, observed_dates, obs,
+            cutoff_adj_sf, ad_scores, output_vars, aggregation_method,
+            starting_date, epsilon, replace_values, scores_path, 'train',
+            only_jump_before_abx_exposure)
     with open('{}train_ad_scores_{}_{}.npy'.format(
             scores_path, only_jump_before_abx_exposure,
             aggregation_method), 'wb') as f:
@@ -804,6 +839,12 @@ def compute_scores(
             cutoff_adj_sf, output_vars, trajectory_path,
             only_jump_before_abx_exposure, aggregation_method, scoring_metric,
             epsilon=epsilon, replace_values=replace_values, split='val')
+    if save_cond_moments:
+        save_cond_moments_table(
+            data_val, host_id, abx_labels, cond_moments, observed_dates, obs,
+            cutoff_adj_sf, ad_scores, output_vars, aggregation_method,
+            starting_date, epsilon, replace_values, scores_path, 'val',
+            only_jump_before_abx_exposure)
     with open('{}val_ad_scores_{}_{}.npy'.format(
             scores_path, only_jump_before_abx_exposure,
             aggregation_method), 'wb') as f:
@@ -1506,8 +1547,10 @@ def main(arg):
                     print("using dataset from forecast_param: ", dataset)
                 if 'saved_models_path' in ad_param:
                     del ad_param["saved_models_path"]
-                if FLAGS.compute_scores or FLAGS.plot_trajectories:
+                if (FLAGS.compute_scores or FLAGS.plot_trajectories
+                        or FLAGS.save_cond_moments):
                     ad_param['plot_trajectories'] = FLAGS.plot_trajectories
+                    ad_param['save_cond_moments'] = FLAGS.save_cond_moments
                     compute_scores(
                         send=FLAGS.SEND,
                         forecast_saved_models_path=forecast_saved_models_path,

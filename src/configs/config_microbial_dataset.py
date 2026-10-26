@@ -262,6 +262,21 @@ config_novel_alpha_faith_pd = {
     'which_split': ['all', 'no_abx'],
 }
 
+# sensitivity analysis (reviewer 1, point 4): same dataset with Shannon diversity as target
+config_novel_alpha_shannon = {
+    'dataset': 'ft_vat19_anomaly_v20240806_entero_family.tsv',
+    'dataset_name': 'microbial_novel_alpha_shannon',
+    'microbial_features': ['div_alpha_shannon'],
+    'signature_features': None,  # sets to same as microbial_features
+    'static_features': [],
+    'dynamic_features': ["delivery_mode", "diet_milk", "diet_weaning"],
+    'val_size': 0.2,
+    'seed': 398,
+    'starting_date': 0,
+    'init_val_method': None,
+    'which_split': ['all', 'no_abx'],
+}
+
 config_novel_alpha_faith_pd_w_geo = {
     'dataset': 'ft_vat19_anomaly_v20240806_entero_family.tsv',
     'dataset_name': 'microbial_novel_alpha_faith_pd_w_geo',

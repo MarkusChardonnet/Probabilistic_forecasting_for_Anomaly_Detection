@@ -2075,6 +2075,40 @@ plot_paths_novel_alpha_div2_abx = {
 
 
 # ------------------------------------------------------------------------------
+# sensitivity analysis (reviewer 1, point 4): the published configuration
+# (id-57 of saved_models_microbial_novel_alpha_div2) with Shannon diversity as
+# target. param_dict_microbial_sig_rnn_novel_alpha_div2 is, at this point, the
+# single-configuration dict of the id-57 parameters (w_geo block above).
+microbial_models_path_novel_alpha_div_shannon = "{}saved_models_microbial_novel_alpha_div_shannon/".format(data_path)
+param_dict_microbial_novel_alpha_div_shannon = dict(
+    param_dict_microbial_sig_rnn_novel_alpha_div2,
+    dataset=['microbial_novel_alpha_shannon'],
+    saved_models_path=[microbial_models_path_novel_alpha_div_shannon],
+)
+param_list_microbial_novel_alpha_div_shannon = get_parameter_array(
+    param_dict=param_dict_microbial_novel_alpha_div_shannon)
+overview_dict_microbial_novel_alpha_div_shannon = dict(
+    overview_dict_microbial_novel_alpha_div2,
+    ids_to=len(param_list_microbial_novel_alpha_div_shannon),
+    path=microbial_models_path_novel_alpha_div_shannon,
+)
+
+# per-epoch timing benchmark of the same configuration (5 epochs, no
+# pre-training) on the published Faith PD dataset; models land in a
+# throw-away folder under data/
+microbial_models_path_x_bench = "{}saved_models_x_bench/".format(data_path)
+param_dict_microbial_novel_alpha_div_bench = {
+    **param_dict_microbial_novel_alpha_div_shannon,
+    'dataset': ['microbial_novel_alpha_faith_pd'],
+    'epochs': [5],
+    'pre-train': [0],
+    'saved_models_path': [microbial_models_path_x_bench],
+}
+param_list_microbial_novel_alpha_div_bench = get_parameter_array(
+    param_dict=param_dict_microbial_novel_alpha_div_bench)
+
+
+# ------------------------------------------------------------------------------
 # training on synthetic datasets
 # ------------------------------------------------------------------------------
 

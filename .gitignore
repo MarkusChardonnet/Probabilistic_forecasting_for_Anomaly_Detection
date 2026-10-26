@@ -34,3 +34,9 @@ README-private.md
 # Local uv environment and per-user direnv overrides.
 /.venv/
 /.envrc.local
+
+# Slurm job logs (written by the scripts in slurm/).
+slurm/logs/
+
+# Design specs and plans used during development.
+docs/superpowers/

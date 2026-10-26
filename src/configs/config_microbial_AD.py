@@ -513,3 +513,9 @@ param_dict_AD_synthetic_re = {
 }
 param_list_AD_synthetic_reliability_eval = get_parameter_array(
         param_dict=param_dict_AD_synthetic_re)
+
+# ------------------------------------------------------------------------------
+# AD for the Shannon-target sensitivity model: same scoring parameter lists as
+# for the published model (param_list_AD_microbial_novel_alpha_div2*)
+AD_microbial_novel_alpha_div_shannon = "{}saved_models_microbial_novel_alpha_div_shannon/".format(data_path)
+AD_microbial_novel_alpha_div_shannon_ids = [1]

@@ -36,6 +36,19 @@ def _add_month_bins(scores: pd.DataFrame, days_per_month=30.437) -> pd.DataFrame
     return scores
 
 
+def _read_table(path, **kwargs):
+    """
+    Read a CSV/TSV table with pandas' pre-3.0 string inference (object dtype).
+
+    The evaluation helpers and notebooks were written for object-dtype string
+    columns, e.g. groupby(...).last() of an all-missing group yields None, which
+    the notebooks test with `is None`; pandas>=3 infers the str dtype, whose
+    missing value is NaN.
+    """
+    with pd.option_context("future.infer_string", False):
+        return pd.read_csv(path, **kwargs)
+
+
 def _get_all_scores(path_to_scores, split="train", limit_months=None):
     """
     Get all split scores for all one-step & multi-step predictions from
@@ -45,7 +58,7 @@ def _get_all_scores(path_to_scores, split="train", limit_months=None):
     scores = []
     score_types = list(range(1, 4)) + ["False"]
     for i in score_types:
-        scores.append(pd.read_csv(f"{path_to_scores}{split}_ad_scores_{i}_coord-0.csv"))
+        scores.append(_read_table(f"{path_to_scores}{split}_ad_scores_{i}_coord-0.csv"))
 
     scores_list = [_transform_scores(x) for x in scores]
 
@@ -69,7 +82,7 @@ def _add_md_from_ft(abx_scores_flat, ft_name, path_to_data="../data/original_dat
     """
     Add metadata matching samples over time from ft to abx_scores_flat
     """
-    ft_df = pd.read_csv(f"{path_to_data}{ft_name}.tsv", sep="\t", index_col=0)
+    ft_df = _read_table(f"{path_to_data}{ft_name}.tsv", sep="\t", index_col=0)
     ft_df["age_days"] = ft_df["age_days"].astype(int)
     ft_df.rename(columns={"age_days": "day"}, inplace=True)
 
@@ -345,7 +358,7 @@ def _plot_score_over_age(
 
 
 def _get_abx_info(path_to_abx_ts: str, limit_months: float = None) -> pd.DataFrame:
-    abx_df = pd.read_csv(path_to_abx_ts, sep="\t", index_col=0)
+    abx_df = _read_table(path_to_abx_ts, sep="\t", index_col=0)
     cols_to_keep = ["abx_start_age_months", "abx_type", "abx_reason"]
     abx_df = abx_df[cols_to_keep].reset_index()
     abx_df.sort_values(["host_id", "abx_start_age_months"], inplace=True)

@@ -265,13 +265,12 @@ uv run python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial
 
 
 ## Score evaluation
-Once you trained a microbiome-based model, you can evaluate the resulting scores in the notebook `results/evaluate_scores.ipynb`. To run the notebook, create and activate this conda environment:
+Once you trained a microbiome-based model, you can evaluate the resulting scores in the notebook `results/evaluate_scores.ipynb`. To run the notebooks, install the project into the uv environment once from the repository root (repeat after `uv sync`) and execute them from `results/` with the environment's own kernel:
 ````
-conda create --name score_eval numpy pandas matplotlib seaborn scipy ipython ipykernel -y
-conda activate score_eval
-pip install -e .
+uv pip install --no-deps -e .
+cd results && ../.venv/bin/python -m nbconvert --to notebook --execute --inplace evaluate_scores.ipynb
 ````
-With the same conda environment, a score time horizon reliability analysis can be performed that evaluates for how long the predicted scores remain constant on the no antibiotics scores (notebook `results/analyse_t_horizon_reliability.ipynb`) 
+With the same environment, a score time horizon reliability analysis can be performed that evaluates for how long the predicted scores remain constant on the no antibiotics scores (notebook `results/analyse_t_horizon_reliability.ipynb`) 
 and the predictive performance of the inferred anomaly scores can be compared to baseline predictions in notebook `results/evaluate_predictions.ipynb`. 
 Also, resulting anomaly scores can be compared to matched alpha diversity values in notebook `evaluate_matched_alpha.ipynb` 
 and individual score trajectories can be explored in `evaluate_indiv_score_increase.ipynb`.

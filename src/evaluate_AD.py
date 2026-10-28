@@ -34,6 +34,7 @@ import models_synthetic as models
 import data_utils
 from AD_modules import AD_module
 import AD_modules
+from utils_ad_metrics import classification_metrics
 
 try:
     from telegram_notifications import send_bot_message as SBM
@@ -460,34 +461,10 @@ def evaluate(
         pred_labels_an = pred_labels_an.astype(int)
         ad_labels_an = ad_labels_an[mask].reshape(-1).astype(int)
 
-        precision_af, recall_af, fscore_af, support_af = (
-            metrics.precision_recall_fscore_support(
-                ad_labels_af, pred_labels_af, labels=[0, 1]))
-        av_fscore_af = metrics.f1_score(
-            ad_labels_af, pred_labels_af, labels=[0, 1], average='micro')
-        cm_af = metrics.confusion_matrix(
-            ad_labels_af, pred_labels_af, labels=[0, 1]).flatten()
-        r_af = np.concatenate(
-            [precision_af, recall_af, fscore_af, support_af, cm_af,
-             np.array(av_fscore_af).reshape((1,))], axis=0)
-        precision_an, recall_an, fscore_an, support_an = (
-            metrics.precision_recall_fscore_support(
-                ad_labels_an, pred_labels_an, labels=[0, 1]))
-        av_fscore_an = metrics.f1_score(
-            ad_labels_an, pred_labels_an, labels=[0, 1], average='micro')
-        cm_an = metrics.confusion_matrix(
-            ad_labels_an, pred_labels_an, labels=[0, 1]).flatten()
-        r_an = np.concatenate(
-            [precision_an, recall_an, fscore_an, support_an, cm_an,
-             np.array(av_fscore_an).reshape((1,))], axis=0)
-        label_names = []
-        for l in ["precision", "recall", "fscore", "support"]:
-            for c in [0, 1]:
-                label_names.append("{}_{}".format(l, c))
-        label_names += ["TN", "FP", "FN", "TP", "f1score_micro"]
         df_quant_res = pd.DataFrame(
-            np.stack([r_an, r_af], axis=0),
-            columns=label_names, index=["anomalous", "anomaly_free"])
+            [classification_metrics(ad_labels_an, pred_labels_an),
+             classification_metrics(ad_labels_af, pred_labels_af)],
+            index=["anomalous", "anomaly_free"])
         df_quant_res.to_csv(fname, index=True)
     # -----------------------------------
 

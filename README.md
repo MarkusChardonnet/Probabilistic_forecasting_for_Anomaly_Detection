@@ -134,6 +134,7 @@ Important flags:
     # plot from the last (or best) AD model
     uv run python evaluate_AD.py --plot_only=True --quant_eval_in_plot_only=True --which_AD_model_load="last" --forecast_model_ids=[1] --forecast_saved_models_path=../data/saved_models_AD_OrnsteinUhlenbeckWithSeason/ --ad_params=param_dict_AD_modules
     ```
+- The quantitative evaluation writes `quant_eval_from-<which_AD_model_load>.csv` with per-label precision, recall, F1 score and support, the confusion counts and the micro- and macro-averaged F1 scores (`src/utils_ad_metrics.py`); `add_macro_f1` in that module appends the macro-averaged F1 score to CSVs written before this column existed.
 
 ---
 # Anomaly Detection in Microbiome Data
@@ -275,6 +276,12 @@ and the predictive performance of the inferred anomaly scores can be compared to
 Also, resulting anomaly scores can be compared to matched alpha diversity values in notebook `evaluate_matched_alpha.ipynb` 
 and individual score trajectories can be explored in `evaluate_indiv_score_increase.ipynb`.
 The notebook `results/evaluate_cond_mean.ipynb` compares the observed Faith PD of exposed infants with the NJODE conditional mean after the 1st, 2nd and 3rd antibiotic exposure on a continuous time axis; it requires the `*_cond_moments_*` tables written with `--save_cond_moments=True`.
+
+The composed figure of the individual score trajectories, the score distributions and the matched alpha diversity differences (in percent of the matched mean) around the first three antibiotic exposures (Fig. 4 of the manuscript) is drawn by `src/figure_score_delineation.py` from the same scores and matching as the notebooks:
+````
+cd src && uv run python figure_score_delineation.py --output=score_delineation.pdf
+````
+Its flags (`--helpfull`) select the model, the scaling-factor options and the hosts of the trajectories; the defaults reproduce the manuscript figure. Tests: `uv run python -m unittest tests.test_figure_score_delineation`.
 
 
 ## Contact

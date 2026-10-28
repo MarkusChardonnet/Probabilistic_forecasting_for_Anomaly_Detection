@@ -1,4 +1,5 @@
 import os
+from dataclasses import dataclass
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -10,6 +11,37 @@ from scipy.stats import mannwhitneyu, wilcoxon
 
 plt.rcParams.update({"font.family": "DejaVu Sans"})
 plt.style.use("tableau-colorblind10")
+
+MATCHED_DIFF_COL = "Δ matched alpha diversity"
+REL_MATCHED_DIFF_COL = "Δ matched alpha diversity [%]"
+
+
+@dataclass(frozen=True)
+class PanelStyle:
+    """
+    Styling of the box-plot/count panels drawn by `_create_subplot`. The
+    defaults reproduce the panels of the notebooks.
+
+    Attributes:
+        fontsize: One size for title, axis labels, tick labels and legends
+        (None: the individual sizes of the notebook panels).
+        ylim_factor: Upper y-limit of the box plot as a multiple of the maximum
+        value when significance stars are drawn.
+        star_rows: Heights of the unpaired and paired stars as multiples of the
+        maximum value.
+        star_fontsize: Font size of the stars (None: 22 + 2 * step size).
+        legend_markersize: Size of the star markers in the box-plot legend.
+        legend_linewidth: Width of the lines in the count-plot legend.
+        star_va: Vertical alignment of the stars at their row.
+    """
+
+    fontsize: float = None
+    ylim_factor: float = 1.7
+    star_rows: tuple = (1.2, 1.1)
+    star_fontsize: float = None
+    legend_markersize: float = 12
+    legend_linewidth: float = 3
+    star_va: str = "baseline"
 
 
 def _transform_scores(
@@ -123,25 +155,38 @@ def _create_subplot(
     result_df=None,
     nb_subplots=2,
     boxplot_color="skyblue",
+    axs=None,
+    style=None,
 ):
-    """Creates boxplot and barplot"""
+    """
+    Creates boxplot and barplot, in a new figure or in the given axes `axs`
+    (box plot, count plot); `style` is a PanelStyle (default: notebook panels).
+    """
+    if style is None:
+        style = PanelStyle()
     # don't change original data
     data_c = data.copy()
 
-    # below try needed since different versions of python are used for modelling
-    # vs. eval
-    try:
-        height_ratios = [1] + (nb_subplots - 1) * [0.5]
-        fig, axs = plt.subplots(
-            nb_subplots,
-            1,
-            figsize=(9, 6),
-            height_ratios=height_ratios,
-            sharex=True,
-            dpi=400,
-        )
-    except:
-        fig, axs = plt.subplots(nb_subplots, 1, figsize=(9, 6), sharex=True, dpi=400)
+    own_figure = axs is None
+    if own_figure:
+        # below try needed since different versions of python are used for modelling
+        # vs. eval
+        try:
+            height_ratios = [1] + (nb_subplots - 1) * [0.5]
+            fig, axs = plt.subplots(
+                nb_subplots,
+                1,
+                figsize=(9, 6),
+                height_ratios=height_ratios,
+                sharex=True,
+                dpi=400,
+            )
+        except:
+            fig, axs = plt.subplots(nb_subplots, 1, figsize=(9, 6), sharex=True, dpi=400)
+    else:
+        fig = axs[0].figure
+        # as with sharex=True above: the box plot shows no x labels
+        axs[0].tick_params(labelbottom=False)
 
     # axs[0] is the boxplot
     # category used to have consistent x-axis
@@ -155,7 +200,9 @@ def _create_subplot(
         x=f"{x_axis}_cat", y=y_axis, data=data_c, ax=axs[0], color=boxplot_color
     )
 
-    axs[0].set_title(title, fontsize=12)
+    axs[0].set_title(title, fontsize=style.fontsize or 12)
+    if not own_figure:
+        axs[0].set_xlabel("")
     y_max = data_c[y_axis].max()
     y_min = data_c[y_axis].min()
     if y_min > -1:
@@ -163,7 +210,7 @@ def _create_subplot(
     else:
         y_min = y_min * 1.1
     if result_df is not None:
-        axs[0].set_ylim(y_min, 1.7 * y_max)
+        axs[0].set_ylim(y_min, style.ylim_factor * y_max)
     else:
         axs[0].set_ylim(y_min, 1.1 * y_max)
     if n is not None:
@@ -173,7 +220,9 @@ def _create_subplot(
     # add horizontal line at zero if boxplot color is purple
     if boxplot_color == "purple":
         axs[0].axhline(0, color="grey")
-        axs[0].set_ylabel(axs[0].get_ylabel(), fontsize=8)
+        axs[0].set_ylabel(axs[0].get_ylabel(), fontsize=style.fontsize or 8)
+    elif style.fontsize is not None:
+        axs[0].set_ylabel(axs[0].get_ylabel(), fontsize=style.fontsize)
 
     # axs[1] is the barplot
     grouped_counts = (
@@ -189,7 +238,13 @@ def _create_subplot(
         # Add a star above the boxplots if the p-value < 0.10
         unpaired_color = "sandybrown"
         paired_color = "darkgreen"
-        dic_tests = {"unpaired": [1.2, unpaired_color], "paired": [1.1, paired_color]}
+        dic_tests = {
+            "unpaired": [style.star_rows[0], unpaired_color],
+            "paired": [style.star_rows[1], paired_color],
+        }
+        star_fontsize = style.star_fontsize
+        if star_fontsize is None:
+            star_fontsize = 22 + step_size * 2
 
         for test, (y_shift, color) in dic_tests.items():
             for t1, p_val in zip(result_df.index, result_df[f"P-value {test}"]):
@@ -209,7 +264,8 @@ def _create_subplot(
                         sign,
                         color=color,
                         ha="center",
-                        fontsize=22 + step_size * 2,
+                        va=style.star_va,
+                        fontsize=star_fontsize,
                     )
 
         # add a count barplot in ax[1] for paired and unpaired
@@ -228,12 +284,13 @@ def _create_subplot(
                 edgecolor=v[1],
             )
         axs[1].axvline(zero_index - 0.5, color="darkred")
-        axs[1].tick_params(axis="x", labelsize=min(10 * 22 / len(range_x), 10))
+        if style.fontsize is None:
+            axs[1].tick_params(axis="x", labelsize=min(10 * 22 / len(range_x), 10))
 
         # Create a custom legend
         custom_lines = [
-            Line2D([0], [0], color=unpaired_color, lw=3),
-            Line2D([0], [0], color=paired_color, lw=3),
+            Line2D([0], [0], color=unpaired_color, lw=style.legend_linewidth),
+            Line2D([0], [0], color=paired_color, lw=style.legend_linewidth),
         ]
         custom_cross = [
             Line2D(
@@ -241,7 +298,7 @@ def _create_subplot(
                 [0],
                 color=unpaired_color,
                 marker="*",
-                markersize=12,
+                markersize=style.legend_markersize,
                 linestyle="None",
             ),
             Line2D(
@@ -249,23 +306,29 @@ def _create_subplot(
                 [0],
                 color=paired_color,
                 marker="*",
-                markersize=12,
+                markersize=style.legend_markersize,
                 linestyle="None",
             ),
         ]
         legend_txt = ["unpaired to -1.0", "paired to -1.0"]
 
-        axs[0].legend(custom_cross, legend_txt, loc="upper right")
-        axs[1].legend(custom_lines, legend_txt)
+        axs[0].legend(
+            custom_cross, legend_txt, loc="upper right", fontsize=style.fontsize
+        )
+        axs[1].legend(custom_lines, legend_txt, fontsize=style.fontsize)
 
     if n is not None:
         axs[1].axvline(zero_index - 0.5, color="darkred")
 
-    axs[1].set_ylabel(ylabel, fontsize=10)
-    axs[1].set_xlabel(xlabel, fontsize=10)
+    axs[1].set_ylabel(ylabel, fontsize=style.fontsize or 10)
+    axs[1].set_xlabel(xlabel, fontsize=style.fontsize or 10)
+    if style.fontsize is not None:
+        for ax in axs:
+            ax.tick_params(axis="both", labelsize=style.fontsize)
     if "matched cut-offs" in title:
         axs[1].set_ylim(0, 1.6 * grouped_counts.counts.max())
-    plt.tight_layout()
+    if own_figure:
+        plt.tight_layout()
     return fig, axs
 
 
@@ -659,7 +722,15 @@ def _plot_score_after_nth_abx_exposure(
     max_resolution: bool = False,
     uniqueness_var_ls: list = None,
     boxplot_color: str = "skyblue",
+    axs=None,
+    style: PanelStyle = None,
+    xlabel_note: bool = True,
 ) -> str:
+    """
+    Box plot and count plot of `y_axis` per bin around the n-th exposure with
+    significance stars, drawn in a new figure (saved to `path_to_save`) or in
+    `axs`. `xlabel_note` adds the note on the grouped pre-exposure bin.
+    """
     suff = _get_ordinal_suffix(n)
 
     # perform paired/unpaired significance tests
@@ -690,12 +761,12 @@ def _plot_score_after_nth_abx_exposure(
 
     if n == 0:
         xlabel = "Months since cut-off"
-        title = f"{y_axis.capitalize()} before/after cut-off {tag}"
+        title = f"{y_axis.capitalize()} before/after cut-off {tag}".strip()
     else:
         xlabel = f"Months since {n}{suff} abx exposure"
-        title = f"{y_axis.capitalize()} before/after {n}{suff} abx exposure {tag}"
+        title = f"{y_axis.capitalize()} before/after {n}{suff} abx exposure {tag}".strip()
     ylabel = "# samples"
-    if grouped_samples:
+    if grouped_samples and xlabel_note:
         xlabel += f"\n\n(Here {t1_reference} is last sample prior "
         if n == 0:
             xlabel += f"to cut-off since {min_samples} months)"
@@ -712,6 +783,8 @@ def _plot_score_after_nth_abx_exposure(
         n,
         significance_df,
         boxplot_color=boxplot_color,
+        axs=axs,
+        style=style,
     )
 
     if path_to_save is not None:
@@ -850,66 +923,73 @@ def plot_trajectory(
     jitter=False,
     path_to_output=None,
     flag="",
+    ax=None,
+    fontsize=None,
+    legend_kws=None,
 ):
+    """
+    Score trajectories of one host with its abx events, in a new figure
+    (shown and, with `path_to_output`, saved) or in the given axis `ax`.
+    `fontsize` sets one size for all text (None: notebook sizes) and
+    `legend_kws` are passed to the legend.
+    """
     host_data = df[df["host_id"] == host_id]
 
-    plt.figure(figsize=(10, 6), dpi=600)
+    own_figure = ax is None
+    if own_figure:
+        fig = plt.figure(figsize=(10, 6), dpi=600)
+        ax = fig.gca()
+    label_size = fontsize or 10
+    small_size = fontsize or 9
+
     for score_col in score_cols:
+        y = score_col
         if jitter:
             jitter_amount = 0.11
-            jittered_y = host_data[score_col] + np.random.normal(
+            y = host_data[score_col] + np.random.normal(
                 0, jitter_amount, size=host_data.shape[0]
             )
-            sns.lineplot(
-                x="month5_bin",
-                y=jittered_y,
-                data=host_data,
-                marker="o",
-                label=score_col,
-                alpha=0.7,
-            )
-        else:
-            sns.lineplot(
-                x="month5_bin",
-                y=score_col,
-                data=host_data,
-                marker="o",
-                label=score_col,
-                alpha=0.7,
-            )
+        sns.lineplot(
+            x="month5_bin",
+            y=y,
+            data=host_data,
+            marker="o",
+            label=score_col,
+            alpha=0.7,
+            ax=ax,
+        )
 
     # Plot ABX events
     if abx_events is not None:
         host_abx_events = abx_events[abx_events["host_id"] == host_id]
         for idx, event in host_abx_events.iterrows():
-            plt.axvline(
+            ax.axvline(
                 x=event["abx_start_age_months"],
                 color="darkred",
-                # linestyle="-",
                 label="abx event" if idx == 0 else None,
             )
 
-    plt.title(f"Trajectory Over Time for Host ID: {host_id}", fontsize=10)
-    plt.xlabel("Age [months]", fontsize=10)
-    plt.ylabel("Score", fontsize=10)
-    plt.tick_params(axis="x", labelsize=9)
-    plt.tick_params(axis="y", labelsize=9)
-    plt.grid(True)
+    ax.set_title(f"Trajectory Over Time for Host ID: {host_id}", fontsize=label_size)
+    ax.set_xlabel("Age [months]", fontsize=label_size)
+    ax.set_ylabel("Score", fontsize=label_size)
+    ax.tick_params(axis="both", labelsize=small_size)
+    ax.grid(True)
 
     # Add legend manually
-    handles, labels = plt.gca().get_legend_handles_labels()
+    handles, labels = ax.get_legend_handles_labels()
     if "abx event" not in labels:
-        handles.append(plt.Line2D([0], [0], color="darkred"))
+        handles.append(Line2D([0], [0], color="darkred"))
         labels.append("abx event")
-    plt.legend(handles=handles, labels=labels, fontsize=9)
+    ax.legend(handles=handles, labels=labels, fontsize=small_size, **(legend_kws or {}))
 
     if path_to_output is not None:
         filename = os.path.join(
             path_to_output,
             f"indv_trajectory_{host_id}_{flag}.pdf",
         )
-        plt.savefig(filename, dpi=400, bbox_inches="tight")
-    plt.show()
+        ax.figure.savefig(filename, dpi=400, bbox_inches="tight")
+    if own_figure:
+        plt.show()
 
 
 def _get_age_at_1st_2nd_3rd_abx_exposure(abx_df):
@@ -1118,7 +1198,7 @@ def calculate_matched_metric_n_diff(metric, abx_scores_flat, noabx, cov_groups):
 
     # calculate difference between mean_div and observed div
     # ignoring samples where mean metric is nan (no comparable group exists in noabx)
-    col_for_diff_to_matched = "Δ matched alpha diversity"
+    col_for_diff_to_matched = MATCHED_DIFF_COL
     abx_scores_flat[col_for_diff_to_matched] = (
         abx_scores_flat[f"mean_{metric}"] - abx_scores_flat[metric]
     )
@@ -1127,5 +1207,21 @@ def calculate_matched_metric_n_diff(metric, abx_scores_flat, noabx, cov_groups):
     print(
         f"Number of samples disregarded because of lacking reference "
         f"in noabx: {lacking_ref_count}"
+    )
+    return abx_scores_flat
+
+
+def calculate_relative_matched_diff(abx_scores_flat, metric):
+    """
+    Expresses the difference to the matched mean metric (see
+    `calculate_matched_metric_n_diff`) in percent of that matched mean.
+
+    Returns:
+        pd.DataFrame: Copy of `abx_scores_flat` with the column
+        `REL_MATCHED_DIFF_COL` added.
+    """
+    abx_scores_flat = abx_scores_flat.copy()
+    abx_scores_flat[REL_MATCHED_DIFF_COL] = (
+        100 * abx_scores_flat[MATCHED_DIFF_COL] / abx_scores_flat[f"mean_{metric}"]
     )
     return abx_scores_flat

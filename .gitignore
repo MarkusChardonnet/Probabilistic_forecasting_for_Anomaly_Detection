@@ -4,8 +4,6 @@ __pycache__/
 .DS_Store
 .idea/
 
-tests/*
-
 !data/
 data/*
 !data/original_data/

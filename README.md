@@ -278,13 +278,7 @@ Also, resulting anomaly scores can be compared to matched alpha diversity values
 and individual score trajectories can be explored in `evaluate_indiv_score_increase.ipynb`.
 The notebook `results/evaluate_cond_mean.ipynb` compares the observed Faith PD of exposed infants with the NJODE conditional mean after the 1st, 2nd and 3rd antibiotic exposure on a continuous time axis; it requires the `*_cond_moments_*` tables written with `--save_cond_moments=True`.
 
-The composed figure of the individual score trajectories, the score distributions and the matched alpha diversity differences (in percent of the matched mean) around the first three antibiotic exposures (Fig. 4 of the manuscript) is drawn by `src/figure_score_delineation.py` from the same scores and matching as the notebooks:
-````
-cd src && uv run python figure_score_delineation.py --output=score_delineation.pdf
-````
-Its flags (`--helpfull`) select the model, the scaling-factor options and the hosts of the trajectories; the defaults reproduce the manuscript figure. Tests: `uv run python -m unittest tests.test_figure_score_delineation`.
-
-#### Sensitivity to the recording resolution of the exposure ages (reviewer 2, point 3)
+#### Sensitivity to the recording resolution of the exposure ages
 
 The published model id-57, its train/validation split and its scaling factors are kept; all recorded antibiotic exposure ages are shifted by -0.5 and +0.5 months (tokens `m05`, `p05`), the exposure-derived columns of the feature tables are recomputed, and the scoring and the evaluation are repeated on the shifted tables. From `src/`:
 
@@ -312,6 +306,39 @@ uv run python figure_exposure_shift_flows.py --flow_shift=0.5
 
 The figure `supp_exposure_shift.pdf`, the per-bin summary `exposure_shift_summary.csv` and the peak months `exposure_shift_peaks.csv` are written to the evaluation folder of id-57 (or `--output`), as are the alluvial `exposure_shift_flows_<token>.pdf` and its band sizes `exposure_shift_flows_<token>.csv`. Tests: `uv run python -m unittest tests.test_make_shifted_exposure_tables tests.test_figure_exposure_shift tests.test_figure_exposure_shift_flows`.
 
+
+---
+# Manuscript figures
+
+The table lists what draws each figure of the [manuscript](https://arxiv.org/abs/2510.00087): a script of this repository (in `src/`), a notebook (in `results/`) or code of the data-processing repository [anomaly_microbiome_data_processing](https://github.com/adamovanja/anomaly_microbiome_data_processing) (*data processing*, run as described in its README). Figures marked *assembled* were combined by hand from the panels written by the named code. *File* is the name of the figure in the manuscript sources.
+
+| Figure | Shows | File | Drawn by |
+|--------|-------|------|----------|
+| 1 | Overview of the framework | `schematic_new.pdf` | schematic drawn in PowerPoint |
+| 2 | Anomalies detected in simulated time series | `simulation_insights_1.pdf` | `figure_simulation_insights.py`; the manuscript file by `simulation_insights_pdf.py` |
+| 3 | Microbiome cohort | `dataset.pdf` | *data processing*: `scripts/describe_dataset.ipynb` |
+| 4 | Score trajectories, score distributions and matched alpha diversity around the 1st to 3rd exposure | `score_delineation.pdf` | `figure_score_delineation.py` |
+| 5 | Scores split by exposure duration and by age at exposure | `scoresplit.pdf` | `figure_score_splits.py` |
+| S1 | Samples of the synthetic base and anomalous processes | `synth_process_paths.pdf` | *assembled*: `path-0.pdf` of the plot datasets of [Generating the data](#generating-the-data) |
+| S2 | Learned conditional expectation and standard deviation | `indiv_learned_paths.pdf` | *assembled*: `run.py --plot_paths=plot_paths_novel_alpha_div2` |
+| S3 | Conditional target distribution and scaling factors on the validation set | `distribution_matching_zscores.pdf` | *assembled*: `dist/val-noabx/cond_std_dist-normal-0.pdf` and `zscore_scaling_factors_coord-0.pdf` of the scaling-factor commands of [Compute Anomaly Detection Scores](#compute-anomaly-detection-scores) |
+| S4 | Scores around cut-offs in the validation set | `supp_time_horizon.pdf` | `figure_time_horizon.py` |
+| S5 | Validation-set benchmark with cut-offs at the exposure months of the test set | `baseline.pdf` | `figure_supplementary_scores.py` |
+| S6 | Scores around the 2nd exposure split by antibiotic type | `penicillin_2nd.pdf` | `figure_score_splits.py` |
+| S7 | Scores around 1st exposures in the first year split by milk diet | `scoresplit_age_diet.pdf` | `figure_score_splits.py` |
+| S8 | Exposure characteristics and scores by score response to the exposure | `indiv_trajectory_analysis.pdf` | *assembled*: `evaluate_indiv_score_increase.ipynb` |
+| S9 | Antibiotic courses per host and over age | `supp_abx.pdf` | *data processing*, *assembled*: `nb_abx_courses_per_host.pdf` and `nb_abx_courses_over_time.pdf` of `scripts/describe_alpha_diversity.ipynb` |
+| S10 | Alpha diversity over age of unexposed infants | `alpha_noabx_boxplot_over_age.pdf` | *data processing*: `scripts/describe_alpha_diversity.ipynb` |
+| S11 | Faith PD over age by covariate, country and exposure | `alpha_all_lineplot_splitcov.pdf` | *data processing*: `scripts/describe_alpha_diversity.ipynb` |
+| S12 | Unscaled and rescaled z-scores | `histograms_scaled_dist_coord-0_overview.pdf` | `Microbial_AD_eval.py --compute_zscore_scaling_factors=True` ([Compute Anomaly Detection Scores](#compute-anomaly-detection-scores)) |
+| S13 | Weaning status and milk diet around the 1st to 3rd exposure | `diet_covariates_abx_exp.pdf` | `figure_diet_covariates.py` |
+| S14 | Scores around the 1st to 3rd exposure without grouping the earlier samples; 3rd exposure by time since the 2nd | `priorexposure.pdf` | `figure_supplementary_scores.py` |
+| S15 | Observed Faith PD relative to the conditional mean | `supp_rel_deficit.pdf` | `evaluate_cond_mean.ipynb` (`rel_deficit_boxplots.pdf`) |
+| S16 | Matched diversity deficit for Faith PD and Shannon diversity | `supp_metric_sensitivity.pdf` | *data processing*: `scripts/metric_sensitivity/metric_sensitivity.py` |
+| S17 | Scores of the model retrained on Shannon diversity | `supp_shannon_scores.pdf` | `figure_supplementary_scores.py` |
+| S18 | Scores with the exposure ages shifted by ±15 days | `supp_exposure_shift.pdf` | `figure_exposure_shift.py` |
+
+The scaling-factor plots of S3 and S12 are written to `anomaly_detection/zscore_scaling_factors_best/SF-nc_std_z_scores_MA-10_RD-True/` of model id-57.
 
 ## Contact
 In case of questions or comments feel free to raise an issue in this repository.

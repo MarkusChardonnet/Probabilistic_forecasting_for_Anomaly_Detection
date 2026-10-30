@@ -520,9 +520,9 @@ param_list_AD_synthetic_reliability_eval = get_parameter_array(
 AD_microbial_novel_alpha_div_shannon = "{}saved_models_microbial_novel_alpha_div_shannon/".format(data_path)
 AD_microbial_novel_alpha_div_shannon_ids = [1]
 
-# sensitivity analysis (reviewer 2, point 3): id-57 scored on the datasets with exposure
-# ages shifted by -0.5 / +0.5 months; the folders hold copies of its checkpoint and scaling
-# factors so that the published scores stay untouched
+# sensitivity analysis of the exposure-age resolution: id-57 scored on the datasets
+# with exposure ages shifted by -0.5 / +0.5 months; the folders hold copies of its
+# checkpoint and scaling factors so that the published scores stay untouched
 AD_microbial_novel_alpha_div_shift_m05 = "{}saved_models_microbial_novel_alpha_div2_shift_m05/".format(data_path)
 AD_microbial_novel_alpha_div_shift_m05_ids = [57]
 param_list_AD_microbial_novel_alpha_div2_shift_m05 = get_parameter_array(

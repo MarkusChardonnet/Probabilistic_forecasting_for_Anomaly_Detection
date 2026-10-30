@@ -147,6 +147,7 @@ dependencies = [
     "wrapt>=2.5.0",
     "yarl>=1.25.1",
     "zipp>=4.1.1",
+    "pdfminer-six>=20250506",
 ]
 
 [tool.uv.sources]

@@ -262,7 +262,8 @@ config_novel_alpha_faith_pd = {
     'which_split': ['all', 'no_abx'],
 }
 
-# sensitivity analysis (reviewer 1, point 4): same dataset with Shannon diversity as target
+# sensitivity analysis of the diversity metric: same dataset with Shannon diversity
+# as target
 config_novel_alpha_shannon = {
     'dataset': 'ft_vat19_anomaly_v20240806_entero_family.tsv',
     'dataset_name': 'microbial_novel_alpha_shannon',
@@ -277,7 +278,8 @@ config_novel_alpha_shannon = {
     'which_split': ['all', 'no_abx'],
 }
 
-# sensitivity analysis (reviewer 2, point 3): exposure ages shifted by -0.5 / +0.5 months
+# sensitivity analysis of the exposure-age resolution: exposure ages shifted by
+# -0.5 / +0.5 months
 config_novel_alpha_faith_pd_shift_m05 = {
     'dataset': 'ft_vat19_anomaly_v20240806_entero_family_shift_m05.tsv',
     'dataset_name': 'microbial_novel_alpha_faith_pd_shift_m05',

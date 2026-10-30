@@ -33,6 +33,13 @@ class PanelStyle:
         legend_markersize: Size of the star markers in the box-plot legend.
         legend_linewidth: Width of the lines in the count-plot legend.
         star_va: Vertical alignment of the stars at their row.
+        ylim: Fixed y-limits of the box plot (None: from its data, see
+        `box_ylim`). The star rows then refer to ylim[1] / ylim_factor, so that
+        panels sharing their limits show their stars at the same height.
+        legend: "panel" draws the star legend in the box plot and the count
+        legend in the count plot (notebook panels), "auto" draws the star
+        legend only if a star was drawn, "none" draws no legend (for figures
+        with one shared legend).
     """
 
     fontsize: float = None
@@ -42,6 +49,8 @@ class PanelStyle:
     legend_markersize: float = 12
     legend_linewidth: float = 3
     star_va: str = "baseline"
+    ylim: tuple = None
+    legend: str = "panel"
 
 
 def _transform_scores(
@@ -143,6 +152,16 @@ def _add_md_from_ft(abx_scores_flat, ft_name, path_to_data="../data/original_dat
     return abx_scores_flat
 
 
+def box_ylim(values, headroom):
+    """
+    y-limits of a box panel as drawn by `_create_subplot`: `headroom` times
+    the maximum above, and -1 or 10 % below the minimum, whichever is lower.
+    """
+    y_min = values.min()
+    y_min = -1 if y_min > -1 else 1.1 * y_min
+    return (y_min, headroom * values.max())
+
+
 def _create_subplot(
     x_axis,
     y_axis,
@@ -203,16 +222,14 @@ def _create_subplot(
     axs[0].set_title(title, fontsize=style.fontsize or 12)
     if not own_figure:
         axs[0].set_xlabel("")
-    y_max = data_c[y_axis].max()
-    y_min = data_c[y_axis].min()
-    if y_min > -1:
-        y_min = -1
+    if style.ylim is not None:
+        axs[0].set_ylim(*style.ylim)
+        # reference of the star rows: the maximum the limits were derived from
+        y_ref = style.ylim[1] / style.ylim_factor
     else:
-        y_min = y_min * 1.1
-    if result_df is not None:
-        axs[0].set_ylim(y_min, style.ylim_factor * y_max)
-    else:
-        axs[0].set_ylim(y_min, 1.1 * y_max)
+        headroom = style.ylim_factor if result_df is not None else 1.1
+        axs[0].set_ylim(*box_ylim(data_c[y_axis], headroom))
+        y_ref = data_c[y_axis].max()
     if n is not None:
         zero_index = np.where(np.array(range_x) == 0.0)[0][0]
         axs[0].axvline(zero_index - 0.5, color="darkred")
@@ -246,6 +263,7 @@ def _create_subplot(
         if star_fontsize is None:
             star_fontsize = 22 + step_size * 2
 
+        nb_stars = 0
         for test, (y_shift, color) in dic_tests.items():
             for t1, p_val in zip(result_df.index, result_df[f"P-value {test}"]):
                 if p_val < 0.05:
@@ -254,13 +272,13 @@ def _create_subplot(
                     sign = "*"
 
                 if p_val < 0.1:
-                    max_y = data_c[y_axis].max()
+                    nb_stars += 1
                     # correct scaling of x star location with regards to step
                     # size
                     x_star_loc = t1 * (1 / step_size) + zero_index
                     axs[0].text(
                         x_star_loc,
-                        y_shift * max_y,
+                        y_shift * y_ref,
                         sign,
                         color=color,
                         ha="center",
@@ -312,10 +330,12 @@ def _create_subplot(
         ]
         legend_txt = ["unpaired to -1.0", "paired to -1.0"]
 
-        axs[0].legend(
-            custom_cross, legend_txt, loc="upper right", fontsize=style.fontsize
-        )
-        axs[1].legend(custom_lines, legend_txt, fontsize=style.fontsize)
+        if style.legend == "panel" or (style.legend == "auto" and nb_stars > 0):
+            axs[0].legend(
+                custom_cross, legend_txt, loc="upper right", fontsize=style.fontsize
+            )
+        if style.legend != "none":
+            axs[1].legend(custom_lines, legend_txt, fontsize=style.fontsize)
 
     if n is not None:
         axs[1].axvline(zero_index - 0.5, color="darkred")
@@ -926,12 +946,15 @@ def plot_trajectory(
     ax=None,
     fontsize=None,
     legend_kws=None,
+    title=None,
+    show_legend=True,
 ):
     """
     Score trajectories of one host with its abx events, in a new figure
     (shown and, with `path_to_output`, saved) or in the given axis `ax`.
-    `fontsize` sets one size for all text (None: notebook sizes) and
-    `legend_kws` are passed to the legend.
+    `fontsize` sets one size for all text (None: notebook sizes),
+    `legend_kws` are passed to the legend, `title` replaces the notebook
+    title and `show_legend=False` leaves the legend to the caller.
     """
     host_data = df[df["host_id"] == host_id]
 
@@ -969,7 +992,9 @@ def plot_trajectory(
                 label="abx event" if idx == 0 else None,
             )
 
-    ax.set_title(f"Trajectory Over Time for Host ID: {host_id}", fontsize=label_size)
+    if title is None:
+        title = f"Trajectory Over Time for Host ID: {host_id}"
+    ax.set_title(title, fontsize=label_size)
     ax.set_xlabel("Age [months]", fontsize=label_size)
     ax.set_ylabel("Score", fontsize=label_size)
     ax.tick_params(axis="both", labelsize=small_size)
@@ -980,7 +1005,13 @@ def plot_trajectory(
     if "abx event" not in labels:
         handles.append(Line2D([0], [0], color="darkred"))
         labels.append("abx event")
-    ax.legend(handles=handles, labels=labels, fontsize=small_size, **(legend_kws or {}))
+    if show_legend:
+        ax.legend(
+            handles=handles, labels=labels, fontsize=small_size, **(legend_kws or {})
+        )
+    elif ax.get_legend() is not None:
+        # seaborn's lineplot adds a legend of its own
+        ax.get_legend().remove()
 
     if path_to_output is not None:
         filename = os.path.join(

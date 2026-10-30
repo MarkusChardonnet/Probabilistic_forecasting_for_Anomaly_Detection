@@ -2075,7 +2075,7 @@ plot_paths_novel_alpha_div2_abx = {
 
 
 # ------------------------------------------------------------------------------
-# sensitivity analysis (reviewer 1, point 4): the published configuration
+# sensitivity analysis of the diversity metric: the published configuration
 # (id-57 of saved_models_microbial_novel_alpha_div2) with Shannon diversity as
 # target. param_dict_microbial_sig_rnn_novel_alpha_div2 is, at this point, the
 # single-configuration dict of the id-57 parameters (w_geo block above).

@@ -14,6 +14,7 @@ src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
 sys.path.append(src_dir)
 
 from figure_exposure_shift import (  # noqa: E402
+    BASE_FONTSIZE,
     EXPOSURE_LABELS,
     FIGURE_SIZE_IN,
     FOOTNOTE,
@@ -170,15 +171,26 @@ class TestFigure(unittest.TestCase):
         for expected in ["a", "b", "c"] + EXPOSURE_LABELS:
             self.assertIn(expected, texts)
 
-    def test_legend_in_the_top_right_of_the_rightmost_panel_of_each_row(self):
-        with_legend = [ax for ax in self.axes if ax.get_legend() is not None]
-        self.assertEqual(with_legend, [row[2] for row in self.rows])
-        for ax in with_legend:
-            self.assertEqual(ax.get_legend()._loc, 1)  # matplotlib code of 'upper right'
+    def test_one_legend_centred_above_the_centred_footnote_below_the_grid(self):
+        self.assertTrue(all(ax.get_legend() is None for ax in self.axes))
+        (legend,) = self.fig.legends
+        self.assertEqual(
+            [t.get_text() for t in legend.get_texts()], ["unpaired to -1.0", "paired to -1.0"]
+        )
+        self.fig.canvas.draw()
+        (note,) = [t for t in self.fig.texts if t.get_text() == FOOTNOTE]
+        self.assertEqual(note.get_ha(), "center")
+        box, text = legend.get_window_extent(), note.get_window_extent()
+        centre = (self.axes[0].get_window_extent().x0 + self.axes[2].get_window_extent().x1) / 2
+        self.assertAlmostEqual((box.x0 + box.x1) / 2, centre, delta=1.0)
+        self.assertAlmostEqual((text.x0 + text.x1) / 2, centre, delta=1.0)
+        self.assertGreaterEqual(box.y0, text.y1)
+        self.assertLessEqual(box.y1, min(ax.xaxis.label.get_window_extent().y0 for ax in self.rows[2]))
+        self.assertEqual({t.get_fontsize() for t in legend.get_texts()}, {BASE_FONTSIZE})
+        self.assertEqual(note.get_fontsize(), BASE_FONTSIZE)
 
     def test_legends_do_not_hide_stars(self):
-        # meaningful only if the legend panels carry stars
-        self.assertTrue(any(_star_texts(row[2]) for row in self.rows))
+        self.assertTrue(any(_star_texts(ax) for ax in self.axes))
         self.assertFalse(legend_hides_stars(self.fig))
 
     def test_stars_above_all_plotted_values_and_aligned_within_a_row(self):
@@ -203,6 +215,7 @@ class TestFigure(unittest.TestCase):
         self.assertFalse(any(NOTE in label for label in xlabels))
         for ax in self.axes:
             self.assertTrue(any(label.get_visible() for label in ax.get_xticklabels()))
+        self.assertTrue(all(ax.xaxis.label.get_visible() for ax in self.rows[2]))
         texts = [t.get_text() for t in self.fig.texts]
         self.assertEqual(texts.count(FOOTNOTE), 1)
         self.assertIn("-1.0 is the last sample prior", FOOTNOTE)

@@ -1,7 +1,6 @@
 """
 Shifted copies of the antibiotic exposure table and the feature tables for the
-sensitivity analysis of the recording resolution of the exposure ages
-(manuscript revision, reviewer 2, point 3).
+sensitivity analysis of the recording resolution of the exposure ages.
 
 All recorded exposure ages are shifted by a fixed number of months and the
 exposure-derived columns of the feature tables are recomputed with the rules of

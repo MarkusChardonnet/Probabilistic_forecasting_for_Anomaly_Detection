@@ -1,16 +1,15 @@
 """
 Alluvial figure of the sensitivity analysis for the recording resolution of the
-antibiotic exposure ages (manuscript revision, reviewer 2, point 3): where the
-samples of the published analysis (Fig. 4b, recorded exposure ages) end up when
-all recorded exposure ages are shifted by a fixed number of months. One panel
-per exposure (1st to 3rd); each band connects the monthly bin of a set of
-samples as recorded (left) with their bin under the shifted dating (right) and
-is coloured by what happens to them. Bin -1 is the last sample within 3 months
-before the dated exposure and after the previous one; 'not used' collects the
-samples outside the selection under one of the two datings (one sample per
-infant and bin, right censoring at the next exposure, 6-month window,
-24-month limit). Requires the scores of the shifted re-scoring run (see the
-README). Run from src/:
+antibiotic exposure ages: where the samples of the published analysis (Fig. 4b,
+recorded exposure ages) end up when all recorded exposure ages are shifted by a
+fixed number of months. One panel per exposure (1st to 3rd); each band connects
+the monthly bin of a set of samples as recorded (left) with their bin under the
+shifted dating (right) and is coloured by what happens to them. Bin -1 is the
+last sample within 3 months before the dated exposure and after the previous
+one; 'not used' collects the samples outside the selection under one of the two
+datings (one sample per infant and bin, right censoring at the next exposure,
+6-month window, 24-month limit). Requires the scores of the shifted re-scoring
+run (see the README). Run from src/:
 
     uv run python figure_exposure_shift_flows.py --flow_shift=-0.5
 
@@ -36,7 +35,8 @@ from figure_exposure_shift import (
     select_exposure,
     variant_names,
 )
-from figure_score_delineation import RC_PARAMS, evaluation_folder_name, scores_folder_name
+from figure_score_delineation import evaluation_folder_name, scores_folder_name
+from figure_style import rc_params
 from make_shifted_exposure_tables import shift_token
 
 NODES = [-1.0, 0.0, 1.0, 2.0, 3.0, 4.0, 5.0, "not used"]
@@ -72,6 +72,8 @@ MIN_LABEL = {
 INK, INK_SECONDARY = "#0b0b0b", "#52514e"
 FIGURE_SIZE_IN = (7.2, 7.4)
 BASE_FONTSIZE = 7
+# line widths, ticks and paddings of the published figure (scaled by 0.4)
+RC_PARAMS = rc_params(BASE_FONTSIZE, 0.4)
 GRID = dict(wspace=0.6, left=0.09, right=0.94, top=0.94, bottom=0.11)
 NODE_WIDTH = 0.1  # in band-length units (bands run from x=0 to x=1)
 NODE_GAP = 4.0  # in samples

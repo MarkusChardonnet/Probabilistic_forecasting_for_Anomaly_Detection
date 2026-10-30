@@ -1,12 +1,12 @@
 """
 Composes the supplementary figure of the sensitivity analysis for the recording
-resolution of the antibiotic exposure ages (manuscript revision, reviewer 2,
-point 3): anomaly score distributions around the first three antibiotic
-exposures (rows a-c, box plots as Fig. 4b without the count panels) with all
-recorded exposure ages shifted by -15 days, as recorded and shifted by +15 days
-(columns). The columns use the scores of the published model id-57 and of its
-re-scorings on the shifted datasets (see the README). The script also writes the per-bin summary and the months of
-maximal median score. Run from src/:
+resolution of the antibiotic exposure ages: anomaly score distributions around
+the first three antibiotic exposures (rows a-c, box plots as Fig. 4b without
+the count panels) with all recorded exposure ages shifted by -15 days, as
+recorded and shifted by +15 days (columns). The columns use the scores of the
+published model id-57 and of its re-scorings on the shifted datasets (see the
+README). The script also writes the per-bin summary and the months of maximal
+median score. Run from src/:
 
     uv run python figure_exposure_shift.py --output=supp_exposure_shift.pdf
 
@@ -20,11 +20,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from absl import app, flags
 
-from figure_score_delineation import (
-    RC_PARAMS,
-    evaluation_folder_name,
-    scores_folder_name,
-)
+from figure_score_delineation import evaluation_folder_name, scores_folder_name
+from figure_style import legend_above_footnote, rc_params
 from make_shifted_exposure_tables import shift_token
 from utils_eval_score import (
     PanelStyle,
@@ -42,34 +39,35 @@ ROW_LETTERS = ["a", "b", "c"]
 MIN_SAMPLES, MAX_SAMPLES = -3.0, 6.0
 REFERENCE_BIN = -1.0
 
-# manuscript text width, 6 pt text, stars and letters slightly larger
+# manuscript text width, 6 pt text, stars and letters slightly larger; line
+# widths, ticks and paddings of the published figure (scaled by 0.4)
 FIGURE_SIZE_IN = (5.17, 5.4)
 BASE_FONTSIZE = 6
 STAR_FONTSIZE = 8
 LETTER_FONTSIZE = 9
+RC_PARAMS = rc_params(BASE_FONTSIZE, 0.4)
 # star colours of the panel helper (utils_eval_score._create_subplot) and the
 # heights of the unpaired and paired stars as multiples of the largest value of
 # a row of the grid; the upper y-limit of a row is YLIM_FACTOR times that value
-# (as Fig. 4b) and is raised in steps of YLIM_STEP until the legend of the row
-# hides no star
+# (as Fig. 4b)
 UNPAIRED_STAR_COLOR, PAIRED_STAR_COLOR = "sandybrown", "darkgreen"
 STAR_HEIGHTS = {UNPAIRED_STAR_COLOR: 1.2, PAIRED_STAR_COLOR: 1.1}
-YLIM_FACTOR, YLIM_STEP, YLIM_FACTOR_MAX = 1.7, 0.1, 3.0
+YLIM_FACTOR = 1.7
+# no legend in the panels: one legend below the grid
 STYLE = PanelStyle(
     fontsize=BASE_FONTSIZE,
     ylim_factor=YLIM_FACTOR,
     star_rows=(STAR_HEIGHTS[UNPAIRED_STAR_COLOR], STAR_HEIGHTS[PAIRED_STAR_COLOR]),
     star_fontsize=STAR_FONTSIZE,
-    legend_markersize=4.8,
-    legend_linewidth=1.2,
     star_va="center",
+    legend="none",
 )
-GRID = dict(left=0.1, right=0.99, top=0.95, bottom=0.1, wspace=0.25, hspace=0.15)
+GRID = dict(left=0.1, right=0.99, top=0.95, bottom=0.13, wspace=0.25, hspace=0.15)
 LETTER_X, LABEL_X = 0.005, 0.03
 XLABEL = "Months since exposure"
-# the note on the grouped pre-exposure bin is written once below the grid
+# the note on the grouped pre-exposure bin is written once below the grid, the
+# legend centred right above it
 FOOTNOTE = f"Bin {REFERENCE_BIN} is the last sample prior to the exposure since {MIN_SAMPLES} months"
-FOOTNOTE_Y = 0.008
 
 SUMMARY_COLUMNS = [
     "variant",
@@ -180,15 +178,11 @@ def _draw_panel(fig, cell, abx_scores_flat, abx_df, n):
         xlabel_note=False,
     )
     counts.remove()
+    # the helper hides the x tick labels of a box plot above its count panel,
+    # and seaborn then its x label: both are shown again
     ax.tick_params(labelbottom=True)
+    ax.xaxis.label.set_visible(True)
     return ax, data[f"score_{n}"].max()
-
-
-def _remove_legends(axes):
-    for ax in axes:
-        legend = ax.get_legend()
-        if legend is not None:
-            legend.remove()
 
 
 def _label_row(fig, ax, letter, label):
@@ -225,20 +219,12 @@ def _align_row(axes, maximum):
     _set_row_ylim(axes, maximum, YLIM_FACTOR)
 
 
-def _make_room_for_legend(fig, axes, maximum):
-    """Raises the y range of a row until its legend hides no star."""
-    factor = YLIM_FACTOR
-    while legend_hides_stars(fig, axes) and factor < YLIM_FACTOR_MAX:
-        factor += YLIM_STEP
-        _set_row_ylim(axes, maximum, factor)
-
-
 def compose_exposure_shift_figure(variants):
     """
     Composes the figure: one row per exposure (a-c: first to third), one column
     per variant `(label, abx_scores_flat, abx_df)` in the given order; each
     panel the score box plot of Fig. 4b, with common star heights and y range
-    per row and the legend in the rightmost panel of each row.
+    per row, and below the grid one legend centred above the footnote.
 
     Returns:
         matplotlib.figure.Figure
@@ -246,7 +232,7 @@ def compose_exposure_shift_figure(variants):
     with plt.rc_context({**RC_PARAMS, "font.size": BASE_FONTSIZE}):
         fig = plt.figure(figsize=FIGURE_SIZE_IN)
         grid = fig.add_gridspec(len(EXPOSURES), len(variants), **GRID)
-        last_row, last_col = len(EXPOSURES) - 1, len(variants) - 1
+        last_row = len(EXPOSURES) - 1
         for row, n in enumerate(EXPOSURES):
             axes, maxima = [], []
             for col, (label, abx_scores_flat, abx_df) in enumerate(variants):
@@ -255,14 +241,13 @@ def compose_exposure_shift_figure(variants):
                 ax.set_xlabel(XLABEL if row == last_row else "", fontsize=BASE_FONTSIZE)
                 if col != 0:
                     ax.set_ylabel("")
-                if col != last_col:
-                    _remove_legends((ax,))
                 axes.append(ax)
                 maxima.append(maximum)
             _label_row(fig, axes[0], ROW_LETTERS[row], EXPOSURE_LABELS[row])
             _align_row(axes, max(maxima))
-            _make_room_for_legend(fig, axes, max(maxima))
-        fig.text(GRID["left"], FOOTNOTE_Y, FOOTNOTE, fontsize=BASE_FONTSIZE, ha="left", va="bottom")
+        legend_above_footnote(
+            fig, (GRID["left"] + GRID["right"]) / 2, FOOTNOTE, fontsize=BASE_FONTSIZE
+        )
     return fig
 
 
@@ -387,7 +372,7 @@ def main(argv):
     )
     fig = compose_exposure_shift_figure(variants)
     if legend_hides_stars(fig):
-        print("WARNING: a legend overlaps significance stars; raise YLIM_FACTOR_MAX")
+        print("WARNING: a legend overlaps significance stars")
     save_figure(fig, output)
     out_dir = os.path.dirname(os.path.abspath(output))
     summary = summarize_variants(variants)

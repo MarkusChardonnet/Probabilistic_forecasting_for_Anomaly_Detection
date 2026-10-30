@@ -18,13 +18,25 @@ sys.path.append(src_dir)
 
 from figure_score_delineation import (  # noqa: E402
     BASE_FONTSIZE,
+    COLUMN_TITLES,
+    COUNT_YLABEL,
     FIGURE_SIZE_IN,
+    FOOTNOTE,
     LETTER_FONTSIZE,
+    MATCHED_YLABEL,
     STAR_FONTSIZE,
+    XLABEL,
+    YLABEL_PAD_PT,
     compose_score_delineation,
     save_figure,
     scores_folder_name,
-    trajectory_legend_kws,
+    trajectory_title,
+)
+from figure_style import drawn_tick_labels  # noqa: E402
+from tests.test_figure_style import (  # noqa: E402
+    assert_stars_clear_of_the_top,
+    assert_texts_do_not_overlap,
+    assert_texts_inside,
 )
 from utils_eval_score import (  # noqa: E402
     MATCHED_DIFF_COL,
@@ -114,11 +126,8 @@ class TestHelpers(unittest.TestCase):
         out = calculate_relative_matched_diff(df, METRIC)
         np.testing.assert_allclose(out[REL_MATCHED_DIFF_COL], [25.0, -10.0])
 
-    def test_trajectory_legend_corner_is_pinned_for_published_hosts_only(self):
-        self.assertEqual(trajectory_legend_kws("E021822")["loc"], "upper right")
-        self.assertEqual(trajectory_legend_kws("P015091")["loc"], "upper left")
-        self.assertEqual(trajectory_legend_kws("H3")["loc"], "best")
-        self.assertLess(trajectory_legend_kws("H3")["labelspacing"], 0.5)
+    def test_trajectory_title_is_short_enough_for_the_printed_panel(self):
+        self.assertEqual(trajectory_title("P015091"), "Host ID: P015091")
 
     def test_scores_folder_name_matches_notebook_convention(self):
         self.assertEqual(
@@ -223,6 +232,47 @@ class TestPanelStyle(unittest.TestCase):
                 self.assertEqual(text.get_fontsize(), 6, text.get_text())
         self.assertEqual(len(fig.axes), 2)
 
+    def _draw(self, style, p_unpaired=0.01):
+        data, result_df = self._box_inputs()
+        result_df["P-value unpaired"] = p_unpaired
+        fig, axs = plt.subplots(2, 1)
+        _create_subplot(
+            "diff_age_nth_abx",
+            "score_1",
+            data,
+            "t",
+            "# samples",
+            "x",
+            1.0,
+            1,
+            result_df,
+            axs=axs,
+            style=style,
+        )
+        stars = [t for t in axs[0].texts if "*" in t.get_text()]
+        return axs, stars
+
+    def test_legend_none_keeps_stars_but_draws_no_axis_legend(self):
+        axs, stars = self._draw(PanelStyle(legend="none"))
+        self.assertEqual(len(stars), 1)
+        self.assertIsNone(axs[0].get_legend())
+        self.assertIsNone(axs[1].get_legend())
+
+    def test_legend_auto_drops_the_star_legend_when_no_star_is_drawn(self):
+        axs, stars = self._draw(PanelStyle(legend="auto"), p_unpaired=0.5)
+        self.assertEqual(stars, [])
+        self.assertIsNone(axs[0].get_legend())
+        self.assertEqual(
+            [t.get_text() for t in axs[1].get_legend().get_texts()],
+            ["unpaired to -1.0", "paired to -1.0"],
+        )
+
+    def test_legend_auto_keeps_both_legends_with_a_star(self):
+        axs, stars = self._draw(PanelStyle(legend="auto"))
+        self.assertEqual(len(stars), 1)
+        self.assertIsNotNone(axs[0].get_legend())
+        self.assertIsNotNone(axs[1].get_legend())
+
 
 class TestLegacyPanels(unittest.TestCase):
     def setUp(self):
@@ -287,6 +337,21 @@ class TestLegacyPanels(unittest.TestCase):
         )
         self.assertEqual(ax.get_legend().labelspacing, 0.2)
 
+    def test_trajectory_title_and_legend_can_be_overridden(self):
+        fig, ax = plt.subplots()
+        plot_trajectory(
+            self.exposed,
+            self.abx_df,
+            "H3",
+            ["score_1"],
+            ax=ax,
+            fontsize=6,
+            title="Host ID: H3",
+            show_legend=False,
+        )
+        self.assertEqual(ax.get_title(), "Host ID: H3")
+        self.assertIsNone(ax.get_legend())
+
     def test_trajectory_draws_on_given_axis(self):
         fig, ax = plt.subplots()
         plot_trajectory(
@@ -307,44 +372,73 @@ class TestLegacyPanels(unittest.TestCase):
         self.assertEqual(len(fig.axes), 1)
 
 
+ORDINALS = ["1st", "2nd", "3rd"]
+
+
 class TestComposedFigure(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         exposed, abx_df = synthetic_inputs()
         cls.fig = compose_score_delineation(exposed, abx_df, HOSTS)
+        cls.fig.canvas.draw()
         cls.trajectory_axes = cls.fig.axes[:3]
         cls.pair_axes = cls.fig.axes[3:]
         cls.box_axes = cls.pair_axes[0::2]
         cls.count_axes = cls.pair_axes[1::2]
+        cls.columns = (cls.pair_axes[:6], cls.pair_axes[6:])
 
     @classmethod
     def tearDownClass(cls):
         plt.close("all")
 
-    def test_page_size_equals_former_figure(self):
+    def _text(self, text):
+        (found,) = [t for t in self.fig.texts if t.get_text() == text]
+        return found
+
+    def _centre_of_b_and_c(self):
+        """Horizontal centre of the subplots of panels b and c, in pixels."""
+        return (self.pair_axes[0].get_window_extent().x0 + self.pair_axes[-1].get_window_extent().x1) / 2
+
+    def test_page_is_the_printed_width_of_the_manuscript(self):
         np.testing.assert_allclose(self.fig.get_size_inches(), FIGURE_SIZE_IN)
-        np.testing.assert_allclose(
-            FIGURE_SIZE_IN, (547.52 / 72, 621.682 / 72), rtol=1e-6
-        )
+        np.testing.assert_allclose(FIGURE_SIZE_IN, (5.17, 5.8), rtol=1e-6)
 
     def test_three_trajectory_panels_then_six_box_count_pairs(self):
         self.assertEqual(len(self.fig.axes), 15)
         self.assertEqual(
             [ax.get_title() for ax in self.trajectory_axes],
-            [f"Trajectory Over Time for Host ID: {h}" for h in HOSTS],
+            [f"Host ID: {h}" for h in HOSTS],
         )
+        self.assertEqual({ax.get_title() for ax in self.pair_axes}, {""})
+
+    def test_one_title_per_panel_above_the_exposure_ordinals(self):
         self.assertEqual(
-            [ax.get_title() for ax in self.box_axes],
+            COLUMN_TITLES,
             [
-                "Score_1 before/after 1st abx exposure",
-                "Score_2 before/after 2nd abx exposure",
-                "Score_3 before/after 3rd abx exposure",
-                "Δ matched alpha diversity [%] before/after 1st abx exposure",
-                "Δ matched alpha diversity [%] before/after 2nd abx exposure",
-                "Δ matched alpha diversity [%] before/after 3rd abx exposure",
+                "Score before/after n-th abx exposure",
+                "Matched diversity before/after n-th abx exposure",
             ],
         )
-        self.assertEqual({ax.get_ylabel() for ax in self.count_axes}, {"# samples"})
+        for title_text, column in zip(COLUMN_TITLES, self.columns):
+            title = self._text(title_text)
+            self.assertEqual(title.get_fontsize(), BASE_FONTSIZE)
+            box = title.get_window_extent()
+            ordinal = [t for t in column[0].texts if t.get_text() == "1st"][0]
+            self.assertGreater(box.y0, ordinal.get_window_extent().y1)
+            # centred over the subplots of its panel
+            axes = column[0].get_window_extent()
+            self.assertAlmostEqual((box.x0 + box.x1) / 2, (axes.x0 + axes.x1) / 2, delta=1.0)
+
+    def test_exposure_ordinal_above_each_red_line(self):
+        for ax, ordinal in zip(self.box_axes, ORDINALS * 2):
+            (line,) = [line for line in ax.lines if line.get_color() == "darkred"]
+            (label,) = [t for t in ax.texts if t.get_text() in ORDINALS]
+            self.assertEqual(label.get_text(), ordinal)
+            self.assertEqual(label.get_position()[0], line.get_xdata()[0])
+            self.assertEqual((label.get_ha(), label.get_va()), ("center", "bottom"))
+            self.assertEqual(label.get_color(), "darkred")
+            self.assertEqual(label.get_fontsize(), BASE_FONTSIZE)
+            self.assertGreaterEqual(label.get_window_extent().y0, ax.get_window_extent().y1)
 
     def test_box_panels_use_former_colours(self):
         def box_colour(ax):
@@ -358,13 +452,77 @@ class TestComposedFigure(unittest.TestCase):
         for ax in self.box_axes[3:]:
             np.testing.assert_allclose(box_colour(ax), purple)
 
-    def test_x_axis_note_only_under_bottom_pairs(self):
-        note = "(Here -1.0 is last sample prior to abx since -3.0 months)"
-        with_note = [ax for ax in self.fig.axes if note in ax.get_xlabel()]
-        self.assertEqual(with_note, [self.count_axes[2], self.count_axes[5]])
-        self.assertTrue(
-            all(ax.get_xlabel().startswith("Months since") for ax in self.count_axes)
+    def test_count_panels_are_labelled_n_and_box_panels_by_metric(self):
+        self.assertEqual(COUNT_YLABEL, "n")
+        self.assertEqual({ax.get_ylabel() for ax in self.count_axes}, {"n"})
+        self.assertEqual(MATCHED_YLABEL, "Δ diversity\n[%]")
+        self.assertEqual(
+            [ax.get_ylabel() for ax in self.box_axes],
+            ["score_1", "score_2", "score_3"] + [MATCHED_YLABEL] * 3,
         )
+
+    def test_y_labels_stand_one_point_from_the_tick_labels_of_their_column(self):
+        self.assertEqual(YLABEL_PAD_PT, 1.0)
+        pad = YLABEL_PAD_PT * self.fig.dpi / 72
+        for column in self.columns:
+            distances = [
+                ax.get_window_extent().x0 - ax.yaxis.label.get_window_extent().x1
+                for ax in column
+            ]
+            self.assertLess(max(distances) - min(distances), 0.5, distances)
+            widest = max(
+                ax.get_window_extent().x0 - t.get_window_extent().x0
+                for ax in column
+                for t in drawn_tick_labels(ax.yaxis)
+            )
+            self.assertAlmostEqual(min(distances), widest + pad, delta=0.5)
+
+    def test_x_label_under_the_bottom_pairs_and_footnote_centred_under_b_and_c(self):
+        self.assertEqual(XLABEL, "Months since abx exposure")
+        self.assertEqual(
+            [ax.get_xlabel() for ax in self.count_axes], ["", "", XLABEL] * 2
+        )
+        self.assertEqual(
+            FOOTNOTE, "(Here -1.0 is last sample prior to abx since -3.0 months)"
+        )
+        self.assertFalse(any("(Here" in ax.get_xlabel() for ax in self.fig.axes))
+        footnote = self._text(FOOTNOTE)
+        self.assertEqual(footnote.get_ha(), "center")
+        box = footnote.get_window_extent()
+        self.assertAlmostEqual((box.x0 + box.x1) / 2, self._centre_of_b_and_c(), delta=1.0)
+
+    def test_panel_a_keeps_its_legend_and_b_and_c_share_one_above_the_footnote(self):
+        self.assertTrue(all(ax.get_legend() is None for ax in self.fig.axes))
+        trajectory, significance = self.fig.legends
+        self.assertEqual(
+            [t.get_text() for t in trajectory.get_texts()],
+            ["score_1", "score_2", "score_3", "abx event"],
+        )
+        # below the subplots of panel a and their x labels, above panels b and c,
+        # centred like the legend of panels b and c
+        box = trajectory.get_window_extent()
+        self.assertLess(
+            box.y1, min(ax.xaxis.label.get_window_extent().y0 for ax in self.trajectory_axes)
+        )
+        self.assertGreater(box.y0, max(self._text(t).get_window_extent().y1 for t in COLUMN_TITLES))
+        self.assertAlmostEqual((box.x0 + box.x1) / 2, self._centre_of_b_and_c(), delta=1.0)
+        row_a = (self.trajectory_axes[0].get_window_extent().x0 + self.trajectory_axes[-1].get_window_extent().x1) / 2
+        self.assertAlmostEqual((box.x0 + box.x1) / 2, row_a, delta=1.0)
+        self.assertEqual(
+            [t.get_text() for t in significance.get_texts()],
+            ["unpaired to -1.0", "paired to -1.0"],
+        )
+        box = significance.get_window_extent()
+        footnote = self._text(FOOTNOTE).get_window_extent()
+        self.assertGreaterEqual(box.y0, footnote.y1)
+        self.assertLessEqual(
+            box.y1, min(ax.xaxis.label.get_window_extent().y0 for ax in self.count_axes[2::3])
+        )
+        self.assertAlmostEqual((box.x0 + box.x1) / 2, self._centre_of_b_and_c(), delta=1.0)
+        for legend in self.fig.legends:
+            self.assertEqual(
+                {t.get_fontsize() for t in legend.get_texts()}, {BASE_FONTSIZE}
+            )
 
     def test_panel_letters_are_bold_and_large(self):
         letters = {t.get_text(): t for t in self.fig.texts if t.get_text() in "abc"}
@@ -372,6 +530,7 @@ class TestComposedFigure(unittest.TestCase):
         for text in letters.values():
             self.assertEqual(text.get_fontweight(), "bold")
             self.assertEqual(text.get_fontsize(), LETTER_FONTSIZE)
+        self.assertLess(letters["b"].get_position()[0], letters["c"].get_position()[0])
 
     def test_all_panel_text_shares_one_font_size(self):
         sizes = {text.get_fontsize() for ax in self.fig.axes for text in _texts_of(ax)}
@@ -380,33 +539,14 @@ class TestComposedFigure(unittest.TestCase):
         self.assertGreater(len(stars), 0)
         self.assertEqual({t.get_fontsize() for t in stars}, {STAR_FONTSIZE})
 
-    def test_y_labels_are_aligned_within_each_column(self):
-        self.fig.canvas.draw()
-        for column in (self.pair_axes[:6], self.pair_axes[6:]):
-            # labels are anchored at their edge facing the axis (x1 for left labels)
-            x1 = [ax.yaxis.label.get_window_extent().x1 for ax in column]
-            self.assertLess(max(x1) - min(x1), 0.5, x1)
+    def test_stars_stand_clear_of_the_axes_top(self):
+        assert_stars_clear_of_the_top(self.fig, self.box_axes)
 
-    def test_matched_y_label_is_split_in_two_lines(self):
-        self.assertEqual(
-            {ax.get_ylabel() for ax in self.box_axes[3:]},
-            {"Δ matched alpha\ndiversity [%]"},
-        )
-        self.assertEqual(
-            {ax.get_ylabel() for ax in self.box_axes[:3]},
-            {"score_1", "score_2", "score_3"},
-        )
+    def test_all_texts_and_legends_stay_on_the_page(self):
+        assert_texts_inside(self.fig)
 
-    def test_trajectory_legends_are_compact(self):
-        for ax in self.trajectory_axes:
-            self.assertLess(ax.get_legend().labelspacing, 0.5)
-
-    def test_matched_stars_are_centred_below_the_axis_top(self):
-        for ax in self.box_axes[3:]:
-            top = ax.get_ylim()[1]
-            for star in [t for t in ax.texts if "*" in t.get_text()]:
-                self.assertEqual(star.get_va(), "center")
-                self.assertLess(star.get_position()[1], 0.85 * top)
+    def test_texts_do_not_overlap(self):
+        assert_texts_do_not_overlap(self.fig)
 
     def test_save_figure_writes_pdf(self):
         with tempfile.TemporaryDirectory() as tmp:

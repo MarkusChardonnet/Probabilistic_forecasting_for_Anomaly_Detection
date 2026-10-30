@@ -273,6 +273,7 @@ cd results && ../.venv/bin/python -m nbconvert --to notebook --execute --inplace
 ````
 With the same environment, a score time horizon reliability analysis can be performed that evaluates for how long the predicted scores remain constant on the no antibiotics scores (notebook `results/analyse_t_horizon_reliability.ipynb`) 
 and the predictive performance of the inferred anomaly scores can be compared to baseline predictions in notebook `results/evaluate_predictions.ipynb`. 
+The notebooks `results/evaluate_scores_shannon.ipynb` and `results/evaluate_predictions_shannon.ipynb` are copies of the two for the model retrained on Shannon diversity (`saved_models_microbial_novel_alpha_div_shannon/id-1`); only their USER INPUT cells differ. 
 Also, resulting anomaly scores can be compared to matched alpha diversity values in notebook `evaluate_matched_alpha.ipynb` 
 and individual score trajectories can be explored in `evaluate_indiv_score_increase.ipynb`.
 The notebook `results/evaluate_cond_mean.ipynb` compares the observed Faith PD of exposed infants with the NJODE conditional mean after the 1st, 2nd and 3rd antibiotic exposure on a continuous time axis; it requires the `*_cond_moments_*` tables written with `--save_cond_moments=True`.
@@ -282,6 +283,34 @@ The composed figure of the individual score trajectories, the score distribution
 cd src && uv run python figure_score_delineation.py --output=score_delineation.pdf
 ````
 Its flags (`--helpfull`) select the model, the scaling-factor options and the hosts of the trajectories; the defaults reproduce the manuscript figure. Tests: `uv run python -m unittest tests.test_figure_score_delineation`.
+
+#### Sensitivity to the recording resolution of the exposure ages (reviewer 2, point 3)
+
+The published model id-57, its train/validation split and its scaling factors are kept; all recorded antibiotic exposure ages are shifted by -0.5 and +0.5 months (tokens `m05`, `p05`), the exposure-derived columns of the feature tables are recomputed, and the scoring and the evaluation are repeated on the shifted tables. From `src/`:
+
+```sh
+# shifted exposure and feature tables (data/original_data/*_shift_<token>.tsv)
+uv run python make_shifted_exposure_tables.py --shift_months=-0.5
+uv run python make_shifted_exposure_tables.py --shift_months=0.5
+# datasets, then the published split is copied over the generated one
+uv run python make_microbial_dataset.py --dataset_config=config_novel_alpha_faith_pd_shift_m05
+uv run python make_microbial_dataset.py --dataset_config=config_novel_alpha_faith_pd_shift_p05
+for tok in m05 p05; do for split in all no_abx; do cp ../data/training_data/microbial_novel_alpha_faith_pd/$split/*_idx.npy ../data/training_data/microbial_novel_alpha_faith_pd_shift_$tok/$split/; done; done
+# per-shift model folders with copies of the checkpoint and the scaling factors of id-57
+for tok in m05 p05; do D=../data/saved_models_microbial_novel_alpha_div2_shift_$tok; mkdir -p $D/id-57/anomaly_detection; cp ../data/saved_models_microbial_novel_alpha_div2/model_overview.csv $D/; cp -r ../data/saved_models_microbial_novel_alpha_div2/id-57/best_checkpoint $D/id-57/; cp -r ../data/saved_models_microbial_novel_alpha_div2/id-57/anomaly_detection/zscore_scaling_factors_best $D/id-57/anomaly_detection/; done
+# scores with the exposure cut-offs 1 to 3 and the one-step scores, per shift
+for tok in m05 p05; do
+  uv run python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_novel_alpha_div_shift_${tok}_ids --ad_params=param_list_AD_microbial_novel_alpha_div2_shift_${tok} --forecast_saved_models_path=AD_microbial_novel_alpha_div_shift_${tok} --compute_scores=True --evaluate_scores=False --compute_zscore_scaling_factors=False --save_cond_moments=True
+  uv run python Microbial_AD_eval.py --NB_CPUS=1 --forecast_model_ids=AD_microbial_novel_alpha_div_shift_${tok}_ids --ad_params=param_list_AD_microbial_novel_alpha_div2_reliability_eval_shift_${tok} --forecast_saved_models_path=AD_microbial_novel_alpha_div_shift_${tok} --compute_scores=True --evaluate_scores=False --compute_zscore_scaling_factors=False
+done
+# figure (rows: 1st to 3rd exposure; columns: -15 d, as recorded, +15 d) and summary tables
+uv run python figure_exposure_shift.py
+# alluvial of the samples of Fig. 4b into the bins of a shifted dating (one panel per exposure)
+uv run python figure_exposure_shift_flows.py --flow_shift=-0.5
+uv run python figure_exposure_shift_flows.py --flow_shift=0.5
+```
+
+The figure `supp_exposure_shift.pdf`, the per-bin summary `exposure_shift_summary.csv` and the peak months `exposure_shift_peaks.csv` are written to the evaluation folder of id-57 (or `--output`), as are the alluvial `exposure_shift_flows_<token>.pdf` and its band sizes `exposure_shift_flows_<token>.csv`. Tests: `uv run python -m unittest tests.test_make_shifted_exposure_tables tests.test_figure_exposure_shift tests.test_figure_exposure_shift_flows`.
 
 
 ## Contact

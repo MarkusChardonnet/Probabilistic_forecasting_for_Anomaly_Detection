@@ -1,5 +1,7 @@
 # Probabilistic Forecasting for Anomaly Detection
 
+[![DOI](https://zenodo.org/badge/832694277.svg)](https://doi.org/10.5281/zenodo.23810144)
+
 In this project, we propose a new framework for anomaly detection in irregularly sampled multi-variate time-series and apply it to synthetic data and infant gut microbiome trajectories. The method is based on neural jump ordinary differential equations (NJODEs) and infers conditional mean and variance trajectories in a fully path dependent way to compute anomaly scores. Read more about this study in our preprint [here](https://arxiv.org/abs/2510.00087):
 
 Adamov, A., Chardonnet, M., Krach, F., Heiss, J., Teichmann, J., Bokulich, N. A. Revealing the Temporal Dynamics of Antibiotic Anomalies in the Infant Gut Microbiome with Neural Jump ODEs. 2025. doi: 

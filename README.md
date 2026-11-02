@@ -121,6 +121,12 @@ Important flags:
     uv run python evaluate_AD.py --plot_only=True --quant_eval_in_plot_only=True --which_AD_model_load="last" --forecast_model_ids=[1] --forecast_saved_models_path=../data/saved_models_AD_OrnsteinUhlenbeckWithSeason/ --ad_params=param_dict_AD_modules
     ```
 
+### Spike detection with macro-F1 cross-validation
+
+See [optimize_spike_macro_f1.ipynb](results/optimize_spike_macro_f1.ipynb) for
+the cross-validation procedure, translated sigmoid weights, plots, and
+quantitative evaluation tables including macro-F1.
+
 ---
 # Anomaly Detection in Microbiome Data
 ## Generate Dataset:

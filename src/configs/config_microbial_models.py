@@ -2093,6 +2093,31 @@ overview_dict_microbial_novel_alpha_div_shannon = dict(
     path=microbial_models_path_novel_alpha_div_shannon,
 )
 
+# retraining of the published configuration alone, e.g. after a change of the
+# feature table: run with --first_id=57 into a saved_models_microbial_novel_alpha_div2
+# folder without an id-57 (an existing id-57 would be resumed instead)
+param_list_microbial_novel_alpha_div2_id57 = get_parameter_array(
+    param_dict=dict(param_dict_microbial_sig_rnn_novel_alpha_div2,
+                    dataset=['microbial_novel_alpha_faith_pd']))
+overview_dict_microbial_novel_alpha_div2_id57 = dict(
+    overview_dict_microbial_novel_alpha_div2, ids_from=57, ids_to=57)
+
+# sensitivity analysis of the covariates: the published configuration with the
+# country of residence as additional covariate
+microbial_models_path_novel_alpha_div_country = "{}saved_models_microbial_novel_alpha_div_country/".format(data_path)
+param_dict_microbial_novel_alpha_div_country = dict(
+    param_dict_microbial_sig_rnn_novel_alpha_div2,
+    dataset=['microbial_novel_alpha_faith_pd_w_geo'],
+    saved_models_path=[microbial_models_path_novel_alpha_div_country],
+)
+param_list_microbial_novel_alpha_div_country = get_parameter_array(
+    param_dict=param_dict_microbial_novel_alpha_div_country)
+overview_dict_microbial_novel_alpha_div_country = dict(
+    overview_dict_microbial_novel_alpha_div2,
+    ids_to=len(param_list_microbial_novel_alpha_div_country),
+    path=microbial_models_path_novel_alpha_div_country,
+)
+
 # per-epoch timing benchmark of the same configuration (5 epochs, no
 # pre-training) on the published Faith PD dataset; models land in a
 # throw-away folder under data/

@@ -61,9 +61,9 @@ from utils_t_horizon import select_last_score_per_host_per_bin
 RC_PARAMS = rc_params()
 MIN_SAMPLES, MAX_SAMPLES = -3.0, 6.0
 EXPOSURES = (1, 2, 3)
-# seed of the cut-off subsampling and boundary of the time since the 2nd
-# exposure, as in the notebooks
-CUTOFF_SEED = 8
+# seed of the cut-off subsampling (cutoff_seed of analyse_t_horizon_reliability.ipynb)
+# and boundary of the time since the 2nd exposure, as in the notebooks
+CUTOFF_SEED = 12
 TIME_SINCE_SECOND_MONTHS = 4
 PAIR_HEIGHT_RATIOS = [1, 0.5]
 PAIR_HSPACE = 0.25

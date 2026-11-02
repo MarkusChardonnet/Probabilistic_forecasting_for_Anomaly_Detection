@@ -9,6 +9,7 @@ matplotlib.use("Agg")
 
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
+from absl import flags  # noqa: E402
 
 src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
 sys.path.append(src_dir)
@@ -133,6 +134,18 @@ class TestNames(unittest.TestCase):
         self.assertEqual(minus["abx_ts_name"], "ts_vat19_abx_v20240806_shift_m05")
         self.assertEqual(minus["label"], "exposure ages −15 d")
         self.assertTrue(variant_names(0.5)["model_name"].endswith("_shift_p05/id-57"))
+
+    def test_variant_names_of_another_model(self):
+        country = "saved_models_microbial_novel_alpha_div_country"
+        self.assertEqual(
+            variant_names(-0.5, model_folder=country, model_id=1)["model_name"],
+            f"{country}_shift_m05/id-1",
+        )
+        self.assertEqual(variant_names(0.0, model_folder=country, model_id=1)["model_name"], f"{country}/id-1")
+
+    def test_model_flags_default_to_the_published_model(self):
+        self.assertEqual(flags.FLAGS["model_folder"].default, "saved_models_microbial_novel_alpha_div2")
+        self.assertEqual(flags.FLAGS["model_id"].default, 57)
 
 
 def _plotted_max(ax):

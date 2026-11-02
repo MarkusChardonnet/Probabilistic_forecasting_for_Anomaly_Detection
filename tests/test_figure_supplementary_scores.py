@@ -1,4 +1,6 @@
+import json
 import os
+import re
 import sys
 import tempfile
 import unittest
@@ -17,6 +19,7 @@ sys.path.append(src_dir)
 from figure_style import BASE_FONTSIZE, LETTER_FONTSIZE, TEXT_WIDTH_IN  # noqa: E402
 from figure_supplementary_scores import (  # noqa: E402
     COUNT_YLABEL,
+    CUTOFF_SEED,
     FIGURES,
     Pair,
     compose_pair_figure,
@@ -55,15 +58,23 @@ class TestSelections(unittest.TestCase):
         mapping = pd.DataFrame(
             {"host_id": [f"H{i}" for i in range(12)], "cutoff_month": [1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3]}
         )
-        chosen = sample_cutoffs(mapping, {1: 2, 2: 3}, seed=8)
+        chosen = sample_cutoffs(mapping, {1: 2, 2: 3})
         self.assertEqual(chosen.groupby("cutoff_month").size().to_dict(), {1: 2, 2: 3})
         expected = pd.concat(
-            [mapping[mapping["cutoff_month"] == 1].sample(n=2, random_state=8),
-             mapping[mapping["cutoff_month"] == 2].sample(n=3, random_state=8)]
+            [mapping[mapping["cutoff_month"] == 1].sample(n=2, random_state=CUTOFF_SEED),
+             mapping[mapping["cutoff_month"] == 2].sample(n=3, random_state=CUTOFF_SEED)]
         )
         pd.testing.assert_frame_equal(chosen, expected)
         with self.assertRaises(ValueError):
-            sample_cutoffs(mapping, {3: 4}, seed=8)
+            sample_cutoffs(mapping, {3: 4})
+
+    def test_cutoff_seed_equals_the_seed_of_the_notebook(self):
+        notebook = os.path.join(src_dir, "..", "results", "analyse_t_horizon_reliability.ipynb")
+        with open(notebook) as f:
+            cells = json.load(f)["cells"]
+        code = "".join("".join(c["source"]) for c in cells if c["cell_type"] == "code")
+        notebook_seed = int(re.search(r"^cutoff_seed = (\d+)$", code, re.MULTILINE).group(1))
+        self.assertEqual(CUTOFF_SEED, notebook_seed)
 
     def test_exposure_pairs_keep_the_pre_exposure_bins_when_ungrouped(self):
         grouped = exposure_pairs(self.exposed, self.abx_df, grouped=True)

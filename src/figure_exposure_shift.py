@@ -4,13 +4,14 @@ resolution of the antibiotic exposure ages: anomaly score distributions around
 the first three antibiotic exposures (rows a-c, box plots as Fig. 4b without
 the count panels) with all recorded exposure ages shifted by -15 days, as
 recorded and shifted by +15 days (columns). The columns use the scores of the
-published model id-57 and of its re-scorings on the shifted datasets (see the
-README). The script also writes the per-bin summary and the months of maximal
-median score. Run from src/:
+published model id-57 (or of the model given by --model_folder and --model_id)
+and of its re-scorings on the shifted datasets (see the README). The script also
+writes the per-bin summary and the months of maximal median score. Run from
+src/:
 
     uv run python figure_exposure_shift.py --output=supp_exposure_shift.pdf
 
-The flags are those of figure_score_delineation.py (data_path,
+The other flags are those of figure_score_delineation.py (data_path,
 point_to_evaluate, limit_months, the scaling-factor options and output).
 """
 
@@ -94,6 +95,12 @@ PEAK_COLUMNS = [
 ]
 
 FLAGS = flags.FLAGS  # defined by figure_score_delineation
+flags.DEFINE_string(
+    "model_folder",
+    "saved_models_microbial_novel_alpha_div2",
+    "folder of the model under data_path; the shifted re-scorings are in <folder>_shift_<token>",
+)
+flags.DEFINE_integer("model_id", 57, "id of the model in model_folder")
 
 
 def shift_label(shift_months):
@@ -349,7 +356,7 @@ def main(argv):
     )
     variants = []
     for shift in SHIFTS:
-        names = variant_names(shift)
+        names = variant_names(shift, FLAGS.model_folder, FLAGS.model_id)
         abx_scores_flat, abx_df = load_variant(
             FLAGS.data_path,
             names["model_name"],
@@ -363,7 +370,7 @@ def main(argv):
 
     output = FLAGS.output or os.path.join(
         FLAGS.data_path,
-        variant_names(0.0)["model_name"],
+        variant_names(0.0, FLAGS.model_folder, FLAGS.model_id)["model_name"],
         "anomaly_detection",
         evaluation_folder_name(
             FLAGS.point_to_evaluate, FLAGS.stddev_type, FLAGS.moving_avg, FLAGS.duplicates

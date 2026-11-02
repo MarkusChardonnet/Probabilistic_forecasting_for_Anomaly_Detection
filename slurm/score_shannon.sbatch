@@ -6,15 +6,18 @@
 #SBATCH --time=04:00:00
 #SBATCH --output=slurm/logs/%x_%j.out
 #SBATCH --open-mode=append
-# Submit from the repository root once the training job has completed, charged to the Slurm
-# account SLURM_ACC (soft CPU preference, the job is short):
-#   mkdir -p slurm/logs && sbatch -A "$SLURM_ACC" --prefer=EPYC_9654 slurm/score_shannon.sbatch
+# Submit from the repository root after the training job, charged to the Slurm account SLURM_ACC
+# (soft CPU preference, the job is short):
+#   mkdir -p slurm/logs && sbatch -A "$SLURM_ACC" --prefer=EPYC_9654 --dependency=afterany:<training job id> slurm/score_shannon.sbatch
 set -euo pipefail
 cd "${SLURM_SUBMIT_DIR}/src"
 PY=../.venv/bin/python
 COMMON=(--NB_CPUS=2
         --forecast_model_ids=AD_microbial_novel_alpha_div_shannon_ids
         --forecast_saved_models_path=AD_microbial_novel_alpha_div_shannon)
+
+# 0. stop unless all epochs were trained (afterany: the training job fails in its final overview step)
+$PY check_training_complete.py ../data/saved_models_microbial_novel_alpha_div_shannon 1
 
 # 1. z-scores of the unexposed validation infants
 $PY Microbial_AD_eval.py "${COMMON[@]}" --ad_params=param_list_AD_microbial_novel_alpha_div2_scaling_factors --compute_scores=True --evaluate_scores=False --compute_zscore_scaling_factors=False

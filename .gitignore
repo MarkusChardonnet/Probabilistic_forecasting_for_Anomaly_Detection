@@ -25,6 +25,7 @@ test.ipynb
 .installed.cfg
 *.egg
 x_*
+pr_msg.md
 
 README-private.md
 

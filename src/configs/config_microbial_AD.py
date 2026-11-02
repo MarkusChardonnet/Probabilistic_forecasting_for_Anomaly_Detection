@@ -520,6 +520,11 @@ param_list_AD_synthetic_reliability_eval = get_parameter_array(
 AD_microbial_novel_alpha_div_shannon = "{}saved_models_microbial_novel_alpha_div_shannon/".format(data_path)
 AD_microbial_novel_alpha_div_shannon_ids = [1]
 
+# AD for the sensitivity model with the country of residence as additional
+# covariate: same scoring parameter lists as for the published model
+AD_microbial_novel_alpha_div_country = "{}saved_models_microbial_novel_alpha_div_country/".format(data_path)
+AD_microbial_novel_alpha_div_country_ids = [1]
+
 # sensitivity analysis of the exposure-age resolution: id-57 scored on the datasets
 # with exposure ages shifted by -0.5 / +0.5 months; the folders hold copies of its
 # checkpoint and scaling factors so that the published scores stay untouched
@@ -540,3 +545,22 @@ param_list_AD_microbial_novel_alpha_div2_shift_p05 = get_parameter_array(
 param_list_AD_microbial_novel_alpha_div2_reliability_eval_shift_p05 = get_parameter_array(
         param_dict={**param_dict_AD_microbial_novel_alpha_div2_re,
                     'dataset': ['microbial_novel_alpha_faith_pd_shift_p05']})
+
+# the same for the model with the country of residence as additional covariate
+AD_microbial_novel_alpha_div_country_shift_m05 = "{}saved_models_microbial_novel_alpha_div_country_shift_m05/".format(data_path)
+AD_microbial_novel_alpha_div_country_shift_m05_ids = [1]
+param_list_AD_microbial_novel_alpha_div_country_shift_m05 = get_parameter_array(
+        param_dict={**param_dict_AD_microbial_novel_alpha_div2,
+                    'dataset': ['microbial_novel_alpha_faith_pd_w_geo_shift_m05']})
+param_list_AD_microbial_novel_alpha_div_country_reliability_eval_shift_m05 = get_parameter_array(
+        param_dict={**param_dict_AD_microbial_novel_alpha_div2_re,
+                    'dataset': ['microbial_novel_alpha_faith_pd_w_geo_shift_m05']})
+
+AD_microbial_novel_alpha_div_country_shift_p05 = "{}saved_models_microbial_novel_alpha_div_country_shift_p05/".format(data_path)
+AD_microbial_novel_alpha_div_country_shift_p05_ids = [1]
+param_list_AD_microbial_novel_alpha_div_country_shift_p05 = get_parameter_array(
+        param_dict={**param_dict_AD_microbial_novel_alpha_div2,
+                    'dataset': ['microbial_novel_alpha_faith_pd_w_geo_shift_p05']})
+param_list_AD_microbial_novel_alpha_div_country_reliability_eval_shift_p05 = get_parameter_array(
+        param_dict={**param_dict_AD_microbial_novel_alpha_div2_re,
+                    'dataset': ['microbial_novel_alpha_faith_pd_w_geo_shift_p05']})

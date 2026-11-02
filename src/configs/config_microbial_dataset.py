@@ -322,6 +322,36 @@ config_novel_alpha_faith_pd_w_geo = {
     'which_split': ['all', 'no_abx'],
 }
 
+# sensitivity analysis of the exposure-age resolution for the model with the
+# country of residence as additional covariate
+config_novel_alpha_faith_pd_w_geo_shift_m05 = {
+    'dataset': 'ft_vat19_anomaly_v20240806_entero_family_shift_m05.tsv',
+    'dataset_name': 'microbial_novel_alpha_faith_pd_w_geo_shift_m05',
+    'microbial_features': ['div_alpha_faith_pd'],
+    'signature_features': None,  # sets to same as microbial_features
+    'static_features': [],
+    'dynamic_features': ["delivery_mode", "diet_milk", "diet_weaning", "geo_location_name"],
+    'val_size': 0.2,
+    'seed': 398,
+    'starting_date': 0,
+    'init_val_method': None,
+    'which_split': ['all', 'no_abx'],
+}
+
+config_novel_alpha_faith_pd_w_geo_shift_p05 = {
+    'dataset': 'ft_vat19_anomaly_v20240806_entero_family_shift_p05.tsv',
+    'dataset_name': 'microbial_novel_alpha_faith_pd_w_geo_shift_p05',
+    'microbial_features': ['div_alpha_faith_pd'],
+    'signature_features': None,  # sets to same as microbial_features
+    'static_features': [],
+    'dynamic_features': ["delivery_mode", "diet_milk", "diet_weaning", "geo_location_name"],
+    'val_size': 0.2,
+    'seed': 398,
+    'starting_date': 0,
+    'init_val_method': None,
+    'which_split': ['all', 'no_abx'],
+}
+
 
 # ------ enteropathogens ---------
 config_entero_family = {

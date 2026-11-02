@@ -71,7 +71,7 @@ EXPOSURE_LABEL_OFFSET_PT = 1.0
 TITLE_OFFSET_PT = 2.0
 
 # definition of the figure, as in the notebooks
-HOSTS = ["P015091", "E004898", "E021822"]
+HOSTS = ["P015091", "E006781", "E004898"]
 SCORE_COLS = ["score_1", "score_2", "score_3"]
 EXPOSURES = [1, 2, 3]
 MIN_SAMPLES, MAX_SAMPLES = -3.0, 6.0

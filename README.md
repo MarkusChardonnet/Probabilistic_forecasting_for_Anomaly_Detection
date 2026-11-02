@@ -169,6 +169,8 @@ uv run python run.py --params=param_list_microbial_novel_alpha_div2 --NB_JOBS=24
 uv run python run.py --plot_paths=plot_paths_novel_alpha_div2
 ```
 
+The selected model id-57 (see below) can be retrained alone with `param_list_microbial_novel_alpha_div2_id57` and `--first_id=57` into a `saved_models_microbial_novel_alpha_div2` folder without an id-57. On a Slurm cluster, `slurm/train_faith_pd.sbatch` does this and `slurm/score_faith_pd.sbatch` then runs the score computation below, `results/evaluate_scores.ipynb` and the path plots (the submission commands are in the scripts). The same pairs exist for the sensitivity models retrained on Shannon diversity (`slurm/train_shannon.sbatch`, `slurm/score_shannon.sbatch`) and with the country of residence as additional covariate (`slurm/train_country.sbatch`, `slurm/score_country.sbatch`).
+
 Plot the conditional mean and uncertainty bands for **all antibiotic-exposed
 infants from the AD train and validation splits** using model 57's best
 checkpoint and the uv environment:
@@ -183,7 +185,7 @@ This selects exposed trajectories from the union of `all/train_idx.npy` and
 checkpoint's `no_abx` training split. It verifies that training has no observed
 exposure flags or positive exposure counts, and that selected exposed rows
 do not overlap training. In the current `microbial_novel_alpha_faith_pd` dataset,
-model 57 has 112 training trajectories with no recorded post-exposure
+model 57 has 96 training trajectories with no recorded post-exposure
 observations, and all 141 exposed trajectories (112 from AD train and 29 from
 AD validation) are plotted. These exposed infants were excluded from model 57's
 forecasting training. Other training
@@ -275,7 +277,7 @@ cd results && ../.venv/bin/python -m nbconvert --to notebook --execute --inplace
 ````
 With the same environment, a score time horizon reliability analysis can be performed that evaluates for how long the predicted scores remain constant on the no antibiotics scores (notebook `results/analyse_t_horizon_reliability.ipynb`) 
 and the predictive performance of the inferred anomaly scores can be compared to baseline predictions in notebook `results/evaluate_predictions.ipynb`. 
-The notebooks `results/evaluate_scores_shannon.ipynb` and `results/evaluate_predictions_shannon.ipynb` are copies of the two for the model retrained on Shannon diversity (`saved_models_microbial_novel_alpha_div_shannon/id-1`); only their USER INPUT cells differ. 
+The notebooks `results/evaluate_scores_shannon.ipynb` and `results/evaluate_predictions_shannon.ipynb` are copies of the two for the model retrained on Shannon diversity (`saved_models_microbial_novel_alpha_div_shannon/id-1`), and `results/evaluate_scores_country.ipynb` and `results/evaluate_predictions_country.ipynb` are the copies for the model with the country of residence as additional covariate (`saved_models_microbial_novel_alpha_div_country/id-1`); only their USER INPUT cells differ. `src/figure_country_sensitivity.py` draws the score distributions of the published model and of the country model side by side (Supplementary Fig. S19). 
 Also, resulting anomaly scores can be compared to matched alpha diversity values in notebook `evaluate_matched_alpha.ipynb` 
 and individual score trajectories can be explored in `evaluate_indiv_score_increase.ipynb`.
 The notebook `results/evaluate_cond_mean.ipynb` compares the observed Faith PD of exposed infants with the NJODE conditional mean after the 1st, 2nd and 3rd antibiotic exposure on a continuous time axis; it requires the `*_cond_moments_*` tables written with `--save_cond_moments=True`.
@@ -308,30 +310,32 @@ uv run python figure_exposure_shift_flows.py --flow_shift=0.5
 
 The figure `supp_exposure_shift.pdf`, the per-bin summary `exposure_shift_summary.csv` and the peak months `exposure_shift_peaks.csv` are written to the evaluation folder of id-57 (or `--output`), as are the alluvial `exposure_shift_flows_<token>.pdf` and its band sizes `exposure_shift_flows_<token>.csv`. Tests: `uv run python -m unittest tests.test_make_shifted_exposure_tables tests.test_figure_exposure_shift tests.test_figure_exposure_shift_flows`.
 
+The model with the country of residence as additional covariate is scored on the shifted tables in the same way, with the dataset configurations `config_novel_alpha_faith_pd_w_geo_shift_<token>`, the model folders `saved_models_microbial_novel_alpha_div_country_shift_<token>` and the AD configurations `AD_microbial_novel_alpha_div_country_shift_<token>` / `param_list_AD_microbial_novel_alpha_div_country*_shift_<token>`; `slurm/score_exposure_shift.sbatch` runs the shifted scorings of both models, and `uv run python figure_exposure_shift.py --model_folder=saved_models_microbial_novel_alpha_div_country --model_id=1` draws its figure.
+
 
 ---
 # Manuscript figures
 
-The table lists what draws each figure of the [manuscript](https://arxiv.org/abs/2510.00087): a script of this repository (in `src/`), a notebook (in `results/`) or code of the data-processing repository [anomaly_microbiome_data_processing](https://github.com/adamovanja/anomaly_microbiome_data_processing) (*data processing*, run as described in its README). Figures marked *assembled* were combined by hand from the panels written by the named code. *File* is the name of the figure in the manuscript sources.
+The table lists what draws each figure of the [manuscript](https://arxiv.org/abs/2510.00087): a script of this repository (in `src/`), a notebook (in `results/`) or code of the data-processing repository [anomaly_microbiome_data_processing](https://github.com/adamovanja/anomaly_microbiome_data_processing) (*data processing*, run as described in its README). Figures marked *composed* are built with `pdflatex` from a `.tex` file of the same name in the `figures/` folder of the manuscript sources, whose header names the panel files written by the code listed here. *File* is the name of the figure in the manuscript sources.
 
 | Figure | Shows | File | Drawn by |
 |--------|-------|------|----------|
 | 1 | Overview of the framework | `schematic_new.pdf` | schematic drawn in PowerPoint |
 | 2 | Anomalies detected in simulated time series | `simulation_insights_1.pdf` | `figure_simulation_insights.py`; the manuscript file by `simulation_insights_pdf.py` |
-| 3 | Microbiome cohort | `dataset.pdf` | *data processing*: `scripts/describe_dataset.ipynb` |
+| 3 | Microbiome cohort | `dataset.pdf` | *data processing*: `scripts/describe_dataset.ipynb` with `src/viz_dataset.py` |
 | 4 | Score trajectories, score distributions and matched alpha diversity around the 1st to 3rd exposure | `score_delineation.pdf` | `figure_score_delineation.py` |
 | 5 | Scores split by exposure duration and by age at exposure | `scoresplit.pdf` | `figure_score_splits.py` |
-| S1 | Samples of the synthetic base and anomalous processes | `synth_process_paths.pdf` | *assembled*: `path-0.pdf` of the plot datasets of [Generating the data](#generating-the-data) |
-| S2 | Learned conditional expectation and standard deviation | `indiv_learned_paths.pdf` | *assembled*: `run.py --plot_paths=plot_paths_novel_alpha_div2` |
-| S3 | Conditional target distribution and scaling factors on the validation set | `distribution_matching_zscores.pdf` | *assembled*: `dist/val-noabx/cond_std_dist-normal-0.pdf` and `zscore_scaling_factors_coord-0.pdf` of the scaling-factor commands of [Compute Anomaly Detection Scores](#compute-anomaly-detection-scores) |
+| S1 | Samples of the synthetic base and anomalous processes | `synth_process_paths.pdf` | assembled by hand from `path-0.pdf` of the plot datasets of [Generating the data](#generating-the-data) |
+| S2 | Learned conditional expectation and standard deviation | `indiv_learned_paths.pdf` | *composed*: three `plots/demo-plot_epoch-<epoch>_path-<i>.pdf` of model id-57 written by `run.py --plot_paths=plot_paths_novel_alpha_div2` |
+| S3 | Conditional target distribution and scaling factors on the validation set | `distribution_matching_zscores.pdf` | *composed*: `dist/val-noabx/cond_std_dist-normal-0.pdf` and `zscore_scaling_factors_coord-0.pdf` of the scaling-factor commands of [Compute Anomaly Detection Scores](#compute-anomaly-detection-scores) |
 | S4 | Scores around cut-offs in the validation set | `supp_time_horizon.pdf` | `figure_time_horizon.py` |
 | S5 | Validation-set benchmark with cut-offs at the exposure months of the test set | `baseline.pdf` | `figure_supplementary_scores.py` |
 | S6 | Scores around the 2nd exposure split by antibiotic type | `penicillin_2nd.pdf` | `figure_score_splits.py` |
 | S7 | Scores around 1st exposures in the first year split by milk diet | `scoresplit_age_diet.pdf` | `figure_score_splits.py` |
-| S8 | Exposure characteristics and scores by score response to the exposure | `indiv_trajectory_analysis.pdf` | *assembled*: `evaluate_indiv_score_increase.ipynb` |
-| S9 | Antibiotic courses per host and over age | `supp_abx.pdf` | *data processing*, *assembled*: `nb_abx_courses_per_host.pdf` and `nb_abx_courses_over_time.pdf` of `scripts/describe_alpha_diversity.ipynb` |
+| S8 | Exposure characteristics and scores by score response to the exposure | `indiv_trajectory_analysis.pdf` | *composed*: `score_after_abx{1st,2nd}_relative_score_{increase,no_increase}.pdf` and the printed Mann-Whitney U p-values of `evaluate_indiv_score_increase.ipynb`, run with `n = 1` and `n = 2` in its USER INPUT cell |
+| S9 | Antibiotic courses per host and over age | `supp_abx.pdf` | *data processing*, *composed*: `nb_abx_courses_per_host.pdf` and `nb_abx_courses_over_time.pdf` of `scripts/describe_alpha_diversity.ipynb` |
 | S10 | Alpha diversity over age of unexposed infants | `alpha_noabx_boxplot_over_age.pdf` | *data processing*: `scripts/describe_alpha_diversity.ipynb` |
-| S11 | Faith PD over age by covariate, country and exposure | `alpha_all_lineplot_splitcov.pdf` | *data processing*: `scripts/describe_alpha_diversity.ipynb` |
+| S11 | Faith PD over age by covariate, country and exposure | `alpha_all_lineplot_splitcov.pdf` | *data processing*: `scripts/describe_alpha_diversity.ipynb` with `src/viz_alpha_div.py` |
 | S12 | Unscaled and rescaled z-scores | `histograms_scaled_dist_coord-0_overview.pdf` | `Microbial_AD_eval.py --compute_zscore_scaling_factors=True` ([Compute Anomaly Detection Scores](#compute-anomaly-detection-scores)) |
 | S13 | Weaning status and milk diet around the 1st to 3rd exposure | `diet_covariates_abx_exp.pdf` | `figure_diet_covariates.py` |
 | S14 | Scores around the 1st to 3rd exposure without grouping the earlier samples; 3rd exposure by time since the 2nd | `priorexposure.pdf` | `figure_supplementary_scores.py` |
@@ -339,8 +343,15 @@ The table lists what draws each figure of the [manuscript](https://arxiv.org/abs
 | S16 | Matched diversity deficit for Faith PD and Shannon diversity | `supp_metric_sensitivity.pdf` | *data processing*: `scripts/metric_sensitivity/metric_sensitivity.py` |
 | S17 | Scores of the model retrained on Shannon diversity | `supp_shannon_scores.pdf` | `figure_supplementary_scores.py` |
 | S18 | Scores with the exposure ages shifted by ±15 days | `supp_exposure_shift.pdf` | `figure_exposure_shift.py` |
+| S19 | Scores of the published model and of the model with the country of residence as additional covariate | `supp_country_sensitivity.pdf` | `figure_country_sensitivity.py` |
 
 The scaling-factor plots of S3 and S12 are written to `anomaly_detection/zscore_scaling_factors_best/SF-nc_std_z_scores_MA-10_RD-True/` of model id-57.
+
+## Tests
+Run the unit tests from the repository root:
+```bash
+uv run python -m unittest discover -s tests -t .
+```
 
 ## Contact
 In case of questions or comments feel free to raise an issue in this repository.

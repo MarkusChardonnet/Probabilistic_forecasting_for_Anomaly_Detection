@@ -138,6 +138,12 @@ Important flags:
     ```
 - The quantitative evaluation writes `quant_eval_from-<which_AD_model_load>.csv` with per-label precision, recall, F1 score and support, the confusion counts and the micro- and macro-averaged F1 scores (`src/utils_ad_metrics.py`); `add_macro_f1` in that module appends the macro-averaged F1 score to CSVs written before this column existed.
 
+### Spike detection with macro-F1 cross-validation
+
+See [optimize_spike_macro_f1.ipynb](results/optimize_spike_macro_f1.ipynb) for
+the cross-validation procedure, translated sigmoid weights, plots, and
+quantitative evaluation tables including macro-F1.
+
 ---
 # Anomaly Detection in Microbiome Data
 ## Generate Dataset:

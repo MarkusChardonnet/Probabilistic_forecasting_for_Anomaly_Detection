@@ -9,6 +9,8 @@ tests/*
 !data/
 data/*
 !data/original_data/
+results/spike_macro_f1/
+
 
 models/
 

@@ -138,6 +138,43 @@ Important flags:
     ```
 - The quantitative evaluation writes `quant_eval_from-<which_AD_model_load>.csv` with per-label precision, recall, F1 score and support, the confusion counts and the micro- and macro-averaged F1 scores (`src/utils_ad_metrics.py`); `add_macro_f1` in that module appends the macro-averaged F1 score to CSVs written before this column existed.
 
+### Known issue in the synthetic aggregation loss
+
+The gradient-based synthetic anomaly detector uses
+[`AD_module.loss`](src/AD_modules.py), called from
+[`evaluate_AD.py`](src/evaluate_AD.py), for noise, cutoff/drift, diffusion and
+spike anomalies. It applies `nn.CrossEntropyLoss` to sigmoid scores and
+floating-point binary labels of the same shape:
+`[evaluated timestamps, trajectories in the batch, dimensions]`, then adds a
+squared-weight regularizer.
+
+For equal-shaped floating-point inputs and targets, PyTorch interprets the
+targets as class-probability distributions and the second tensor axis as the
+class axis. Here that axis contains trajectories, so the loss compares
+trajectories as competing classes instead of learning a normal/spike decision
+for each observation. The binary labels are not valid probability distributions
+over trajectories. In particular, a timestamp/dimension with no positive labels
+in the batch contributes zero cross-entropy loss and gradient. With a batch of
+one trajectory, the cross-entropy component is zero regardless of the labels.
+The squared-weight regularizer still contributes, but does not correct this
+classification objective. The scores have also already passed through a
+sigmoid, whereas class cross-entropy expects logits.
+
+This issue predates the dependency migration: PyTorch 1.12.0 and 2.14.1 both use
+the same relevant target-shape and class-axis interpretation. Upgrading the
+dependencies did not introduce this loss behavior. This concerns the learned
+synthetic aggregation module; it does not describe the forecasting loss or the
+microbial scoring workflow in `Microbial_AD_eval.py`, which uses separate
+scoring modules.
+
+A gradient-based correction would use pointwise binary cross-entropy:
+`BCELoss` on the current sigmoid outputs, or preferably `BCEWithLogitsLoss` on
+the corresponding pre-sigmoid scores. Class weighting and validation-based
+threshold selection can address imbalance, but binary cross-entropy still does
+not directly optimize macro-F1. The spike notebook below instead selects the
+aggregation and threshold using macro-F1 cross-validation without this loss.
+The original implementation is documented here and has not been changed.
+
 ### Spike detection with macro-F1 cross-validation
 
 See [optimize_spike_macro_f1.ipynb](results/optimize_spike_macro_f1.ipynb) for

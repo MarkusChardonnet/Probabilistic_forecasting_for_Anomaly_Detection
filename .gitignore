@@ -9,6 +9,7 @@ data/*
 !data/original_data/
 # Shifted exposure tables (written by src/make_shifted_exposure_tables.py).
 data/original_data/*_shift_[mp]*.tsv
+results/spike_macro_f1/
 
 models/
 
